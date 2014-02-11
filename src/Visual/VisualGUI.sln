@@ -1,0 +1,24 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual C++ Express 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GUI", "GUI.vcxproj", "{089D3570-C027-4AE1-9A92-2EB08B09B0DC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{089D3570-C027-4AE1-9A92-2EB08B09B0DC}.Debug|Win32.ActiveCfg = Debug|Win32
+		{089D3570-C027-4AE1-9A92-2EB08B09B0DC}.Debug|Win32.Build.0 = Debug|Win32
+		{089D3570-C027-4AE1-9A92-2EB08B09B0DC}.Release|Win32.ActiveCfg = Release|Win32
+		{089D3570-C027-4AE1-9A92-2EB08B09B0DC}.Release|Win32.Build.0 = Release|Win32
+		{74DE83E3-5337-4182-8272-A2FD44934331}.Debug|Win32.ActiveCfg = Debug|Win32
+		{74DE83E3-5337-4182-8272-A2FD44934331}.Debug|Win32.Build.0 = Debug|Win32
+		{74DE83E3-5337-4182-8272-A2FD44934331}.Release|Win32.ActiveCfg = Release|Win32
+		{74DE83E3-5337-4182-8272-A2FD44934331}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

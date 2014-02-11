@@ -1,0 +1,1 @@
+var selectedItem = null;function itemSelected(newSelected){	if(selectedItem)	{		selectedItem.selected = false;	}	selectedItem = newSelected;}
