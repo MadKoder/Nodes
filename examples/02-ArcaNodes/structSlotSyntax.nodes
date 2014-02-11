@@ -1,0 +1,22 @@
+move->monsters
+monsters.move()
+monster.move()
+move->monsters.each
+monsters
+	.filter()
+	.each(changeDir)
+
+monsters filter(...) map(...) each
+
+monsters = monsters.each(move)
+for monster in monsters do 
+	monster.move()
+	
+foreach monsters.move()
+foreach monsters move()
+foreach monsters : 
+	move()
+
+monsters = [
+	monster.move(monster, change, dir)
+	for (monster, change, dir) in zip3(monsters, changeDirections, newDirections)]

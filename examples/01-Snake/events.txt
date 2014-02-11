@@ -1,0 +1,3 @@
+events:
+	pos == applePos :
+		length = length + 1

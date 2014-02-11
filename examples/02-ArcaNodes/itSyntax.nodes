@@ -1,0 +1,37 @@
+filter bullets by inRect(it(bullets).pos, bounds)
+
+it(bullets).pos = addVec2(it(bullets).pos, it(bullets).speedVector)
+
+if it(changeDirections) == 0 then it(monsters).facing = intToFacing(it(newDirections))
+
+monsters = 
+[
+	let 
+		newPos = addVec2(monster.pos, facingToDir(monster.facing)), 
+	in 
+		monster \ 
+			if inRect(newPos, bounds) then 
+				pos = newPos 
+			else 
+				facing = opposite(monster.facing) 
+		for monster in monsters
+]
+
+let 
+	newPos = addVec2(it(monsters).pos, 
+	facingToDir(it(monsters).facing))) 
+in 
+	if inRect(it(newPos), bounds) then 
+		it(monsters).pos = it(newPos) 
+	else 
+		it(monster).facing = opposite(it(monster).facing)
+		
+
+filter monsters, bullets by !inRect(it0(bullet).pos, boundingRect(it1(monster)))
+
+
+		(monsters, bullets) = [[monster, bullet] for (monster, bullet) in cross(monsters, bullets) when inRect(bullet.pos, boundingRect(monster))]
+		
+		
+		
+		filter monsters, bullets by !inRect(it0(bullet).pos, boundingRect(it1(monster)))

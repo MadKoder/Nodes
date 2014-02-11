@@ -1,0 +1,41 @@
+structs:
+	Vec2 :
+		x, y : float
+functions:
+	eqVec2(Vec2 v0, Vec2 v1):
+		v0.x == v1.x && v0.y == v1.y
+	addVec2(Vec2 v0, Vec2 v1):
+		Vec2(v0.x + v1.x, v0.y + v1.y)
+	rotateRight(Vec2 dir) :
+		Vec2(0.0 - dir.y, dir.x)
+	rotateLeft(Vec2 dir) :
+		Vec2(dir.y, 0.0 - dir.x)
+	modVec2(Vec2 v, Vec2 m) :
+		Vec2(mod(v.x, m.x), mod(v.y, m.y))
+nodes:
+	var size : Vec2(10, 10)
+	var direction : Vec2(1, 0)
+	var snake : [Vec2(0, 0)]
+	def headPos : head(snake)
+	var applePos : Vec2(5, 0)
+	var snakeLength : 10
+actions :
+	moveSnake : 
+		loc newSnake = pushFront(snake, modVec2(addVec2(headPos, direction), size))
+		if length(newSnake) > snakeLength then
+			newSnake = popBack(newSnake)
+		snake = newSnake
+	rotRight :
+		direction = rotateRight(direction)
+	rotLeft :
+		direction = rotateLeft(direction)
+events:
+	eqVec2(headPos, applePos) :
+		snakeLength = snakeLength + 1
+		loc newApplePos = applePos
+		while(contains(snake, newApplePos, eqVec2)) do newApplePos = Vec2(<-Random(size.x), <-Random(size.x))
+		applePos = newApplePos
+	contains(tail(snake), headPos, eqVec2) :
+		snakeLength = 10
+		snake = [Vec2(0, 0)]
+		direction = Vec2(1, 0)

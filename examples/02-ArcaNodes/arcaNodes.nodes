@@ -1,0 +1,227 @@
+structs:
+	Vec2 :
+		x, y : float
+	Rect :
+		pos, size : Vec2
+	Bounds : 
+		topLeft, bottomRight : Vec2
+	Bullet :
+		pos : Vec2
+		size : float
+		speedVector : Vec2
+functions:
+	intToFacing(int v):
+		match v:
+			0 : "right" 
+			1 : "up" 
+			2 : "left" 
+			_ : "down"
+	facingToInt(string f):
+		match f:
+			"right" : 0
+			"up" : 1
+			"left" : 2
+			_ : 3
+	facingToDir(string f):
+		match f:
+			"right" : Vec2(1, 0)
+			"up" : Vec2(0, -1)
+			"left" : Vec2(-1, 0)
+			_ : Vec2(0, 1)
+
+	addVec2(Vec2 v0, Vec2 v1):
+		Vec2(v0.x + v1.x, v0.y + v1.y)
+	inRect(Vec2 v, Rect r):
+		(v.x >= r.pos.x) && (v.y >= r.pos.y) && (v.x <= (r.pos.x + r.size.x - 1)) && (v.y <= (r.pos.y + r.size.y - 1))
+	occupiedCells(Bounds b, int cellSize):
+		top : floor(b.topLeft.y / cellSize)
+		left : floor(b.topLeft.x / cellSize)
+		bottom : floor(b.bottomRight.y / cellSize)
+		right : floor(b.bottomRight.x / cellSize)
+		[Vec2(i, j) for i in range(left, right), j in range(top, bottom)]
+	Bounds monsterBounds(Monster m)
+structs:
+	Monster :
+		pos : Vec2
+		facing : string
+		animState : int
+		slot move(Rect innerBounds, int cellSize, list<list<bool>> maze, int maxAnimState) : 
+			loc changeDir = <-Random(100)
+			loc newDir = <-Random(3)		
+			if changeDir == 0 then self.facing = intToFacing(mod(facingToInt(self.facing) + newDir, 4))
+			loc newPos = addVec2(self.pos, facingToDir(self.facing))
+			loc isIn = inRect(newPos, innerBounds)
+			loc cells = occupiedCells(monsterBounds(self \ pos = newPos), cellSize)
+			loc canMove = none([at(at(maze, cell.x), cell.y) != 0 for cell in cells])
+			if isIn && canMove then self.pos = newPos else self.facing = intToFacing(mod(facingToInt(self.facing) + newDir, 4)) 
+			self.animState = mod(self.animState + 1, maxAnimState) 
+		slot test :
+			self.facing = self.facing
+functions:
+	monsterBounds(Monster m):
+		Bounds(addVec2(m.pos, Vec2(-16, -16)), addVec2(m.pos, Vec2(16, 16)))
+	eqVec2(Vec2 v0, Vec2 v1):
+		v0.x == v1.x && v0.y == v1.y
+	inBounds(Vec2 v, Bounds b):
+		(v.x >= b.topLeft.x) && (v.y >= b.topLeft.y) && (v.x <= b.bottomRight.x) && (v.y <= b.bottomRight.y)
+	opposite(string f):
+		match f:
+			"right" : "left"
+			"up" : "down"
+			"left" : "right"
+			_ : "up"
+	boundingRect(Monster m):
+		Rect(addVec2(m.pos, Vec2(-16, -16)), Vec2(32, 32))
+	manBounds(Vec2 pos):
+		Bounds(addVec2(pos, Vec2(-16, -16)), addVec2(pos, Vec2(16, 16)))
+	list<list<T>> transpose<T>(list<list<T>> l):
+		if length(head(l)) == 0 then [] else pushFront(transpose(map(tail, l)), map(head, l))
+	posToCell(Vec2 pos, int cellSize):
+		Vec2(floor(pos.x / cellSize), floor(pos.y / cellSize))
+	makeMonster(Vec2 pos, string facing) :
+		Monster(pos, facing, 0)
+	cellAsciiToInt(string char):
+		match char:
+			" " : 0
+			"d" : 1
+			_ : 2
+nodes:
+	var asciiMaze : [
+			"   *                       *  ",
+			"   *d******d******d**d***  *  ",
+			"*d**    *        *  *   *     ",
+			"   **d*d*d*  *   *  *   *****d",
+			"      * * *  * ***  *   *     ",
+			"      *   *  *              * ",
+			"d****d******d*  *   *   * ****",
+			"   *         *                ",
+			"**d***  *  **** *   *   *   * ",
+			"        *         *   *   *   "]
+	var leftKeyCode : 37
+	var rightKeyCode : 39
+	var upKeyCode : 38
+	var downKeyCode : 40
+	var spaceKeyCode : 32
+	var keysPressed : [false for x in [0..64]]
+	def leftPressed : at(keysPressed, leftKeyCode)
+	def rightPressed : at(keysPressed, rightKeyCode)
+	def upPressed : at(keysPressed, upKeyCode)
+	def downPressed : at(keysPressed, downKeyCode)
+	def spaceBarPressed : at(keysPressed, spaceKeyCode)
+	var moveSpeed : 2
+	var facing : "left"
+	var maxAnimState : 10
+	var animState : 0
+	var manPos : Vec2(40, 160)
+	var manSize : 32
+	var cellSize : 40
+	var mazeSize : Vec2(30, 10)
+	def bounds : Rect(Vec2(0, 0), Vec2(mazeSize.x * cellSize, mazeSize.y * cellSize))
+	def innerBounds : Rect(addVec2(bounds.pos, Vec2(16, 16)), addVec2(bounds.size, Vec2(-32, -32)))
+	var maze : transpose
+		(
+			[
+				[
+					cellAsciiToInt(cell)
+					for cell in strToList(row)
+				] 
+				for row in asciiMaze
+			]
+		)
+	var list<Bullet> bullets
+	var bulletSize : 0.5
+	var bulletSpeed : 4
+	def speedVector : if facing == "up" then Vec2(0, 0-bulletSpeed) else if facing == "down" then Vec2(0, bulletSpeed) else if facing == "left" then Vec2(0-bulletSpeed, 0) else Vec2(bulletSpeed, 0)
+	var bulletStart : Vec2(12, 0)
+	var bulletMinRefresh : 20
+	var bulletRefresh : 0
+	var list<Monster> monsters
+	var alone : makeMonster(Vec2((0 * cellSize) + 16, (0 *  cellSize) + 16), "right")
+	def newMonsters : pushFront(monsters, alone)
+	var maxMonsters : 20
+	var tickCounter : 0
+	def freeCells : flatten([[Vec2(i, j) for cell, j in column when (cell == 0)] for column, i in maze])
+	var test : at(freeCells, 0)
+actions :
+	tick : 
+		if upPressed || downPressed || leftPressed || rightPressed then :
+			animState = mod(animState + 1, maxAnimState)
+			
+		loc newPos = manPos
+		if upPressed then :
+			newPos.y = manPos.y - moveSpeed
+			facing = "up"
+			bulletStart = Vec2(0, -12)
+		if downPressed then :
+			newPos.y = manPos.y + moveSpeed
+			facing = "down"
+			bulletStart = Vec2(0, 12)
+		if leftPressed then :
+			newPos.x = manPos.x - moveSpeed
+			facing = "left"
+			bulletStart = Vec2(-12, 0)
+		if rightPressed then :
+			newPos.x = manPos.x + moveSpeed
+			facing = "right"
+			bulletStart = Vec2(12, 0)
+		loc manCells = occupiedCells(manBounds(newPos), cellSize)
+		maze = 
+			[
+				[
+					if contains(manCells, Vec2(i, j), eqVec2) && cell == 1 then 0 else cell
+					for cell, j in column
+				] 
+				for column, i in maze
+			]
+		loc canMove = none([(at(at(maze, cell.x), cell.y) != 0) for cell in manCells])
+		
+		if canMove then manPos = newPos
+		
+		if spaceBarPressed && bulletRefresh == 0 then :
+			bullets = pushFront(bullets, Bullet(addVec2(manPos, bulletStart), bulletSize, speedVector))
+			bulletRefresh = bulletMinRefresh
+		if bulletRefresh > 0 then :
+			bulletRefresh = bulletRefresh - 1
+		bullets = [bullet \ pos = addVec2(bullet.pos, bullet.speedVector) for bullet in bullets when inRect(bullet.pos, bounds)]
+		
+		foreach monsters move(innerBounds, cellSize, maze, maxAnimState)
+		alone.move(innerBounds, cellSize, maze, maxAnimState)
+		
+		loc monstersBounds = [monsterBounds(monster) for monster in monsters]
+		
+		loc (removeMonsterIndices, removeBulletIndices) = unzip([tuple(mi, bi) for br, mi in monstersBounds, bullet, bi in bullets when inBounds(bullet.pos, br)])
+		
+		if length(removeMonsterIndices) > 0 then :
+			monsters = [monster for monster, index in monsters when !contains(removeMonsterIndices, index, eq)]
+		
+		removeBulletIndices = 
+			concat
+			(
+				removeBulletIndices, 
+				[
+					bi for bullet, bi in bullets when 
+						let cell = posToCell(bullet.pos, cellSize) 
+						in at(at(maze, cell.x), cell.y)
+				]
+			)
+		
+		if length(removeBulletIndices) > 0 then :
+			bullets = [bullet for bullet, index in bullets when !contains(removeBulletIndices, index, eq)]
+		
+		while length(monsters) < maxMonsters do 
+			monsters = 
+				let 
+					cellIndex = <- Random(length(freeCells)),
+					cell = at(freeCells, cellIndex)
+				in pushFront
+					(
+						monsters, 
+						makeMonster(Vec2((cell.x * cellSize) + 16, (cell.y *  cellSize) + 16), "right")
+					)
+		
+		tickCounter = tickCounter + 1
+#		if mod(tickCounter, 400) == 0 then maxMonsters = maxMonsters + 1
+	Int keyDown:
+		keysPressed = [if i == keyDown then true else k for k, i in keysPressed]
+	Int keyUp:
+		keysPressed = [if i == keyUp then false else k for k, i in keysPressed]
