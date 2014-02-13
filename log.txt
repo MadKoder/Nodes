@@ -1,0 +1,45 @@
+5/2 :
+	Fonction utilisateur transpose : fait une recursion, pour cela mise en place de fonctions pures :
+		node "classique" ne peux pas etre recursif car doit s'instancier.
+		Les fonctions sont caches en fonctions de leur type, il n'y a donc qu'une instance par type complet (base + template)
+		! Pour gerer la recursion, mise en place d'une pile de parametres : push/pop avant/apres l'appel de l'expression finale.
+		Peuvent etre utilisees par map et autres fonctions d'ordre superieur.
+	Encapsulation des fonctions dans des nodes
+		
+6/2 :
+	Type de transpose = type du if = type du 2eme parametre = list<undefined>
+		Si on prend le troisieme parametre, c'est bon
+		Le probleme se posera dans l'autre sens dans d'autres cas
+		TODO : 
+			Test de coherence des type du 2 et 3 parametre d'un if
+				Si non equivalent, prendre le plus precis (ex: list<list<T>> > list<undefined>)
+			Typer explicitement transpose et toutes les autre fonctions utilisateur
+	Type de node fonction = obj.expr.getType() si il y a un expr (fonction utilisateur), sinon obj.type
+		TODO : harmoniser
+		? obj.type assigne dans les fonctions utilisateur n'a pas l'air de fonctionner
+
+7/2 :
+	Simplification du parsing, mise en commun du code pour tous les types (nodes, functions ...)
+	Implementation du getTemplates (guessTemplates) des User Functions, deduction des templates a partir des params.
+	Remise a plat des fonctions, avec typage propre... 
+
+8/2 : Fin de la remise a plat des fonctions, c'etait tres lourd : Specification propre des fonctions, avec ou sans template, enrobage propre dans des nodes, prise en compte des fonctions utilisateurs.
+	Ajout de map et contains : fonctions d'ordre superieur, requierent definition du type "fonction"
+	Gerent maintenant fonctions normales et generiques (templates)
+	Ensuite, on pourra ajouter des fonctions dans des structures, et les utiliser facilement comme parametres
+	
+10/2 : Creation du site web (youpi !) : http://madkoder.esy.es. Besoin pour image avec Raphael.js, car le cache ne fonctionne pas en local : gros memory leak au fur et a mesure des animations.
+	Pour le moment, hebergement gratuit sur hostinger.
+	Ajout de slot dans les structs : deviennent plus des nodes.
+	Recherche de syntaxe pour les appeler, surtout dans les listes.
+	
+11/2 : Slot de struct ajoutes
+	Syntaxe foreach : appel d'un slot de tous les elements d'une liste
+	TODO : gestion des mutations du aux appels de slots : events en cas de modif.
+	Insertion dans GitHub
+	
+12/2 : Reflexion de fond sur mecanisme de maj par deltas
+	Debut implementation du site
+	
+13/2 : site online. ArcaNodes tres lent sur firefox, OK sur chrome.
+	Maquette nouveau modele observer/deltas

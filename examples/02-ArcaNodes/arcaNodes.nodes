@@ -173,6 +173,30 @@ actions :
 				] 
 				for column, i in maze
 			]
+			
+#tests			
+		update column, i in maze
+			update cell, j in column
+				if contains(manCells, Vec2(i, j), eqVec2) && cell == 1 then 0
+
+		update column, i in maze, cell, j in column
+			if contains(manCells, Vec2(i, j), eqVec2) && cell == 1 then 0
+
+		update column, i in maze, cell, j in column
+			update cell, j in column
+				if contains(manCells, Vec2(i, j), eqVec2) && cell == 1 then 0
+		
+		maze.update
+		(
+			column, i->
+			(
+				inRect(bullet.pos, bounds),
+				bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
+			)
+		)
+		
+#fin tests
+
 		loc canMove = none([(at(at(maze, cell.x), cell.y) != 0) for cell in manCells])
 		
 		if canMove then manPos = newPos
@@ -183,7 +207,34 @@ actions :
 		if bulletRefresh > 0 then :
 			bulletRefresh = bulletRefresh - 1
 		bullets = [bullet \ pos = addVec2(bullet.pos, bullet.speedVector) for bullet in bullets when inRect(bullet.pos, bounds)]
+
+#tests		
+		bullets.filter(bullet->inRect(bullet.pos, bounds))
+		bullet.map(bullet->bullet \ pos = addVec2(bullet.pos, bullet.speedVector))
+		bullets.filterUpdate
+		(
+			bullet->
+			(
+				inRect(bullet.pos, bounds),
+				bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
+			)
+		)
 		
+		bullets = 
+			[
+				bullet \ pos = addVec2(bullet.pos, bullet.speedVector) 
+				for bullet in bullets 
+				when inRect(bullet.pos, bounds)
+			]
+		
+		filterUpdate bullet in bullets 
+			with bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
+			when inRect(bullet.pos, bounds)
+
+		bullet.pushFront(Bullet(addVec2(manPos, bulletStart), bulletSize, speedVector))
+		
+#fin tests
+
 		foreach monsters move(innerBounds, cellSize, maze, maxAnimState)
 		alone.move(innerBounds, cellSize, maze, maxAnimState)
 		
