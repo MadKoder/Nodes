@@ -43,3 +43,5 @@
 	
 13/2 : site online. ArcaNodes tres lent sur firefox, OK sur chrome.
 	Maquette nouveau modele observer/deltas
+	
+14/2 : Recherche sur les deltas, nouvelles syntaxes d'update

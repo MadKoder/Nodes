@@ -32,12 +32,15 @@ $(document).ready(function ()
 		}
 	}
 
-	function List(l)
+	function Store(l, operators)
 	{
 		this.sinks = []
 		var list = l;
 		var deltas = [];
 		this.tag = 0;
+		
+		this.operators = operators;
+		
 		this.addDelta = function(delta)
 		{
 			deltas.push(delta);
@@ -49,7 +52,7 @@ $(document).ready(function ()
 			});
 		}
 		
-		this.condUpdate = function(condFunc, updateFunc)
+		this.update = function(func, params)
 		{
 			var updates = _(_.range(list.length))
 				.zip(list)
@@ -153,7 +156,7 @@ $(document).ready(function ()
 		console.log(txt)
 	}
 	
-	var list = new List([0, 1, 2]);
+	var list = new Store([0, 1, 2]);
 	log(list.get());
 
 	var mappedList = new Cache(list, function(x){return x*2;});
@@ -170,17 +173,31 @@ $(document).ready(function ()
 	list.addDelta(new ListDelta([], 0, [[1, 10]]))
 	log(list.get());
 	log(mappedList.get());
-	
-	list.condUpdate(function(e){return e > 5}, function(e){return e - 5});
-	log(list.get());
-	log(mappedList.get());
-	
-	var list2 = new List([new List([1, 2]), new List([3, 4, 5])])
-	log(list2.get());
-	
-	var mapped = new Cache(list2, function(column)
+
+	function log2(l)
+	{
+		var str = _.reduce(l, function(str, e)
 		{
-			return new Cache(column, function(x){return x*2;});
-		});
-	log(mapped.get());
+			return str + "[" + e + "]";
+		}, "[");
+		log(str + "]"); 
+	}
+	var list2 = new Store([[1, 2], [3, 4, 5]]);
+	log2(list2.get());
+	
+	list2.addDelta(new ListDelta([], 0, [[1, [6, 7]]]))
+	log2(list2.get());
+	
+	// list.update(function(e){return e > 5}, function(e){return e - 5});
+	// log(list.get());
+	// log(mappedList.get());
+	
+	// var list2 = new Store([new Store([1, 2]), new Store([3, 4, 5])])
+	// log(list2.get());
+	
+	// var mapped = new Cache(list2, function(column)
+		// {
+			// return new Cache(column, function(x){return x*2;});
+		// });
+	// log(mapped.get());
 })

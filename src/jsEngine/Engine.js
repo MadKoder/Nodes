@@ -1351,7 +1351,7 @@ function makeStruct(structGraph, name, inheritedFields)
 				var node = new Store(null, param[1]);
 				localNodes[param[0]] = node;
 				inputs.push(node);
-			});			
+			});
 			slotGraph.params = [["self", structGraph.name]].concat(slotGraph.params);
 			node.operators.slots[field.slot] = {
 				action : makeAction(slotGraph.action, localNodes),

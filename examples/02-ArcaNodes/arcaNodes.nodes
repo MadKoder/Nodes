@@ -174,18 +174,44 @@ actions :
 				for column, i in maze
 			]
 			
-#tests			
+#tests		
+		openedDoors = flatten
+			(
+				[
+					[
+						path in maze
+						for cell, j in column
+						when contains(manCells, Vec2(i, j), eqVec2) && cell == 1
+					] 
+					for column, i in maze
+				]
+			)
+			
 		update column, i in maze
 			update cell, j in column
 				if contains(manCells, Vec2(i, j), eqVec2) && cell == 1 then 0
 
 		update column, i in maze, cell, j in column
 			if contains(manCells, Vec2(i, j), eqVec2) && cell == 1 then 0
-
-		update column, i in maze, cell, j in column
+			
+		for column, i in maze do
 			update cell, j in column
-				if contains(manCells, Vec2(i, j), eqVec2) && cell == 1 then 0
+				with 0 if contains(manCells, Vec2(i, j), eqVec2) && cell == 1
 		
+		for manCell in manCells do
+			let 
+				cell = ref maze[manCell.x][manCell.y]
+			in
+				if cell == 1 then cell = 0
+
+reactions/events:
+		
+		on maze change(path, val, oldVal) :
+			match path :
+				[i][j] : if val == 0 && oldVal == 1 then 
+					openingDoors.pushBack((i, j, 0))
+		
+				
 		maze.update
 		(
 			column, i->
