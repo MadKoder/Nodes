@@ -315,7 +315,9 @@ Actions "Actions" =
 Action "Action" = 
   Affectation 
   / Foreach
+  / ApplyAction
   / SlotCall
+  / Update
   /  _ "(" _ actions:Actions _ ")" {return  {
 			type : "Seq",
 			slots : actions
@@ -334,7 +336,62 @@ Action "Action" =
 		return action;
 	}
 
-  
+ApplyAction =
+	_ "on " _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ 
+	array:Val _ "apply " _ action:Action
+	{
+		var res =  {
+			"on" : it,
+			"in" : array,
+			"apply" : action
+		};
+		if(index != null)
+		{
+			res["index"] = index;
+		};
+		return res;
+	}
+	
+Update =
+	"update" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Val _
+	"with " _ val:ValOrCondUpdate _ filter:("filter " _ test:Val {return test})?
+	{
+		var res = {
+			"update" : it,
+			"in" : array			
+		}
+		if("cond" in val)
+		{
+			res["condWith"] = val.cond;
+		}
+		else
+		{
+			res["with"] = val.val;
+		}
+		if(index != null)
+		{
+			res["index"] = index;
+		}
+		if(filter != null)
+		{
+			res["filter"] = filter;
+		}
+		return res;
+	}
+
+ValOrCondUpdate =
+	cond:CondUpdate {return {cond : cond};}
+	/ val:Val {return {val : val};}
+
+CondUpdate =
+	_ val:Val _ "if " _ cond:Val 
+	{
+		return {
+			"val" : val,
+			"if" : cond
+		};
+	}
+	
 Foreach =
 	_ "foreach " _ id:Var _ signal:Id _ params:("(" _ params:ExpressionList? _ ")" {return params})?
 	{

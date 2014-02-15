@@ -106,6 +106,9 @@ function Store(v, type)
 	this.val = v;
 	this.type = type;
 
+	this.deltas = [];
+	this.tag = 0;
+	
 	if(type != null)
 	{
 		var baseType = getBaseType(type);
@@ -139,6 +142,27 @@ function Store(v, type)
 	{
 		operators.signal(this.val, signal, params)
 	};
+	
+	this.addDelta = function(delta)
+	{
+		this.deltas.push(delta);
+		this.tag++;
+	}
+	
+	this.getDeltas = function(tag)
+	{
+		if(tag < this.tag)
+		{
+			if(tag < 0)
+			{
+				return [new ListDelta(this.val, 0, [])];
+			}
+			
+			return this.deltas.slice(tag - this.tag);
+		}
+		
+		return [];
+	}
 	
 	this.getType = function()
 	{
@@ -973,7 +997,7 @@ function makeAction(actionGraph, nodes, connections)
 {
 	if("foreach" in actionGraph)
 	{
-		function Foreach(list, signal, params)
+		function ForEach(list, signal, params)
 		{
 			this.list = list;
 			this.iteratedSignal = signal;
@@ -989,7 +1013,212 @@ function makeAction(actionGraph, nodes, connections)
 		var paramsGraph = actionGraph.params;
 		var compiledParams = _.map(paramsGraph, function(param){return makeExpr(param, nodes);});
 		// TODO check signal and params valid with list element type
-		return new Foreach(iterated, actionGraph.signal, compiledParams);
+		return new ForEach(iterated, actionGraph.signal, compiledParams);
+	}
+	
+	function ListElementRef(listNode)
+	{
+		this.listNode = listNode;
+		this.type = getListTemplate(listNode.getType());
+		this.list = null;
+		this.index = 0;
+		
+		this.get = function()
+		{
+			return this.list[this.index];
+		}
+		
+		this.signal = function(val)
+		{
+			this.list[this.index] = val;
+			this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
+		}		
+		
+		this.addDelta = function(delta)
+		{
+			this.listNode.addDelta({path : [this.index].concat(delta.path), val : delta.val});
+		}	
+		
+		this.getType = function()
+		{
+			return this.type;
+		}
+	}
+	
+	function ListDelta(add, remove, updates)
+	{
+		this.add = add;
+		this.remove = remove;
+		this.updates = updates;
+	}
+
+	if("on" in actionGraph)
+	{
+		function ForAction(iterated, itRef, indexStore, action)
+		{
+			this.listStore = iterated;
+			this.itRef = itRef;
+			this.indexStore = indexStore;
+			this.action = action;
+			
+			this.signal = function()
+			{
+				var list = this.listStore.get();
+				this.itRef.list = list;
+				_.each(
+					list, 
+					function(element, index)
+					{
+						this.itRef.index = index;
+						if(this.indexStore != undefined)
+							this.indexStore.signal(index);
+						this.action.signal();						
+					},
+					this
+				);
+			}
+		}
+		
+		var iterated = compileRef(actionGraph["in"], nodes).val;
+		var localNodes = _.clone(nodes);
+		
+		var itRef = new ListElementRef(iterated);
+		// TODO gerer destruct
+		localNodes[actionGraph["on"]] = itRef;
+		var indexStore = null;
+		if("index" in actionGraph)
+		{
+			indexStore = new Store(null, "int")
+			localNodes[actionGraph["index"]] = indexStore;
+		}
+		// TODO : check that action only change iterator
+		var action = makeAction
+		(
+			actionGraph["apply"],
+			localNodes
+		);
+
+		return new ForAction(iterated, itRef, indexStore, action);
+	}
+	
+	if("update" in actionGraph)
+	{
+		function Update(iterated, itRef, indexStore, action)
+		{
+			this.listStore = iterated;
+			this.itRef = itRef;
+			this.indexStore = indexStore;
+			this.action = action;
+			
+			this.signal = function()
+			{
+				var list = this.listStore.get();
+				this.itRef.list = list;
+				_.each(
+					list, 
+					function(element, index)
+					{
+						this.itRef.index = index;
+						if(this.indexStore != undefined)
+							this.indexStore.signal(index);
+						this.action.signal();						
+					},
+					this
+				);
+			}
+		}
+		
+		function CondUpdate(iterated, itRef, indexStore, action, cond)
+		{
+			this.listStore = iterated;
+			this.itRef = itRef;
+			this.indexStore = indexStore;
+			this.action = action;
+			this.cond = cond;
+			
+			this.signal = function()
+			{
+				
+				var updated = [];
+				var list = this.listStore.get();
+				this.itRef.list = list;
+				var removed = false;
+				_.each(
+					list, 
+					function(element, index)
+					{
+						this.itRef.index = index;
+						if(this.indexStore != undefined)
+							this.indexStore.signal(index);
+						if(this.cond.get())
+						{
+							this.action.signal();
+							var newVal = this.itRef.get();
+							updated.push(newVal);
+						}
+						else
+						{
+							removed = true;
+						}
+					},
+					this
+				);
+				// TODO : signals
+				this.listStore.signal(updated);
+			}
+		}
+		var iterated = compileRef(actionGraph["in"], nodes).val;
+		var localNodes = _.clone(nodes);
+		
+		var itRef = new ListElementRef(iterated);
+		// TODO gerer destruct
+		localNodes[actionGraph["update"]] = itRef;
+		var indexStore = null;
+		if("index" in actionGraph)
+		{
+			indexStore = new Store(null, "int")
+			localNodes[actionGraph["index"]] = indexStore;
+		}
+
+		var val = actionGraph["with"];
+		if("with" in actionGraph)
+		{
+			var action = makeAction
+			(
+				{
+					type : "Send",
+					param : actionGraph["with"],
+					slots : [actionGraph["update"]]
+				},
+				localNodes
+			);
+		}
+		else // Conditionnal affectation
+		{
+			var condVal = actionGraph["condWith"];
+			var action = makeAction
+			(
+				{
+					"if" : condVal["if"],
+					"then" : 
+					{
+						type : "Send",
+						param : condVal.val,
+						slots : [actionGraph["update"]]
+					}
+				},
+				localNodes
+			);
+		}
+		
+		var filter = null;
+		if("filter" in actionGraph)
+		{
+			filter = makeExpr(actionGraph.filter, localNodes);
+			return new CondUpdate(iterated, itRef, indexStore, action, filter);
+		}
+
+		return new Update(iterated, itRef, indexStore, action);
 	}
 	
 	if("signal" in actionGraph)

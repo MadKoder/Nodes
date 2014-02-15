@@ -1,0 +1,138 @@
+		openedDoors = flatten
+			(
+				[
+					[
+						path in maze
+						for cell, j in column
+						when contains(manCells, Vec2(i, j), eqVec2) && cell == 1
+					] 
+					for column, i in maze
+				]
+			)
+			
+		update column, i in maze
+			update cell, j in column
+				if contains(manCells, Vec2(i, j), eqVec2) && cell == 1 then 0
+
+		update column, i in maze, cell, j in column
+			if contains(manCells, Vec2(i, j), eqVec2) && cell == 1 then 0
+			
+		for column, i in maze do
+			update cell, j in column
+				with 0 if contains(manCells, Vec2(i, j), eqVec2) && cell == 1
+		
+		for manCell in manCells do
+			let 
+				cell = ref maze[manCell.x][manCell.y]
+			in
+				if cell == 1 then cell = 0
+
+reactions/events:
+		
+		on maze change(path, val, oldVal) :
+			match path :
+				[i][j] : if val == 0 && oldVal == 1 then 
+					openingDoors.pushBack((i, j, 0))
+		
+				
+		maze.update
+		(
+			column, i->
+			(
+				inRect(bullet.pos, bounds),
+				bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
+			)
+		)
+		
+				bullets.filter(bullet->inRect(bullet.pos, bounds))
+		bullet.map(bullet->bullet \ pos = addVec2(bullet.pos, bullet.speedVector))
+		bullets.filterUpdate
+		(
+			bullet->
+			(
+				inRect(bullet.pos, bounds),
+				bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
+			)
+		)
+		
+			
+		bullet.pushFront(Bullet(addVec2(manPos, bulletStart), bulletSize, speedVector))
+	
+		update bullet in bullets 
+			with bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
+			when inRect(bullet.pos, bounds)
+			
+	
+Update =
+	"update" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Val _
+	"with " _ val:ValOrCondUpdate _ filter:("filter " _ test:Val {return test})?
+	{
+		var res = {
+			"update" : it,
+			"in" : array			
+		}
+		if("cond" in val)
+		{
+			res["condWith"] = val.cond;
+		}
+		else
+		{
+			res["with"] = val.val;
+		}
+		if(index != null)
+		{
+			res["index"] = index;
+		}
+		if(filter != null)
+		{
+			res["filter"] = filter;
+		}
+		return res;
+	}
+
+ValOrCondUpdate =
+	cond:CondUpdate {return {cond : cond};}
+	/ val:Val {return {val : val};}
+
+CondUpdate =
+	_ val:Val _ "if " _ cond:Val 
+	{
+		return {
+			"val" : val,
+			"if" : cond
+		};
+	}
+	
+on column, i in maze apply
+	update cell, j in column
+		with 0 if contains(manCells, Vec2(i, j), eqVec2) && cell == 1	
+	
+ForAction =
+	_ "for " _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Val
+	"do " action:Action
+	{
+		var res =  {
+			"for" : it,
+			"in" : array,
+			"do" : action
+		};
+		if(index != null)
+		{
+			res["index"] = index;
+		};
+		return res;
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+	

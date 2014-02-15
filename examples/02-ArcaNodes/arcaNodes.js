@@ -228,6 +228,7 @@ $.get( "arcaNodes.nodes", function( text ) {
 	
 	var bulletsView = [];
 	var monstersView = [];
+	var mazeTag = 0;
 	
 	tick.onValue(function(t){
 		code.tick.signal();
@@ -244,18 +245,28 @@ $.get( "arcaNodes.nodes", function( text ) {
 		bulletsView = updateBulletView(bullets.get(), bulletsView);
 		monstersView = updateMonsterView(monsters.get(), monstersView)
 		
-		var maze = code.maze.get();
-		_.each(maze, function(column, i){
-			_.each(column, function(block, j)
+		var mazeDeltas = code.maze.getDeltas(mazeTag);
+		mazeTag = code.maze.tag;
+		
+		_.each(mazeDeltas, function(delta)
+		{
+			var path = delta.path;
+			var i = delta.path[0];
+			var deltaVal = delta.val;
+			var updates = deltaVal.updates;
+			
+			_.each(updates, function(update)
 			{
+				var j = update[0];
+				var newVal = update[1];
 				var rect = cellView[i][j].view;
 				var model = cellView[i][j].model;
-				if(model != block)
+				if(model != newVal)
 				{
-					cellView[i][j].model = block;
-					if(block > 0)
+					cellView[i][j].model = newVal;
+					if(newVal > 0)
 					{
-						if(block == 1)
+						if(newVal == 1)
 						{
 							rect.attr({ stroke : "#008", fill : "#f00"});
 						}
