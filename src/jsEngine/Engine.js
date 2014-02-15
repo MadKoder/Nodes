@@ -109,6 +109,8 @@ function Store(v, type)
 	this.deltas = [];
 	this.tag = 0;
 	
+	this.sinks = [];
+	
 	if(type != null)
 	{
 		var baseType = getBaseType(type);
@@ -131,6 +133,15 @@ function Store(v, type)
 	this.signal = function(val)
 	{
 		this.val = val;
+		_.each(this.sinks, function(sink)
+		{
+			sink.dirty()
+		});
+	};
+	
+	this.addSink = function(sink)
+	{
+		this.sinks.push(sink);
 	};
 	
 	this.signalStored = function(val)
@@ -189,17 +200,28 @@ function StoreFunctionTemplate(t)
 	this.setTemplateParams = function(params)
 	{
 		this.func = this.template.build(params);
+		_.each(this.sinks, function(sink)
+		{
+			sink.dirty()
+		});
 	};
 	
 	// this.getType = function()
 	// {
 		// return this.type;
 	// }
+	
+	this.addSink = function(sink)
+	{
+		// TODO : y'en a besoin ?
+	};
+	
 }
 
 function Comprehension(nodeGraph, externNodes)
 {
 	this.nodes = {};
+	this.sinks = [];
 	
 	// TODO  connections
 	var iterators = nodeGraph.it;
@@ -212,6 +234,7 @@ function Comprehension(nodeGraph, externNodes)
 	{
 		exprAndType = makeExprAndType(iterator["in"], externNodes);
 		this.arrays[index] = exprAndType.val;
+		this.arrays[index].addSink(this);
 		var inputType = exprAndType.val.getType();
 		if(getBaseType(inputType) != "list")
 		{
@@ -416,6 +439,19 @@ function Comprehension(nodeGraph, externNodes)
 	{
 		return makeTemplate("list", [expr.getType()]);
 	}
+	
+	this.addSink = function(sink)
+	{
+		this.sinks.push(sink);
+	};
+
+	this.dirty = function()
+	{
+		_.each(this.sinks, function(sink)
+		{
+			sink.dirty()
+		});
+	};
 }
 
 function getNode(name, nodes)
@@ -494,6 +530,11 @@ function StructAccess(node, path) {
 	{
 		return this.type;
 	}
+	
+	this.addSink = function(sink)
+	{
+		this.node.addSink(sink);
+	};
 }
 
 function Destruct(t)
@@ -906,6 +947,7 @@ function makeNode(nodeGraph, nodes, connectionsGraph)
 		
 		if("var" in nodeGraph)
 		{
+			// TODO : virer les dependances du node
 			node = new Store(node.get(), node.getType());
 		}
 		
@@ -1043,6 +1085,12 @@ function makeAction(actionGraph, nodes, connections)
 		{
 			return this.type;
 		}
+		
+		this.addSink = function(sink)
+		{
+			// TODO : y'en a besoin ?
+		};
+
 	}
 	
 	function ListDelta(add, remove, updates)
@@ -1469,6 +1517,7 @@ function makeStruct(structGraph, name, inheritedFields)
 	{
 		function builder(fields) 
 		{	
+			this.sinks = [];
 			this.fields = {
 				__type : name
 			};
@@ -1490,8 +1539,9 @@ function makeStruct(structGraph, name, inheritedFields)
 						// Sinon c'est le champs lui meme
 						this.fields[fieldName] = fields[fieldName];
 					}
+					fields[fieldName].addSink(this);				
 				}
-			}
+			};
 			this.get = function()
 			{
 				return _.mapValues(this.fields, function(field){
@@ -1503,7 +1553,18 @@ function makeStruct(structGraph, name, inheritedFields)
 			this.getType = function()
 			{
 				return name;
-			}
+			};
+			this.addSink = function(sink)
+			{
+				this.sinks.push(sink);
+			};
+			this.dirty = function()
+			{
+				_.each(this.sinks, function(sink)
+				{
+					sink.dirty()
+				});
+			};
 		}
 
 		return builder;

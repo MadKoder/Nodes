@@ -39,7 +39,7 @@ functions:
 		bottom : floor(b.bottomRight.y / cellSize)
 		right : floor(b.bottomRight.x / cellSize)
 		[Vec2(i, j) for i in range(left, right), j in range(top, bottom)]
-	Bounds monsterBounds(Monster m)
+	Bounds monsterBounds(Vec2 pos)
 structs:
 	Monster :
 		pos : Vec2
@@ -51,15 +51,13 @@ structs:
 			if changeDir == 0 then self.facing = intToFacing(mod(facingToInt(self.facing) + newDir, 4))
 			loc newPos = addVec2(self.pos, facingToDir(self.facing))
 			loc isIn = inRect(newPos, innerBounds)
-			loc cells = occupiedCells(monsterBounds(self \ pos = newPos), cellSize)
+			loc cells = occupiedCells(monsterBounds(newPos), cellSize)
 			loc canMove = none([at(at(maze, cell.x), cell.y) != 0 for cell in cells])
 			if isIn && canMove then self.pos = newPos else self.facing = intToFacing(mod(facingToInt(self.facing) + newDir, 4)) 
 			self.animState = mod(self.animState + 1, maxAnimState) 
-		slot test :
-			self.facing = self.facing
 functions:
-	monsterBounds(Monster m):
-		Bounds(addVec2(m.pos, Vec2(-16, -16)), addVec2(m.pos, Vec2(16, 16)))
+	monsterBounds(Vec2 pos):
+		Bounds(addVec2(pos, Vec2(-16, -16)), addVec2(pos, Vec2(16, 16)))
 	eqVec2(Vec2 v0, Vec2 v1):
 		v0.x == v1.x && v0.y == v1.y
 	inBounds(Vec2 v, Bounds b):
@@ -116,8 +114,8 @@ nodes:
 	var manSize : 32
 	var cellSize : 40
 	var mazeSize : Vec2(30, 10)
-	def bounds : Rect(Vec2(0, 0), Vec2(mazeSize.x * cellSize, mazeSize.y * cellSize))
-	def innerBounds : Rect(addVec2(bounds.pos, Vec2(16, 16)), addVec2(bounds.size, Vec2(-32, -32)))
+	var bounds : Rect(Vec2(0, 0), Vec2(mazeSize.x * cellSize, mazeSize.y * cellSize))
+	var innerBounds : Rect(addVec2(bounds.pos, Vec2(16, 16)), addVec2(bounds.size, Vec2(-32, -32)))
 	var maze : transpose
 		(
 			[
@@ -141,7 +139,6 @@ nodes:
 	var maxMonsters : 20
 	var tickCounter : 0
 	def freeCells : flatten([[Vec2(i, j) for cell, j in column when (cell == 0)] for column, i in maze])
-	var test : at(freeCells, 0)
 actions :
 	tick : 
 		if upPressed || downPressed || leftPressed || rightPressed then :
@@ -187,7 +184,7 @@ actions :
 		foreach monsters move(innerBounds, cellSize, maze, maxAnimState)
 		alone.move(innerBounds, cellSize, maze, maxAnimState)
 		
-		loc monstersBounds = [monsterBounds(monster) for monster in monsters]
+		loc monstersBounds = [monsterBounds(monster.pos) for monster in monsters]
 		
 		loc (removeMonsterIndices, removeBulletIndices) = unzip([tuple(mi, bi) for br, mi in monstersBounds, bullet, bi in bullets when inBounds(bullet.pos, br)])
 		

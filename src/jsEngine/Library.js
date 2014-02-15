@@ -928,6 +928,8 @@ function FunctionNode(func)
 	this.builder = function(fields) 
 	{	
 		var params = Array(paramsSpec.length)
+		this.sinks = [];
+
 		_.each(fields, function(field, key)
 		{
 			var index = _.findIndex(fieldsSpec, function(fieldSpec){return fieldSpec[0] == key;});
@@ -937,7 +939,8 @@ function FunctionNode(func)
 			{
 				field.setTemplateParams(func.templates);
 			}
-		});
+			field.addSink(this);
+		}, this);
 		this.get = function()
 		{
 			return func.func(params.map(function(param){return param.get();}));
@@ -952,6 +955,17 @@ function FunctionNode(func)
 				// return func.expr.getType();
 			return func.type;
 		}
+		this.addSink = function(sink)
+		{
+			this.sinks.push(sink);
+		};
+		this.dirty = function()
+		{
+			_.each(this.sinks, function(sink)
+			{
+				sink.dirty()
+			});
+		};
 	}
 }
 
@@ -1040,6 +1054,7 @@ var nodes =
 			var first = fields.first;
 			var second = fields.second;
 			var third = fields.third;
+			this.sinks = [];
 			this.get = function()
 			{
 				if(first.get())
@@ -1050,6 +1065,17 @@ var nodes =
 			};
 			this.getType = function(){
 					return third.getType();
+			};
+			this.addSink = function(sink)
+			{
+				this.sinks.push(sink);
+			};
+			this.dirty = function()
+			{
+				_.each(this.sinks, function(sink)
+				{
+					sink.dirty()
+				});
 			};
 		}
 	},

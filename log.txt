@@ -46,4 +46,5 @@
 	
 14/2 : Recherche sur les deltas, nouvelles syntaxes d'update
 
-15/2 : Implementation de la syntaxe "upadate ... with ..."
+15/2 : Implementation de la syntaxe "upadate ... with ...", et de la syntaxe "on" .. "in" (application d'actions sur une liste)
+	Ajout d'un ensemble source/sinks/dirty.
