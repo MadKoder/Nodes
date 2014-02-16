@@ -130,7 +130,7 @@ function Store(v, type)
 		return this.val;
 	};
 
-	this.signal = function(val)
+	this.set = function(val)
 	{
 		this.val = val;
 		_.each(this.sinks, function(sink)
@@ -144,10 +144,6 @@ function Store(v, type)
 		this.sinks.push(sink);
 	};
 	
-	this.signalStored = function(val)
-	{
-		this.val = val;
-	};
 	
 	this.signalStored = function(signal, params)
 	{
@@ -158,6 +154,10 @@ function Store(v, type)
 	{
 		this.deltas.push(delta);
 		this.tag++;
+		_.each(this.sinks, function(sink)
+		{
+			sink.dirty()
+		});
 	}
 	
 	this.getDeltas = function(tag)
@@ -181,6 +181,40 @@ function Store(v, type)
 	}
 }
 
+function ActionParam(type) 
+{
+	this.type = type;
+	var baseType = getBaseType(type);
+	var templates = getTemplates(type);
+	var typeObj = (templates.length > 0) ? 
+		library.nodes[baseType].getInstance(templates) :
+		library.nodes[type];
+	if(typeObj != undefined && "operators" in typeObj)
+	{
+		var operators = typeObj.operators;
+	}
+	
+	this.get = function()
+	{
+		return this.val;
+	};
+
+	this.signal = function(val)
+	{
+		this.val = val;
+	};
+	
+	this.getType = function()
+	{
+		return this.type;
+	}
+	
+	this.addSink = function()
+	{
+		// TODO something to do ? I think not...
+	}
+}
+
 function StoreFunctionTemplate(t) 
 {
 	this.template = t;
@@ -199,11 +233,7 @@ function StoreFunctionTemplate(t)
 	
 	this.setTemplateParams = function(params)
 	{
-		this.func = this.template.build(params);
-		_.each(this.sinks, function(sink)
-		{
-			sink.dirty()
-		});
+		this.func = this.template.build(params);		
 	};
 	
 	// this.getType = function()
@@ -221,7 +251,6 @@ function StoreFunctionTemplate(t)
 function Comprehension(nodeGraph, externNodes)
 {
 	this.nodes = {};
-	this.sinks = [];
 	
 	// TODO  connections
 	var iterators = nodeGraph.it;
@@ -234,7 +263,6 @@ function Comprehension(nodeGraph, externNodes)
 	{
 		exprAndType = makeExprAndType(iterator["in"], externNodes);
 		this.arrays[index] = exprAndType.val;
-		this.arrays[index].addSink(this);
 		var inputType = exprAndType.val.getType();
 		if(getBaseType(inputType) != "list")
 		{
@@ -321,25 +349,24 @@ function Comprehension(nodeGraph, externNodes)
 			// });
 			
 			this.outputList = [];
-			for(var i = 0; i < indicesArray.length; i++)
+			_.each(indicesArray, function(indices)
 			{
-				var indices = indicesArray[i];
 				var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
 			
 				for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].signal(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].set(indices[arrayIndex]);
 					}
 					if(inputs[arrayIndex] != undefined)
 					{
-						inputs[arrayIndex].signal(tuple[arrayIndex]);
+						inputs[arrayIndex].set(tuple[arrayIndex]);
 					} else
 					{
 						_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
 							{
-								input.signal(tuple[arrayIndex][tupleIndex]);
+								input.set(tuple[arrayIndex][tupleIndex]);
 							});
 					}
 				}
@@ -348,7 +375,7 @@ function Comprehension(nodeGraph, externNodes)
 				{
 					this.outputList.push(expr.get());
 				}
-			}
+			}, this);
 		}
 		else
 		{
@@ -376,16 +403,16 @@ function Comprehension(nodeGraph, externNodes)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].signal(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].set(indices[arrayIndex]);
 					}
 					if(inputs[arrayIndex] != undefined)
 					{
-						inputs[arrayIndex].signal(tuple[arrayIndex]);
+						inputs[arrayIndex].set(tuple[arrayIndex]);
 					} else
 					{
 						_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
 							{
-								input.signal(tuple[arrayIndex][tupleIndex]);
+								input.set(tuple[arrayIndex][tupleIndex]);
 							});
 					}
 				}
@@ -442,15 +469,7 @@ function Comprehension(nodeGraph, externNodes)
 	
 	this.addSink = function(sink)
 	{
-		this.sinks.push(sink);
-	};
-
-	this.dirty = function()
-	{
-		_.each(this.sinks, function(sink)
-		{
-			sink.dirty()
-		});
+		_.each(this.arrays, function(array){array.addSink(this);});
 	};
 }
 
@@ -511,7 +530,7 @@ function StructAccess(node, path) {
 		return this.getPathOperator(val, this.path);
 	};
 	
-	this.signal = function(val)
+	this.set = function(val)
 	{
 		var struct = this.node.get();
 		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
@@ -540,9 +559,9 @@ function StructAccess(node, path) {
 function Destruct(t)
 {
 	var tuple = t;
-	this.signal = function(val)
+	this.set = function(val)
 	{
-		_.each(val, function(subVal, index){tuple[index].signal(subVal);})
+		_.each(val, function(subVal, index){tuple[index].set(subVal);})
 	}
 }
 
@@ -1070,7 +1089,7 @@ function makeAction(actionGraph, nodes, connections)
 			return this.list[this.index];
 		}
 		
-		this.signal = function(val)
+		this.set = function(val)
 		{
 			this.list[this.index] = val;
 			this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
@@ -1119,7 +1138,7 @@ function makeAction(actionGraph, nodes, connections)
 					{
 						this.itRef.index = index;
 						if(this.indexStore != undefined)
-							this.indexStore.signal(index);
+							this.indexStore.set(index);
 						this.action.signal();						
 					},
 					this
@@ -1168,7 +1187,7 @@ function makeAction(actionGraph, nodes, connections)
 					{
 						this.itRef.index = index;
 						if(this.indexStore != undefined)
-							this.indexStore.signal(index);
+							this.indexStore.set(index);
 						this.action.signal();						
 					},
 					this
@@ -1212,7 +1231,7 @@ function makeAction(actionGraph, nodes, connections)
 					this
 				);
 				// TODO : signals
-				this.listStore.signal(updated);
+				this.listStore.set(updated);
 			}
 		}
 		var iterated = compileRef(actionGraph["in"], nodes).val;
@@ -1288,15 +1307,29 @@ function makeAction(actionGraph, nodes, connections)
 		return new Signal(compileRef(actionGraph["var"], nodes).val, actionGraph.signal, compiledParams)
 	}
 	
-	if("slotType" in actionGraph && actionGraph.slotType != "void")
+	function concatActions(beginActions, actionGraph)
 	{
-		// TODO val par defaut
-		nodes[getId(actionGraph)] = new Store();
-		actionGraph = {
-			"type" : "Seq",
-			"slots" : [getId(actionGraph), actionGraph]
-		};
-		actionGraph.slots[1].slotType = "void";
+		if(actionGraph.type == "Seq")
+		{
+			actionGraph.slots = beginActions.concat(actionGraph.slots);
+		} else
+		{
+			actionGraph = {
+				"type" : "Seq",
+				"slots" : beginActions.concat([actionGraph])
+			};
+		}
+		return actionGraph;
+	}
+	
+	// TODO action avec parametres
+	if("params" in actionGraph)
+	{
+		//TODO manage multiple params
+		var param = actionGraph.params[0];
+		var paramId = param[0];
+		nodes[paramId] = new ActionParam(param[1]);
+		actionGraph = concatActions([paramId], actionGraph);
 	}
 	
 	// Les generateurs (les <-) sont transformes en Store, 
@@ -1344,19 +1377,11 @@ function makeAction(actionGraph, nodes, connections)
 		
 	actionGraph = makeGenerators(actionGraph);
 	
+
 	// S'il y a des generateurs, on insere leur activation au debut
 	if(msg)
 	{
-		if(actionGraph.type == "Seq")
-		{
-			actionGraph.slots = msgProducers.concat(actionGraph.slots);
-		} else
-		{
-			actionGraph = {
-				"type" : "Seq",
-				"slots" : msgProducers.concat([actionGraph])
-			};
-		}
+		actionGraph = concatActions(msgProducers, actionGraph);
 	}
 	
 	function getSlotsFromGraph(actionGraph)
@@ -1517,7 +1542,6 @@ function makeStruct(structGraph, name, inheritedFields)
 	{
 		function builder(fields) 
 		{	
-			this.sinks = [];
 			this.fields = {
 				__type : name
 			};
@@ -1539,7 +1563,6 @@ function makeStruct(structGraph, name, inheritedFields)
 						// Sinon c'est le champs lui meme
 						this.fields[fieldName] = fields[fieldName];
 					}
-					fields[fieldName].addSink(this);				
 				}
 			};
 			this.get = function()
@@ -1556,14 +1579,7 @@ function makeStruct(structGraph, name, inheritedFields)
 			};
 			this.addSink = function(sink)
 			{
-				this.sinks.push(sink);
-			};
-			this.dirty = function()
-			{
-				_.each(this.sinks, function(sink)
-				{
-					sink.dirty()
-				});
+				_.each(this.fields, function(field, key){if(key != "__type")field.addSink(sink);});				
 			};
 		}
 
@@ -1605,11 +1621,11 @@ function makeStruct(structGraph, name, inheritedFields)
 			selfStore : new Store(null, name),
 			signal : function(struct, id, params)
 			{
-				this.selfStore.signal(struct);
+				this.selfStore.set(struct);
 				var slot = this.slots[id];
 				_.each(params, function(param, i)
 				{
-					slot.inputs[i].signal(param.get());
+					slot.inputs[i].set(param.get());
 				});
 				slot.action.signal(params);
 			},
@@ -1797,14 +1813,14 @@ function FunctionInstance(classGraph)
 		_.each(params, function(param, i)
 		{
 			this.pushedValues[i].push(this.inputNodes[i].get());
-			this.inputNodes[i].signal(param);
+			this.inputNodes[i].set(param);
 		}, this);
 		
 		var result = this.expr.get();
 		
 		_.each(params, function(param, i)
 		{
-			this.inputNodes[i].signal(this.pushedValues[i].pop());
+			this.inputNodes[i].set(this.pushedValues[i].pop());
 		}, this);
 		
 		return result;

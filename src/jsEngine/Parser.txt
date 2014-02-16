@@ -1,10 +1,13 @@
 start "start" = 
   "functions " _ func:Function {return func;}
-/ "actions " _ typeAndId:MaybeTypeAndId  _ ":" _ action:Action
+/ "actions " _ id:Id _ params:("(" _ params:ParamsDecl _")" {return params})? _ ":" _ action:Action
 	{
 		var a = action;
-		a.id = typeAndId.id;
-		a.slotType = typeAndId.type;
+		a.id = id;
+		if(params != null)
+		{
+			a.params = params;
+		}
 		return a;
 	}
 / "nodes " _ node:Node {return node;}

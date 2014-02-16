@@ -434,7 +434,8 @@ function makeRandom()
 			var val =  Math.floor(Math.random() * this.max.get());
 			for(var i = 0; i < this.slots.length; i++)
 			{
-				this.slots[i].signal(val);
+				// TODO gerer autre chose que store ?
+				this.slots[i].set(val);
 			}
 		};
 		this.getType = function()
@@ -925,10 +926,10 @@ function FunctionNode(func)
 	this.fields = func.params;
 	var paramsSpec = func.params;
 	var fieldsSpec = this.fields;
-	this.builder = function(fields) 
+	this.builder = function(f) 
 	{	
 		var params = Array(paramsSpec.length)
-		this.sinks = [];
+		var fields = f
 
 		_.each(fields, function(field, key)
 		{
@@ -939,7 +940,6 @@ function FunctionNode(func)
 			{
 				field.setTemplateParams(func.templates);
 			}
-			field.addSink(this);
 		}, this);
 		this.get = function()
 		{
@@ -957,15 +957,11 @@ function FunctionNode(func)
 		}
 		this.addSink = function(sink)
 		{
-			this.sinks.push(sink);
-		};
-		this.dirty = function()
-		{
-			_.each(this.sinks, function(sink)
+			_.each(fields, function(field)
 			{
-				sink.dirty()
+				field.addSink(sink);
 			});
-		};
+		};		
 	}
 }
 
@@ -1238,7 +1234,7 @@ function Send(slots, param) {
 		var val = this.param.get();
 		for(var i = 0; i < this.slots.length; i++)
 		{
-			this.slots[i].signal(val);
+			this.slots[i].set(val);
 		}
     };
 }

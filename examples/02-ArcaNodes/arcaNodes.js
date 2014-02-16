@@ -230,21 +230,20 @@ $.get( "arcaNodes.nodes", function( text ) {
 	var monstersView = [];
 	var mazeTag = 0;
 	
-	tick.onValue(function(t){
-		code.tick.signal();
+	function Sink(source, func)
+	{
+		this.source = source;
+		this.func = func;
+		this.source.addSink(this);
 		
-		animate(manImage, facing.get());
-		manImage.attr({x : manPos.get().x - manSize * .5, y : manPos.get().y  - manSize * .5});
-		manImage.attr({src : "http://madkoder.esy.es/images/manLeft-" + (Math.floor(animState.get() * 2 / maxAnimState.get())+ 1) + ".png"})
-		// manImage.animate(
-		// {
-			// params : {src : "file:///E:/Python/Nodes/HtmlNodes/08-ArcaNodes/manLeft-" + (Math.floor(animState.get() * 2 / maxAnimState.get())+ 1) + ".png"},
-			// ms : 10
-		// });
-
-		bulletsView = updateBulletView(bullets.get(), bulletsView);
-		monstersView = updateMonsterView(monsters.get(), monstersView)
-		
+		this.dirty = function()
+		{
+			func();
+		}
+	}
+	
+	var mazeSink = new Sink(code.maze, function()
+	{
 		var mazeDeltas = code.maze.getDeltas(mazeTag);
 		mazeTag = code.maze.tag;
 		
@@ -282,6 +281,27 @@ $.get( "arcaNodes.nodes", function( text ) {
 				}
 			});
 		});
+	});
+	
+	var mazeLengthSink = new Sink(code.mazeLength, function()
+	{
+		console.log("maze length changed");
+	});
+	
+	tick.onValue(function(t){
+		code.tick.signal();
+		
+		animate(manImage, facing.get());
+		manImage.attr({x : manPos.get().x - manSize * .5, y : manPos.get().y  - manSize * .5});
+		manImage.attr({src : "http://madkoder.esy.es/images/manLeft-" + (Math.floor(animState.get() * 2 / maxAnimState.get())+ 1) + ".png"})
+		// manImage.animate(
+		// {
+			// params : {src : "file:///E:/Python/Nodes/HtmlNodes/08-ArcaNodes/manLeft-" + (Math.floor(animState.get() * 2 / maxAnimState.get())+ 1) + ".png"},
+			// ms : 10
+		// });
+
+		bulletsView = updateBulletView(bullets.get(), bulletsView);
+		monstersView = updateMonsterView(monsters.get(), monstersView)
 	});
 }
 , "text" // Commenter pour lire du json

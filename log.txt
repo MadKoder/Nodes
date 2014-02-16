@@ -48,3 +48,7 @@
 
 15/2 : Implementation de la syntaxe "upadate ... with ...", et de la syntaxe "on" .. "in" (application d'actions sur une liste)
 	Ajout d'un ensemble source/sinks/dirty.
+	
+16/2 : Renommage de Store.signal en Store.set (ainsi que pour les autres types de Store)
+	Syntaxe des parametres d'action == parametres de fonctions.
+	Plus de sinks dans tous les nodes, seulement dans les stores, et remontee de tous les addSink vers les store, comme cela seul les nodes ayant reellement besoin d'etre notifies le seront (comme les Events/Reactions)

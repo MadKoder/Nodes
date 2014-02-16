@@ -87,14 +87,14 @@ nodes:
 	var asciiMaze : [
 			"   *                       *  ",
 			"   *d******d******d**d***  *  ",
-			"*d**    *        *  *   *     ",
+			"*d**    *    d   *  *   *  d  ",
 			"   **d*d*d*  *   *  *   *****d",
-			"      * * *  * ***  *   *     ",
-			"      *   *  *              * ",
-			"d****d******d*  *   *   * ****",
-			"   *         *                ",
-			"**d***  *  **** *   *   *   * ",
-			"        *         *   *   *   "]
+			"      * * *  *d***  ***d*  *  ",
+			"      *   *  *                ",
+			"d****d******d*  *   *   *   * ",
+			"   *         **   *   *   *   ",
+			"   ****d*d****  *   *   *   * ",
+			"   d    *                     "]
 	var leftKeyCode : 37
 	var rightKeyCode : 39
 	var upKeyCode : 38
@@ -139,6 +139,7 @@ nodes:
 	var maxMonsters : 20
 	var tickCounter : 0
 	def freeCells : flatten([[Vec2(i, j) for cell, j in column when (cell == 0)] for column, i in maze])
+	def mazeLength : length(maze)
 actions :
 	tick : 
 		if upPressed || downPressed || leftPressed || rightPressed then :
@@ -219,7 +220,7 @@ actions :
 		
 		tickCounter = tickCounter + 1
 #		if mod(tickCounter, 400) == 0 then maxMonsters = maxMonsters + 1
-	Int keyDown:
-		keysPressed = [if i == keyDown then true else k for k, i in keysPressed]
-	Int keyUp:
-		keysPressed = [if i == keyUp then false else k for k, i in keysPressed]
+	keyDown(int key):
+		keysPressed = [if i == key then true else k for k, i in keysPressed]
+	keyUp(int key):
+		keysPressed = [if i == key then false else k for k, i in keysPressed]
