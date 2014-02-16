@@ -91,16 +91,18 @@ $.get( "arcaNodes.nodes", function( text ) {
 
     var bounds = code.bounds.get();
 	var r = Raphael("game", bounds.size.x + 50, bounds.size.y + 50);
-	r.rect(0, 0, bounds.size.x, bounds.size.y).attr("fill", "black");
+	//r.rect(0, 0, bounds.size.x, bounds.size.y).attr("fill", "black");
 	
 	var cellSize = code.cellSize.get();
 	var cellView = [];
 	var maze = code.maze.get();
+	var mazeGroup = r.setStart()
 	_.each(maze, function(column, i){
 		cellView[i] = [];
 		_.each(column, function(block, j)
 		{
 			var rect = r.rect(i * cellSize, j * cellSize, cellSize, cellSize);
+			//mazeGroup.push(rect);
 			cellView[i].push({view : rect, model : block});
 		
 			if(block > 0)
@@ -120,6 +122,7 @@ $.get( "arcaNodes.nodes", function( text ) {
 			}
 		});
 	});
+	r.setFinish();
 	
 	// var manImage = r.image("manLeft-1.png", 0, 0, 32, 32);
 	var manImage = r.image("http://madkoder.esy.es/images/manLeft-1.png", 0, 0, 32, 32);
@@ -191,19 +194,22 @@ $.get( "arcaNodes.nodes", function( text ) {
 	
 	function createMonster(model)
 	{
-		var monster = r.image("http://madkoder.esy.es/images/monsterLeft-1.png", model.pos.x - 16, model.pos.y - 16, 32, 32);
+		var monster = r.image("http://madkoder.esy.es/images/monsterLeft-1.png", 0, 0, 32, 32);
 		return monster;
 	}
 	
 	function updateMonster(model, view)
 	{
+		// view.attr({
+			// x : model.pos.x - 16,
+			// y : model.pos.y - 16,
+			// src : "http://madkoder.esy.es/images/monsterLeft-" + (Math.floor(model.animState * 2 / maxAnimState.get())+ 1) + ".png"
+		// });
 		view.attr({
-			x : model.pos.x - 16,
-			y : model.pos.y - 16,
-			//src : "monsterLeft-" + (Math.floor(model.animState * 2 / maxAnimState.get())+ 1) + ".png"
 			src : "http://madkoder.esy.es/images/monsterLeft-" + (Math.floor(model.animState * 2 / maxAnimState.get())+ 1) + ".png"
-			
 		});
+		var str = "T" + (model.pos.x - 16).toString() + "," + (model.pos.y - 16).toString();
+		view.transform(str);
 	}
 	
 	var updateMonsterView = makeViewUpdater(createMonster, updateMonster, deleteElement);
@@ -288,12 +294,23 @@ $.get( "arcaNodes.nodes", function( text ) {
 		console.log("maze length changed");
 	});
 	
+	$lifes = $('#lifes')
+	$lifes.html(code.lifes.get());
+	var lifesSink = new Sink(code.lifes, function()
+	{
+		$lifes.html(code.lifes.get());
+	});
+	
 	tick.onValue(function(t){
 		code.tick.signal();
 		
 		animate(manImage, facing.get());
 		manImage.attr({x : manPos.get().x - manSize * .5, y : manPos.get().y  - manSize * .5});
 		manImage.attr({src : "http://madkoder.esy.es/images/manLeft-" + (Math.floor(animState.get() * 2 / maxAnimState.get())+ 1) + ".png"})
+		if(code.invincibleCounter.get() % 16 > 8)
+			manImage.hide();
+		else
+			manImage.show();
 		// manImage.animate(
 		// {
 			// params : {src : "file:///E:/Python/Nodes/HtmlNodes/08-ArcaNodes/manLeft-" + (Math.floor(animState.get() * 2 / maxAnimState.get())+ 1) + ".png"},

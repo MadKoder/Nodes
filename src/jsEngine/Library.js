@@ -666,12 +666,18 @@ var functions =
 		inOut1("bool", "bool")
 	),
 	"mod" : mff2(function (x, y) {return (x + y) % y;}), // On ne veut pas de nombre negatif
+	"min" : mff2(function (x, y) {return x > y ? y : x;}), 
+	"max" : mff2(function (x, y) {return x < y ? y : x;}), 
 	"clamp" : mff3(function (x, min, max) {return x < min ? min : x > max ? max : x}),
+	"abs" : mff1(function (x) 
+	{
+		return Math.abs(x);
+	}),
 	"round" : mff1(function (x) 
 	{
 		return Math.floor(x + .5);
-	}) // TODO type "int"
-	, "floor" : mff1(function (x){return Math.floor(x);}), 
+	}),
+	"floor" : mff1(function (x){return Math.floor(x);}), 
 	"concat" : mtf2
 	(
 		function(first, second) // The function
@@ -1050,7 +1056,7 @@ var nodes =
 			var first = fields.first;
 			var second = fields.second;
 			var third = fields.third;
-			this.sinks = [];
+			
 			this.get = function()
 			{
 				if(first.get())
@@ -1064,14 +1070,9 @@ var nodes =
 			};
 			this.addSink = function(sink)
 			{
-				this.sinks.push(sink);
-			};
-			this.dirty = function()
-			{
-				_.each(this.sinks, function(sink)
-				{
-					sink.dirty()
-				});
+				first.addSink(sink);
+				second.addSink(sink);
+				third.addSink(sink);
 			};
 		}
 	},

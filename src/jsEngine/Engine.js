@@ -37,7 +37,7 @@ function isRef(v)
 
 function getId(node)
 {
-	return "id" in node ? node.id : (("def" in node) ? node.def : ("var" in node ? node["var"] : node["const"]))
+	return "id" in node ? node.id : (("def" in node) ? node.def : ("var" in node ? node["var"] : node["cache"]))
 }
 
 function getBaseType(type)
@@ -133,21 +133,26 @@ function Store(v, type)
 	this.set = function(val)
 	{
 		this.val = val;
+		this.dirty();
+	};
+	
+	this.dirty = function()
+	{
 		_.each(this.sinks, function(sink)
 		{
 			sink.dirty()
 		});
-	};
+	}
 	
 	this.addSink = function(sink)
 	{
 		this.sinks.push(sink);
 	};
 	
-	
 	this.signalStored = function(signal, params)
 	{
-		operators.signal(this.val, signal, params)
+		operators.signal(this.val, signal, params);
+		this.dirty();
 	};
 	
 	this.addDelta = function(delta)
@@ -174,6 +179,55 @@ function Store(v, type)
 		
 		return [];
 	}
+	
+	this.getType = function()
+	{
+		return this.type;
+	}
+}
+
+function Cache(node) 
+{
+	this.node = node;
+	this.val = node.get();
+	this.type = node.getType();
+	
+	this.node.addSink(this);
+	this.isDirty = false;
+
+	if(this.type != null)
+	{
+		var baseType = getBaseType(this.type);
+		var templates = getTemplates(this.type);
+		var typeObj = (templates.length > 0) ? 
+			library.nodes[baseType].getInstance(templates) :
+			library.nodes[this.type];
+		if(typeObj != undefined && "operators" in typeObj)
+		{
+			var operators = typeObj.operators;
+			//this.signalOperator = operators.signal;
+		}
+	}
+	
+	this.get = function()
+	{
+		if(this.isDirty)
+		{
+			this.val = this.node.get();
+			this.isDirty = false;
+		}
+		return this.val;
+	};
+
+	this.dirty = function()
+	{
+		this.isDirty = true;
+	}
+	
+	this.addSink = function(sink)
+	{
+		this.node.addSink(sink);
+	};
 	
 	this.getType = function()
 	{
@@ -469,7 +523,7 @@ function Comprehension(nodeGraph, externNodes)
 	
 	this.addSink = function(sink)
 	{
-		_.each(this.arrays, function(array){array.addSink(this);});
+		_.each(this.arrays, function(array){array.addSink(sink);});
 	};
 }
 
@@ -543,6 +597,7 @@ function StructAccess(node, path) {
 			this.setPathOperator = operators.setPath;
 		}
 		this.setPathOperator(struct, this.path, val);
+		this.node.dirty();
 	};
 	
 	this.getType = function()
@@ -968,6 +1023,9 @@ function makeNode(nodeGraph, nodes, connectionsGraph)
 		{
 			// TODO : virer les dependances du node
 			node = new Store(node.get(), node.getType());
+		} else if("cache" in nodeGraph)
+		{
+			node = new Cache(node);
 		}
 		
 		if("slots" in nodeGraph)
@@ -1278,11 +1336,9 @@ function makeAction(actionGraph, nodes, connections)
 			);
 		}
 		
-		var filter = null;
 		if("filter" in actionGraph)
 		{
-			filter = makeExpr(actionGraph.filter, localNodes);
-			return new CondUpdate(iterated, itRef, indexStore, action, filter);
+			return new CondUpdate(iterated, itRef, indexStore, action, makeExpr(actionGraph.filter, localNodes));
 		}
 
 		return new Update(iterated, itRef, indexStore, action);
@@ -1334,14 +1390,11 @@ function makeAction(actionGraph, nodes, connections)
 	
 	// Les generateurs (les <-) sont transformes en Store, 
 	// qui sont alimentes au debut de l'actionGraph
-	var msgProducers = [];
-	var msg = false;
+	var generators = [];
 	function makeGenerators(val)
 	{
 		if(_.isObject(val) && ("msg" in val))
 		{
-			msg = true;
-			
 			var producerGraph = _.cloneDeep(val);
 			producerGraph.type = producerGraph.msg;
 			var msgProducer = makeNode(producerGraph, nodes, {});
@@ -1349,7 +1402,7 @@ function makeAction(actionGraph, nodes, connections)
 			msgProducer.slots = [msgStore];
 			var producerName = "__msgProducer" + msgIndex;
 			nodes[producerName] = msgProducer;
-			msgProducers.push(producerName);
+			generators.push(producerName);
 
 			var storeName = "__msgStore" + msgIndex;
 			if("def" in val)
@@ -1379,9 +1432,9 @@ function makeAction(actionGraph, nodes, connections)
 	
 
 	// S'il y a des generateurs, on insere leur activation au debut
-	if(msg)
+	if(generators.length > 0)
 	{
-		actionGraph = concatActions(msgProducers, actionGraph);
+		actionGraph = concatActions(generators, actionGraph);
 	}
 	
 	function getSlotsFromGraph(actionGraph)

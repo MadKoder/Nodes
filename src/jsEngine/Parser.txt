@@ -17,7 +17,7 @@ start "start" =
 		return struct;
 	}
 Node =
-	defOrVar:DefOrVar? _ typeAndId:MaybeTypeAndId _ 
+	defVarCache:DefVarCache? _ typeAndId:MaybeTypeAndId _ 
 		val:(Affect _ val:Val {return val;})? _
 		slots:("(" _ "->" _ slots:Slots  _ ")" {return slots;})?
 	{
@@ -35,13 +35,17 @@ Node =
 			if(typeAndId.type != null)
 				node.type = typeAndId.type;
 		}
-		if(defOrVar == null || defOrVar == "def")
+		if(defVarCache == null || defVarCache == "def")
 		{
 			node.def = typeAndId.id;
 		}
-		else
+		else if(defVarCache == "var")
 		{
 			node.var = typeAndId.id;
+		}
+		else
+		{
+			node.cache = typeAndId.id;
 		}
 		if(slots != null)
 		{
@@ -107,9 +111,10 @@ Vars =
 		return [head].concat(tail);
 	}
 	
-DefOrVar = 
+DefVarCache = 
   "def"
   / "var"
+  / "cache"
 
 Function =
 	typeAndId:MaybeTypeAndId _ templates:("<" _ t:Templates _ ">" _ {return t;})? _

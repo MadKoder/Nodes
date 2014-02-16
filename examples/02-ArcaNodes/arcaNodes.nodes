@@ -32,7 +32,7 @@ functions:
 	addVec2(Vec2 v0, Vec2 v1):
 		Vec2(v0.x + v1.x, v0.y + v1.y)
 	inRect(Vec2 v, Rect r):
-		(v.x >= r.pos.x) && (v.y >= r.pos.y) && (v.x <= (r.pos.x + r.size.x - 1)) && (v.y <= (r.pos.y + r.size.y - 1))
+		(v.x >= r.pos.x) && (v.y >= r.pos.y) && (v.x < (r.pos.x + r.size.x)) && (v.y < (r.pos.y + r.size.y))
 	occupiedCells(Bounds b, int cellSize):
 		top : floor(b.topLeft.y / cellSize)
 		left : floor(b.topLeft.x / cellSize)
@@ -53,9 +53,13 @@ structs:
 			loc isIn = inRect(newPos, innerBounds)
 			loc cells = occupiedCells(monsterBounds(newPos), cellSize)
 			loc canMove = none([at(at(maze, cell.x), cell.y) != 0 for cell in cells])
-			if isIn && canMove then self.pos = newPos else self.facing = intToFacing(mod(facingToInt(self.facing) + newDir, 4)) 
+			if isIn && canMove 
+				then self.pos = newPos 
+				else self.facing = intToFacing(mod(facingToInt(self.facing) + newDir, 4)) 
 			self.animState = mod(self.animState + 1, maxAnimState) 
 functions:
+	collision(Vec2 pos, Monster m):
+		abs(pos.x - m.pos.x) < 25 && abs(pos.y - m.pos.y) < 25
 	monsterBounds(Vec2 pos):
 		Bounds(addVec2(pos, Vec2(-16, -16)), addVec2(pos, Vec2(16, 16)))
 	eqVec2(Vec2 v0, Vec2 v1):
@@ -101,11 +105,11 @@ nodes:
 	var downKeyCode : 40
 	var spaceKeyCode : 32
 	var keysPressed : [false for x in [0..64]]
-	def leftPressed : at(keysPressed, leftKeyCode)
-	def rightPressed : at(keysPressed, rightKeyCode)
-	def upPressed : at(keysPressed, upKeyCode)
-	def downPressed : at(keysPressed, downKeyCode)
-	def spaceBarPressed : at(keysPressed, spaceKeyCode)
+	cache leftPressed : at(keysPressed, leftKeyCode)
+	cache rightPressed : at(keysPressed, rightKeyCode)
+	cache upPressed : at(keysPressed, upKeyCode)
+	cache downPressed : at(keysPressed, downKeyCode)
+	cache spaceBarPressed : at(keysPressed, spaceKeyCode)
 	var moveSpeed : 2
 	var facing : "left"
 	var maxAnimState : 10
@@ -129,17 +133,19 @@ nodes:
 	var list<Bullet> bullets
 	var bulletSize : 0.5
 	var bulletSpeed : 4
-	def speedVector : if facing == "up" then Vec2(0, 0-bulletSpeed) else if facing == "down" then Vec2(0, bulletSpeed) else if facing == "left" then Vec2(0-bulletSpeed, 0) else Vec2(bulletSpeed, 0)
+	cache speedVector : if facing == "up" then Vec2(0, 0-bulletSpeed) else if facing == "down" then Vec2(0, bulletSpeed) else if facing == "left" then Vec2(0-bulletSpeed, 0) else Vec2(bulletSpeed, 0)
 	var bulletStart : Vec2(12, 0)
 	var bulletMinRefresh : 20
 	var bulletRefresh : 0
 	var list<Monster> monsters
 	var alone : makeMonster(Vec2((0 * cellSize) + 16, (0 *  cellSize) + 16), "right")
-	def newMonsters : pushFront(monsters, alone)
+	cache newMonsters : pushFront(monsters, alone)
 	var maxMonsters : 20
 	var tickCounter : 0
-	def freeCells : flatten([[Vec2(i, j) for cell, j in column when (cell == 0)] for column, i in maze])
-	def mazeLength : length(maze)
+	cache freeCells : flatten([[Vec2(i, j) for cell, j in column when (cell == 0)] for column, i in maze])
+	cache mazeLength : length(maze)
+	var lifes : 3
+	var invincibleCounter : 0
 actions :
 	tick : 
 		if upPressed || downPressed || leftPressed || rightPressed then :
@@ -175,14 +181,13 @@ actions :
 		if spaceBarPressed && bulletRefresh == 0 then :
 			bullets = pushFront(bullets, Bullet(addVec2(manPos, bulletStart), bulletSize, speedVector))
 			bulletRefresh = bulletMinRefresh
-		if bulletRefresh > 0 then :
-			bulletRefresh = bulletRefresh - 1
+		bulletRefresh = max(bulletRefresh - 1, 0)
 		
 		update bullet in bullets 
 			with bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
 			filter inRect(bullet.pos, bounds)
-		
-		foreach monsters move(innerBounds, cellSize, maze, maxAnimState)
+
+		# foreach monsters move(innerBounds, cellSize, maze, maxAnimState)
 		alone.move(innerBounds, cellSize, maze, maxAnimState)
 		
 		loc monstersBounds = [monsterBounds(monster.pos) for monster in monsters]
@@ -219,6 +224,13 @@ actions :
 					)
 		
 		tickCounter = tickCounter + 1
+		
+		if invincibleCounter == 0 && length([true for monster in monsters when collision(manPos, monster)]) > 0 then:
+			lifes = lifes - 1
+			invincibleCounter = 100
+			
+		invincibleCounter = max(invincibleCounter - 1, 0)
+		
 #		if mod(tickCounter, 400) == 0 then maxMonsters = maxMonsters + 1
 	keyDown(int key):
 		keysPressed = [if i == key then true else k for k, i in keysPressed]
