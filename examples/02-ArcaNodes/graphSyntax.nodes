@@ -1,0 +1,85 @@
+
+struct Obj:
+	state : State
+	pos : Matrix
+	subs :
+		Leaf :
+			subs :
+				Cube :
+					size : Vec3
+				Circle : 
+					radius : float
+		Group :
+			children : list<Obj>
+			
+list<Leaf>	getLeaves(Obj obj):
+	type obj:
+		Group : flatten([getLeaves(child) for child in obj.children])
+		Leaf : [obj]
+		
+Group root
+leaves = [obj for obj in getLeaves(root) when obj is Leaf]
+
+list<Leaf>	getLeavesAndState(Ojb obj, State parentState):
+	let
+		accumState = accum(obj.state, parentState)
+	in
+		typeof obj:
+			Group : flatten([getLeavesAndState(child, accumState) for child in obj.children])
+			Leaf : [(obj, accumState)]
+			
+-> depends : 
+	obj.state
+	parentState
+	
+group
+	cube
+	
+[
+	(
+		group.children[0] ::  
+		[
+			group.children, 
+			group.children[0],
+			group.children[0].state
+		],
+		accum(group.children[0].state, accum(group.state, parentState)) ::
+		[
+			parentState,
+			group.state,
+			group.children[0].state
+		]
+	)
+]
+
+list<Leaf>	getLeavesAndPath(Obj obj, list<int> path):
+	typeof obj:
+		Group : flatten([getLeavesAndPath(child, path::i) for child, i in obj.children])
+		Leaf : [(obj, path)]
+			
+[(cube, [0])]
+
+states :
+	Group g Leaf l -> (l, accumState(l.state, states(g))
+
+Group root
+State	initState
+leavesAndStates = getLeavesAndState(root, initState)
+
+Obj setAllCubesToRed(Obj obj):
+	type obj:
+		Cube : obj \ obj.state.color = red
+		Group : obj \ children = [setAllCubesToRed(child) for child in obj.children]
+		_ : obj
+		
+setAllCubesToRed(ref Obj obj):
+	type obj:
+		Cube : obj.state.color = red
+		Group : 
+			on child in obj.children apply
+				setAllCubesToRed(child)
+		_ : _
+
+
+
+		

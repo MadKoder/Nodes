@@ -1,0 +1,10 @@
+match maze change:
+	pushFront, pushBack : mazeLength = mazeLength + 1
+	set(val, i) :
+	_ : mazeLength = maze.length
+		
+
+deltas d of maze
+
+		
+			

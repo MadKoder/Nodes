@@ -144,6 +144,7 @@ nodes:
 	var tickCounter : 0
 	cache freeCells : flatten([[Vec2(i, j) for cell, j in column when (cell == 0)] for column, i in maze])
 	cache mazeLength : length(maze)
+	# cache mazeLength : maze.length
 	var lifes : 3
 	var invincibleCounter : 0
 actions :
@@ -187,7 +188,7 @@ actions :
 			with bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
 			filter inRect(bullet.pos, bounds)
 
-		# foreach monsters move(innerBounds, cellSize, maze, maxAnimState)
+		foreach monsters move(innerBounds, cellSize, maze, maxAnimState)
 		alone.move(innerBounds, cellSize, maze, maxAnimState)
 		
 		loc monstersBounds = [monsterBounds(monster.pos) for monster in monsters]

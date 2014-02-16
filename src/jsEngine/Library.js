@@ -606,7 +606,7 @@ var functions =
 	(
 		function(list) // The function
 		{	
-			return _.flatten(list);
+			return _.flatten(list, true);
 		},
 		function(template) // Input and output types
 		{
