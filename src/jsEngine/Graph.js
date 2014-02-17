@@ -334,8 +334,11 @@ function makeValStr(lines, i, state)
 				openBraces++;
 			} else if(currentIndent < previousIndent && addBraces[deltaIndent + 1])
 			{
-				valStr += ")";
-				openBraces--;
+				for(var i = currentIndent; i < previousIndent; i++)
+				{
+					valStr += ")";
+					openBraces--;
+				}
 			}
 			if(currentIndent <= previousIndent && addBraces[deltaIndent])
 				valStr += ",";
@@ -391,6 +394,9 @@ function codeToGraph(code, library, parser)
 		} else if(/events\s*:/.test(line))
 		{
 			state = "events"
+		}  else if(/trees\s*:/.test(line))
+		{
+			state = "trees"
 		} 
 		else
 		{
@@ -432,6 +438,8 @@ function codeToGraph(code, library, parser)
 					structsAndFuncs.push({"func" : parsed});
 				else if(state == "structs")
 					structsAndFuncs.push({"struct" : parsed});
+				else if(state == "trees")
+					structsAndFuncs.push({"tree" : parsed});
 				else if(state == "events")
 					events.push(parsed)
 				else if(state == "nodes")

@@ -527,6 +527,71 @@ function Comprehension(nodeGraph, externNodes)
 	};
 }
 
+function Select(nodeGraph, externNodes)
+{
+	this.nodes = {};
+	
+	// TODO  connections
+	var rootNode = makeNode(nodeGraph.select, externNodes);
+	var selectors = _.map(nodeGraph.selectors, function(selector)
+	{
+		var type = selector.type;
+		var elementStore = new Store(null, type);
+		var newNodes = {};
+		newNodes[selector["id"]] = elementStore;
+		var mergedNodes = _.merge(_.clone(externNodes), newNodes);
+		var val = makeExpr(selector.val, mergedNodes);
+		return	{
+			"type" : type,
+			"elementStore" : elementStore,
+			"val" : val
+		};
+	});
+	
+	this.get = function()
+	{
+		var root = rootNode.get();
+				
+		function select(val)
+		{
+			var type = val.__type;
+			for(var i = 0; i < selectors.length; ++i)
+			{
+				var selector = selectors[i];
+				if(selector.type == type)
+				{
+					selector.elementStore.set(val);
+					return [selector.val.get()];
+				}
+			}
+			return [];
+		}
+		
+		var ret = select(root);
+		
+		if("__children" in root)
+		{
+			ret = _.reduce(root.__children, function(accum, val)
+			{
+				return accum.concat(select(val));
+			}, ret);
+		}
+		
+		return ret;
+	};
+	
+	this.getType = function(path)
+	{
+		// TODO check all selectors have same return type
+		return makeTemplate("select", [selectors[0].val.getType()]);
+	}
+	
+	this.addSink = function(sink)
+	{
+		rootNode.addSink(sink);
+	};
+}
+
 function getNode(name, nodes)
 {
 	var node = nodes[name];
@@ -990,6 +1055,10 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 	{
 		var node = new Comprehension(expr, nodes);
 		return {val : node, type : "comprehension"};
+	} else if("select" in expr)
+	{
+		var node = new Select(expr, nodes);
+		return {val : node, type : "select"};
 	}
 }
 
@@ -1576,10 +1645,25 @@ function makeAction(actionGraph, nodes, connections)
 	}
 }
 
-function makeStruct(structGraph, name, inheritedFields)
+function makeStruct(structGraph, name, inheritedFields, groupComponentName)
 {
-	var fieldsGraph = inheritedFields.concat(structGraph.fields);
+	var fieldsGraph = inheritedFields.concat(structGraph.fields ? structGraph.fields : []);
 	
+	if(groupComponentName)
+	{
+		fieldsGraph.unshift
+		(
+			[
+			   "__children",
+			   {
+				  "base": "list",
+				  "templates": [
+					 groupComponentName
+				  ]
+			   }
+			]
+		);
+	}
 	var fieldsOperators = {}
 	for(var i = 0; i < fieldsGraph.length; i++)
 	{
@@ -1719,17 +1803,20 @@ function makeStruct(structGraph, name, inheritedFields)
 		}
 	}
 	
-	
-	
-	var subs = structGraph.subs;
-	if(subs)
+	function makeSubs(subs, groupComponentName)
 	{
-		for(var i = 0; i < subs.length; i++)
+		if(subs)
 		{
-			var subStructGraph = subs[i];
-			makeStruct(subStructGraph, subStructGraph.name, fieldsGraph);
+			for(var i = 0; i < subs.length; i++)
+			{
+				var subStructGraph = subs[i];
+				makeStruct(subStructGraph, subStructGraph.name, fieldsGraph, groupComponentName);
+			}
 		}
 	}
+	makeSubs(structGraph.subs);
+	makeSubs(structGraph.groups, structGraph.name);
+	makeSubs(structGraph.leaves);
 }
 
 function Transmitter(slots) 
@@ -2151,8 +2238,15 @@ function compileGraph(graph, lib, previousNodes)
 			}
 			else
 			{
-				var structGraph = structsAndfuncsGraph[i].struct;
-				makeStruct(structGraph, structGraph.name, []);
+				if("struct" in structsAndfuncsGraph[i])
+				{
+					var structGraph = structsAndfuncsGraph[i].struct;
+					makeStruct(structGraph, structGraph.name, []);
+				} else // tree
+				{
+					var treeGraph = structsAndfuncsGraph[i].tree;
+					makeStruct(treeGraph, treeGraph.name, []);
+				} 
 			}
 		}
 	}

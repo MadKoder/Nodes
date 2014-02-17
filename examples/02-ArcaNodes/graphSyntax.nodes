@@ -20,7 +20,7 @@ list<Leaf>	getLeaves(Obj obj):
 Group root
 leaves = [obj for obj in getLeaves(root) when obj is Leaf]
 
-list<Leaf>	getLeavesAndState(Ojb obj, State parentState):
+list<(Leaf, State)>	getLeavesAndState(Obj obj, State parentState):
 	let
 		accumState = accum(obj.state, parentState)
 	in
@@ -52,23 +52,54 @@ group
 	)
 ]
 
-list<Leaf>	getLeavesAndPath(Obj obj, list<int> path):
+list<(Leaf, list<int>)>	getLeavesAndPath(Obj obj, list<int> path):
 	typeof obj:
 		Group : flatten([getLeavesAndPath(child, path::i) for child, i in obj.children])
 		Leaf : [(obj, path)]
 			
 [(cube, [0])]
 
-states :
-	Group g Leaf l -> (l, accumState(l.state, states(g))
+list<Leaf>	getLeavesAndState(Obj root, State startState):
+	select root :
+		Leaf l, path : (l, reduce(mapField("state", path), accumState, startState))
 
+Select =
+	"select " _ id:Var _ ":" _"(" _ selectors:Selectors _ ")" _
+	{
+		return {
+			select : id,
+			selectors : selectors
+		}
+	}
+
+Selectors = 
+	head:Selector _ tail:(_ "," _ s:Selector {return s})* 
+   {
+      return [head].concat(tail);
+   }
+		
+Selector =
+	type:Id _ id:Id _ path:("," _ path:Id)? _ ":" _ val:Val 
+	{
+		var ret = {
+			type : type,
+			id : id,
+			val : val
+		};
+		if(path)
+		{
+			ret.path = path;
+		}
+		return ret;
+	}
+	
 Group root
 State	initState
 leavesAndStates = getLeavesAndState(root, initState)
 
 Obj setAllCubesToRed(Obj obj):
 	type obj:
-		Cube : obj \ obj.state.color = red
+		Cube : obj \ state.color = red
 		Group : obj \ children = [setAllCubesToRed(child) for child in obj.children]
 		_ : obj
 		
@@ -80,6 +111,11 @@ setAllCubesToRed(ref Obj obj):
 				setAllCubesToRed(child)
 		_ : _
 
-
-
+setAllCubesToRed(ref Obj root):
+	on select root apply:
+		Cube : state.color = red
+		
+setAllObjToRed(ref Obj root):
+	on select root apply:
+		* : state.color = red
 		

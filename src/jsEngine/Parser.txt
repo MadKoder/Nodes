@@ -16,6 +16,11 @@ start "start" =
 	{
 		return struct;
 	}
+/ "trees " _ tree:Tree
+	{
+		return tree;
+	}
+	
 Node =
 	defVarCache:DefVarCache? _ typeAndId:MaybeTypeAndId _ 
 		val:(Affect _ val:Val {return val;})? _
@@ -176,6 +181,25 @@ Templates =
 
 lines = (_ v:Val _ LineTerminatorSequence {return v;})+
 
+Tree =  
+	_ id:Id  _ ":" _ "(" _ fields:(fields:FieldsDef _ "," {return fields;})? _ 
+	"groups" _ ":" _ "(" _ groups:Structs _ ")"  _
+	"," _ "leaves" _ ":" _ "(" _ leaves:Structs _ ")"  _
+	")"
+	{
+		var ret = {
+			name : id,
+			groups : groups,
+			leaves : leaves
+		}
+		if(fields != null)
+		{
+			ret.fields = fields
+		}
+		return ret;
+
+	}
+	
 Structs =  
 	head:Struct tail:( _ "," _ (struct:Struct) {return struct})* 
 	{
@@ -183,13 +207,17 @@ Structs =
 	}
 	
 Struct = 
-	_ id:Id  _ ":" _ "(" _ fieldsAndSubs:FieldsAndSubs _ ")"
+	_ id:Id  _ fieldsAndSubs:(":" _ "(" _ fieldsAndSubs:FieldsAndSubs _ ")" {return fieldsAndSubs;})?
 	{
-		return {
-			name : id,
-			fields : fieldsAndSubs.fields,
-			subs : fieldsAndSubs.subs
+		var ret = {
+			name : id
 		}
+		if(fieldsAndSubs != null)
+		{
+					ret.fields = fieldsAndSubs.fields;
+					ret.subs = fieldsAndSubs.subs;
+		}
+		return ret;
 	}
 	
 FieldsAndSubs = 
@@ -207,10 +235,11 @@ FieldsDef =
 		// le [].concat.apply(head, tail) effectue un flatten sur tail
 		// car le deuxieme param de apply est la liste des arguments
 		return [].concat.apply(head, tail);
+
 	}
- 
+
 FieldDef = 
-	!"subs" _ idList:IdList _ ":" _ type:Id
+	!"subs" _ idList:IdList _ ":" _ type:Type
 	{
 		return idList.map(function(id){
 			return [id, type];
@@ -238,6 +267,7 @@ Val =
   / "false" {return false;}
   / "[]" { return {array : []};}
   / Range
+  / Select
   / Comprehension 
   / Array 
   / Expression  
@@ -245,7 +275,37 @@ Val =
   / Var
   / Message 
   / number 
-  
+ 
+
+Select =
+	"select " _ id:Var _ ":" _"(" _ selectors:Selectors _ ")" _
+	{
+		return {
+			select : id,
+			selectors : selectors
+		}
+	}
+
+Selectors = 
+	head:Selector _ tail:(_ "," _ s:Selector {return s})* 
+   {
+      return [head].concat(tail);
+   }
+		
+Selector =
+	type:Id _ id:Id _ path:("," _ path:Id {return path;})? _ ":" _ val:Val 
+	{
+		var ret = {
+			type : type,
+			id : id,
+			val : val
+		};
+		if(path)
+		{
+			ret.path = path;
+		}
+		return ret;
+	}
   
 Array = 
 	"[" _ head:Val tail:( _ "," _ (i:Val) {return i})* _ "]"

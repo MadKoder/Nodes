@@ -1,0 +1,26 @@
+structs:
+	Vec2 :
+		x, y : float
+	Color :
+		r, g, b : float
+	State : 
+		color : Color
+trees:
+	Obj :
+		state : State
+		groups:
+			Group 
+		leaves:
+			Rect : 
+				pos, size : Vec2
+nodes:
+	var rects : [Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))]
+	# var root : Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))
+	var root : Group([Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))], State(Color(0, 0, 0)))
+	def leafStates	: select root :
+		Rect l : l.state
+actions :
+	tick : 
+		update rect in rects 
+			with rect \ size.x = rect.size.x + 0.1
+	
