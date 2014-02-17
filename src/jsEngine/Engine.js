@@ -533,12 +533,22 @@ function Select(nodeGraph, externNodes)
 	
 	// TODO  connections
 	var rootNode = makeNode(nodeGraph.select, externNodes);
+	var pathStore = null;
+	if(nodeGraph.path)
+	{
+		// TODO utiliser le type component, car le root n'est pas forcement de ce type
+		pathStore = new Store(null, makeTemplate("list", [rootNode.getType()]));
+	}
 	var selectors = _.map(nodeGraph.selectors, function(selector)
 	{
 		var type = selector.type;
 		var elementStore = new Store(null, type);
 		var newNodes = {};
 		newNodes[selector["id"]] = elementStore;
+		if(pathStore != null)
+		{
+			newNodes[nodeGraph.path] = pathStore;
+		}
 		var mergedNodes = _.merge(_.clone(externNodes), newNodes);
 		var val = makeExpr(selector.val, mergedNodes);
 		return	{
@@ -552,30 +562,37 @@ function Select(nodeGraph, externNodes)
 	{
 		var root = rootNode.get();
 				
-		function select(val)
+		function select(val, path)
 		{
 			var type = val.__type;
+			if(pathStore != null)
+			{
+				pathStore.set(path);
+			}
+			var ret = [];
 			for(var i = 0; i < selectors.length; ++i)
 			{
 				var selector = selectors[i];
 				if(selector.type == type)
 				{
 					selector.elementStore.set(val);
-					return [selector.val.get()];
+					ret.push(selector.val.get());
+					break;
 				}
 			}
-			return [];
-		}
-		
-		var ret = select(root);
-		
-		if("__children" in root)
-		{
-			ret = _.reduce(root.__children, function(accum, val)
+			
+			if("__children" in val)
 			{
-				return accum.concat(select(val));
-			}, ret);
+				ret = _.reduce(root.__children, function(accum, val)
+				{
+					return accum.concat(select(val, path.concat([val])));
+				}, ret);
+			}
+			
+			return ret;
 		}
+		
+		var ret = select(root, [root]);
 		
 		return ret;
 	};

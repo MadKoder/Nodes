@@ -867,9 +867,19 @@ var functions =
 		getTemplates : function(params)
 		{
 			var list = params[1];
-			var temp0 = getListTemplate(list.getType());			
-			var funcType = getFuncType(params[0], [temp0]);
-			return [temp0, getListTemplate(getOutType(funcType))];
+			var temp0 = getListTemplate(list.getType());	
+			if(params[0].template)
+			{
+				var tmp = new Store(null, temp0);
+				var funcTemplates = params[0].template.getTemplates([tmp]);
+				// var funcType = getFuncType(params[0], [temp0]);
+				var funcType = getFuncType(params[0], funcTemplates);
+			}
+			else
+			{
+				var funcType = params[0].getType();
+			}
+			return [temp0, getOutType(funcType)];
 		},		
 		build : function(templates)
 		{
@@ -878,14 +888,43 @@ var functions =
 				func : function(params) 
 				{	
 					var funcInstance = params[0];
-					return _.map(params[1], function(item)
+					return _.map(params[1], function(val)
 					{
 						// Il faut appeler funcInstance.func pour conserver le "this",
 						// et non pas cacher la methode func puis l'appeler seule
-						return funcInstance.func([item]);
+						return funcInstance.func([val]);
 					});
 				},
 				type : listTemp(templates[1]),
+				templates : templates
+			}
+		}
+	},
+	"reduce" : {
+		getTemplates : function(params)
+		{
+			var list = params[1];
+			var temp0 = getListTemplate(list.getType());
+			var accum = params[2];
+			var temp1 = accum.getType();
+			var funcType = getFuncType(params[0], [temp1, temp0]);
+			return [temp0, temp1];
+		},		
+		build : function(templates)
+		{
+			return {
+				params : [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , listTemp(templates[0])], ["accum", templates[1]]],
+				func : function(params) 
+				{	
+					var funcInstance = params[0];
+					return _.reduce(params[1], function(accum, val)
+					{
+						// Il faut appeler funcInstance.func pour conserver le "this",
+						// et non pas cacher la methode func puis l'appeler seule
+						return funcInstance.func([accum, val]);
+					});
+				},
+				type : templates[1],
 				templates : templates
 			}
 		}

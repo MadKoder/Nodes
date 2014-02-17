@@ -13,12 +13,18 @@ trees:
 		leaves:
 			Rect : 
 				pos, size : Vec2
+functions:
+	accumState(State accum, State state):
+		state
+	getState(Obj obj):
+		obj.state
 nodes:
+	var defaultState : State(Color(0, 0, 0))
 	var rects : [Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))]
 	# var root : Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))
 	var root : Group([Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))], State(Color(0, 0, 0)))
-	def leafStates	: select root :
-		Rect l : l.state
+	def leafStates	: select root along path :
+		Rect l : reduce(accumState, map(getState, path), defaultState)
 actions :
 	tick : 
 		update rect in rects 

@@ -278,12 +278,17 @@ Val =
  
 
 Select =
-	"select " _ id:Var _ ":" _"(" _ selectors:Selectors _ ")" _
+	"select " _ id:Var _ path:("along " _ path:Id {return path;})? _ ":" _"(" _ selectors:Selectors _ ")" _
 	{
-		return {
+		var ret = {
 			select : id,
 			selectors : selectors
-		}
+		};
+		if(path)
+		{
+			ret.path = path;
+		};
+		return ret;
 	}
 
 Selectors = 
@@ -293,17 +298,14 @@ Selectors =
    }
 		
 Selector =
-	type:Id _ id:Id _ path:("," _ path:Id {return path;})? _ ":" _ val:Val 
+	type:Id _ id:Id  _ ":" _ val:Val 
 	{
 		var ret = {
 			type : type,
 			id : id,
 			val : val
 		};
-		if(path)
-		{
-			ret.path = path;
-		}
+		
 		return ret;
 	}
   
