@@ -73,7 +73,7 @@ function List(val, templateType)
 {
 	this.list = val;
 	this.templateType = templateType;
-	this.get = function (path)
+	this.get = function()
     {
 		return this.list.map(function(item)
 		{
@@ -101,6 +101,30 @@ function List(val, templateType)
 	}
 }
 
+function Dict(val, keyType)
+{
+	this.dict = val;
+	this.keyType = keyType;
+	this.get = function()
+    {
+		return _.mapValues(this.dict, function(val)
+		{
+			return val.get();
+		});
+    }
+	
+	this.signal = function(value)
+    {
+		this.dict = value;
+    }
+	
+	this.getType = function()
+	{
+		return {base : "dict", templates : ["string", this.keyType]};
+	}
+}
+
+Dict
 function Store(v, type) 
 {
 	this.val = v;
@@ -300,6 +324,102 @@ function StoreFunctionTemplate(t)
 		// TODO : y'en a besoin ?
 	};
 	
+}
+
+function Affectation(val, paths, setPath)
+{
+	this.val = val;
+	this.paths = paths;
+	this.setPath = setPath;
+	this.affect = function(newObj)
+	{
+		var val = this.val.get();
+		for(var j = 0; j < this.paths.length; j++)
+		{
+			var path = this.paths[j];
+			this.setPath(newObj, path, val);
+		}
+	}
+}
+function CondAffectation(cond, thenAffects, elseAffects) {
+	this.cond = cond;
+	this.thenAffects = thenAffects;
+	this.elseAffects = elseAffects;
+	this.affect = function(newObj)
+	{
+		if(this.cond.get())
+		{
+			_.forEach(this.thenAffects, function(affect){affect.affect(newObj);});
+		}
+		else if(this.elseAffects != undefined)
+		{
+			_.forEach(this.elseAffects, function(affect){affect.affect(newObj);});
+		}
+	};
+}
+function Merge(what, withListGraph, nodes)
+{
+	this.what = compileRef(what, nodes).val;
+	var whatType = this.what.getType();
+	var setPath = library.nodes[whatType].operators.setPath;
+	function makeAffectations(withListGraph)
+	{
+		return withListGraph.map(function(mergeExp){
+			
+			if("cond" in mergeExp)
+			{
+				var cond = makeExpr(mergeExp.cond, nodes);
+				var affects = makeAffectations(mergeExp.affectations);
+				var elseAffects = undefined;
+				if("else" in mergeExp)
+				{
+					var elseAffects = makeAffectations(mergeExp["else"]);
+				}
+				return new CondAffectation(cond, affects, elseAffects);
+			}
+			
+			return new Affectation(makeExpr(mergeExp.val, nodes), mergeExp.paths, setPath);
+		});
+	}
+	this.withList = makeAffectations(withListGraph);
+	
+				
+	this.get = function()
+	{
+		//var obj = this.what.get();
+		// TODO methode clone sur les struct ?
+		var newObj = _.cloneDeep(this.what.get());
+		for(var i = 0; i < this.withList.length; i++)
+		{
+			_.forEach(this.withList, function(affect){affect.affect(newObj);});
+			// var mergeWith = this.withList[i];
+			// if("cond" in mergeWith && !mergeWith.cond.get())
+			// {
+				// if("else" in mergeWith)
+				// {
+				// continue;
+			// }
+			// var val = mergeWith.val.get();
+			// // var val = mergeWith.val;
+			// for(var j = 0; j < mergeWith.paths.length; j++)
+			// {
+				// var path = mergeWith.paths[j];
+				// this.setPath(newObj, path, val);
+			// }
+		}
+		return newObj;
+	}
+	
+	this.update = function(obj)
+	{
+		// TODO ameliorer
+		return this.get();
+	}
+	
+	this.getType = function()
+	{
+		return whatType;
+	}
 }
 
 function Comprehension(nodeGraph, externNodes)
@@ -815,6 +935,27 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 		if(expr.array.length > 0)
 			templateType = makeExprAndType(expr.array[0], nodes).type;
 		return {val : new List(l, templateType), type : {base : "list", templates : [templateType]}};
+	} else if("dict" in expr)
+	{
+		var d = _.mapValues(expr.dict, function(val)
+			{
+				return makeExpr(val, nodes);
+			}
+		);
+		var valType = undefined;
+		_.forOwn(d, function(val)
+		{
+			var newType = val.getType();
+			if(valType == undefined)
+			{
+				valType = newType;
+			}
+			else if(valType != newType)
+			{
+				error("Dict value types are not the same, found " + valType + " and " + newType);
+			}
+		});
+		return {val : new Dict(d, valType), type : {base : "dict", templates : ["string", valType]}};
 	} else  if("string" in expr)
 	{
 		return {val : new Store(expr.string, "string"), type : "string"};
@@ -871,9 +1012,14 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 		{
 			if(paramsGraph != undefined)
 			{
+				var fieldsSpec = nodeSpec["fields"];
+				if(paramsGraph.length < fieldsSpec.length)
+				{
+					error("Not enough params in constructor of " + type + ". Required " + fieldsSpec.length + " found " + paramsGraph.length);
+				}
 				for(var paramIndex = 0; paramIndex < paramsGraph.length; paramIndex++)
 				{
-					var paramSpec = nodeSpec["fields"][paramIndex];
+					var paramSpec = fieldsSpec[paramIndex];
 					fields[paramSpec[0]] = makeExpr(paramsGraph[paramIndex], nodes);
 				}
 			}
@@ -884,104 +1030,8 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 		return {val : node, type : expr.type};
 	} else if("merge" in expr)
 	{
-		function Affectation(val, paths, setPath)
-		{
-			this.val = val;
-			this.paths = paths;
-			this.setPath = setPath;
-			this.affect = function(newObj)
-			{
-				var val = this.val.get();
-				for(var j = 0; j < this.paths.length; j++)
-				{
-					var path = this.paths[j];
-					this.setPath(newObj, path, val);
-				}
-			}
-		}
-		function CondAffectation(cond, thenAffects, elseAffects) {
-			this.cond = cond;
-			this.thenAffects = thenAffects;
-			this.elseAffects = elseAffects;
-			this.affect = function(newObj)
-			{
-				if(this.cond.get())
-				{
-					_.forEach(this.thenAffects, function(affect){affect.affect(newObj);});
-				}
-				else if(this.elseAffects != undefined)
-				{
-					_.forEach(this.elseAffects, function(affect){affect.affect(newObj);});
-				}
-			};
-		}
-		function Merge(what, withListGraph)
-		{
-			this.what = compileRef(what, nodes).val;
-			var whatType = this.what.getType();
-			var setPath = library.nodes[whatType].operators.setPath;
-			function makeAffectations(withListGraph)
-			{
-				return withListGraph.map(function(mergeExp){
-					
-					if("cond" in mergeExp)
-					{
-						var cond = makeExpr(mergeExp.cond, nodes);
-						var affects = makeAffectations(mergeExp.affectations);
-						var elseAffects = undefined;
-						if("else" in mergeExp)
-						{
-							var elseAffects = makeAffectations(mergeExp["else"]);
-						}
-						return new CondAffectation(cond, affects, elseAffects);
-					}
-					
-					return new Affectation(makeExpr(mergeExp.val, nodes), mergeExp.paths, setPath);
-				});
-			}
-			this.withList = makeAffectations(withListGraph);
-			
-						
-			this.get = function()
-			{
-				//var obj = this.what.get();
-				// TODO methode clone sur les struct ?
-				var newObj = _.cloneDeep(this.what.get());
-				for(var i = 0; i < this.withList.length; i++)
-				{
-					_.forEach(this.withList, function(affect){affect.affect(newObj);});
-					// var mergeWith = this.withList[i];
-					// if("cond" in mergeWith && !mergeWith.cond.get())
-					// {
-						// if("else" in mergeWith)
-						// {
-						// continue;
-					// }
-					// var val = mergeWith.val.get();
-					// // var val = mergeWith.val;
-					// for(var j = 0; j < mergeWith.paths.length; j++)
-					// {
-						// var path = mergeWith.paths[j];
-						// this.setPath(newObj, path, val);
-					// }
-				}
-				return newObj;
-			}
-			
-			this.update = function(obj)
-			{
-				// TODO ameliorer
-				return this.get();
-			}
-			
-			this.getType = function()
-			{
-				return whatType;
-			}
-		}
-
 		// TODO type avec template
-		return {val : new Merge(expr.merge, expr["with"]), type : "merge"};
+		return {val : new Merge(expr.merge, expr["with"], nodes), type : "merge"};
 	} else if("let" in expr)
 	{
 		var what = expr.let;
@@ -1224,7 +1274,7 @@ function makeAction(actionGraph, nodes, connections)
 	function ListElementRef(listNode)
 	{
 		this.listNode = listNode;
-		this.type = getListTemplate(listNode.getType());
+		this.type = getListTypeParams(listNode.getType());
 		this.list = null;
 		this.index = 0;
 		
@@ -1705,18 +1755,12 @@ function makeStruct(structGraph, name, inheritedFields, groupComponentName)
 				if(_.isArray(field))
 				{
 					var fieldName = field[0];
-					if(fieldName in fieldsOperators)
+					var fieldVal = fields[fieldName];
+					if(fieldVal == undefined)
 					{
-						// Si c'est une structure utilisateur, on recupere directement la valeur
-						// this.fields[fieldName] = fields[fieldName].get();
-						// ou pas ...
-						this.fields[fieldName] = fields[fieldName];
+						error("Field " + fieldName + " not found in parameters of " + name + " constructor");
 					}
-					else 
-					{
-						// Sinon c'est le champs lui meme
-						this.fields[fieldName] = fields[fieldName];
-					}
+					this.fields[fieldName] = fieldVal;
 				}
 			};
 			this.get = function()
@@ -2063,7 +2107,7 @@ function FunctionTemplate(classGraph)
 				}
 				catch(err)
 				{
-					console.log(error)
+					console.log(err)
 					error("Type mismatch of param " + classGraph["in"][index][0] + " for function " + classGraph.id);
 				}
 			});
@@ -2324,8 +2368,16 @@ function compileGraph(graph, lib, previousNodes)
 		for(var j = 0; j < nodeRow.length; j++)
 		{
 			var nodeGraph = nodeRow[j];
-			var id = getId(nodeGraph)
-			nodes[id] = makeNode(nodeGraph, nodes, connectionsGraph);
+			var id = getId(nodeGraph);
+			//try
+			{
+				nodes[id] = makeNode(nodeGraph, nodes, connectionsGraph);
+			}
+			// catch(err) // For release version only
+			// {
+				// console.log(err);
+				// error("Cannot build node " + id);
+			// }
 			eventsDependencies[id] = [];
 			_.reduce(nodeGraph, makeAddDependencies(nodes[id]), eventsDependencies);
 		}

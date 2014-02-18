@@ -224,7 +224,7 @@ function mluf1(func1, getOutType)
 		},
 		function(type)	// Template guess from input types
 		{
-			return getListTemplate(type);
+			return getListTypeParams(type);
 		}
 	)
 }
@@ -244,7 +244,7 @@ function mllf1(func1)
 		},
 		function(type)	// Template guess from input types
 		{
-			return getListTemplate(type);
+			return getListTypeParams(type);
 		}
 	)
 }
@@ -527,9 +527,19 @@ function listTemp(temp)
 	return mt("list", [temp]);
 }
 
+function dictType(keyType, valType)
+{
+	return mt("dict", [keyType, valType]);
+}
+
 function checkList(type)
 {
 	check(getBaseType(type) == "list", "Type " + getBaseType(type) + " is not a list");
+}
+
+function checkDictType(type)
+{
+	check(getBaseType(type) == "dict", "Type " + getBaseType(type) + " is not a list");
 }
 
 function checkFuncType(type)
@@ -537,9 +547,15 @@ function checkFuncType(type)
 	check(_.isPlainObject(type) && ("inputs" in type) && ("output" in type), "Type " + getBaseType(type) + " is not a function");
 }
 
-function getListTemplate(type)
+function getListTypeParams(type)
 {
 	checkList(type);
+	return getTemplates(type)[0];
+}
+
+function getDictTypeParams(type)
+{
+	checkDictType(type);
 	return getTemplates(type)[0];
 }
 
@@ -614,7 +630,7 @@ var functions =
 		},
 		function(paramType)	// Template guess from input types
 		{
-			return getListTemplate(getListTemplate(paramType));
+			return getListTypeParams(getListTypeParams(paramType));
 		}
 	),
 	eq : mtf2
@@ -690,8 +706,8 @@ var functions =
 		},
 		function(firstType, secondType)	// Template guess from input types
 		{
-			var firstTemplate = getListTemplate(firstType);
-			var secondTemplate = getListTemplate(secondType);
+			var firstTemplate = getListTypeParams(firstType);
+			var secondTemplate = getListTypeParams(secondType);
 			checkSameTypes(firstTemplate, secondTemplate);
 			return firstTemplate;
 		}
@@ -711,7 +727,7 @@ var functions =
 		},
 		function(listType, itemType)	// Template guess from input types
 		{
-			var template = getListTemplate(listType);
+			var template = getListTypeParams(listType);
 			checkSameTypes(template, itemType);
 			return itemType;
 		}
@@ -737,7 +753,7 @@ var functions =
 			{
 				check(startType == "int", "Slice start parameter is not an int");
 				check(stopType == "int", "Slice stop parameter is not an int");
-				return getListTemplate(listType);
+				return getListTypeParams(listType);
 			}
 		),
 	"length" : mluf1
@@ -789,7 +805,7 @@ var functions =
 		},
 		function(listType, indexType)	// Template guess from input types
 		{
-			var template = getListTemplate(listType);
+			var template = getListTypeParams(listType);
 			return template;
 		}
 	),
@@ -805,8 +821,8 @@ var functions =
 		},
 		function(firstList, secondList)	// Template guess from input types
 		{
-			var firstTemplate = getListTemplate(firstList);
-			var secondTemplate = getListTemplate(secondList);
+			var firstTemplate = getListTypeParams(firstList);
+			var secondTemplate = getListTypeParams(secondList);
 			return [firstTemplate, secondTemplate];
 		}
 	),
@@ -824,7 +840,7 @@ var functions =
 		},
 		function(listType)	// Template guess from input types
 		{
-			var listTemplate = getListTemplate(listType);
+			var listTemplate = getListTypeParams(listType);
 			check(getBaseType(listTemplate) == "tuple", "List template is not a tuple : " + getBaseType(listTemplate));
 			var tupleTemplates = getTemplates(listTemplate);
 			check(tupleTemplates.length == 2, "Tuple doesn't have 2 templates : " + tupleTemplates.length);
@@ -849,9 +865,9 @@ var functions =
 		},
 		function(firstList, secondList, thirdList)	// Template guess from input types
 		{
-			var firstTemplate = getListTemplate(firstList);
-			var secondTemplate = getListTemplate(secondList);
-			var thirdTemplate = getListTemplate(thirdList);
+			var firstTemplate = getListTypeParams(firstList);
+			var secondTemplate = getListTypeParams(secondList);
+			var thirdTemplate = getListTypeParams(thirdList);
 			return [firstTemplate, secondTemplate, thirdTemplate];
 		}
 	),
@@ -867,7 +883,7 @@ var functions =
 		getTemplates : function(params)
 		{
 			var list = params[1];
-			var temp0 = getListTemplate(list.getType());	
+			var temp0 = getListTypeParams(list.getType());	
 			if(params[0].template)
 			{
 				var tmp = new Store(null, temp0);
@@ -904,7 +920,7 @@ var functions =
 		getTemplates : function(params)
 		{
 			var list = params[1];
-			var temp0 = getListTemplate(list.getType());
+			var temp0 = getListTypeParams(list.getType());
 			var accum = params[2];
 			var temp1 = accum.getType();
 			var funcType = getFuncType(params[0], [temp1, temp0]);
@@ -934,13 +950,13 @@ var functions =
 		{
 			var list = params[0];
 			var item = params[1];
-			var tempType = getListTemplate(list.getType());
+			var tempType = getListTypeParams(list.getType());
 			checkSameTypes(tempType, item.getType());
 			var funcType = getFuncType(params[2], [tempType]);
 			
 			// TODO : check func type
 			return [tempType];
-		},		
+		},
 		build : function(templates)
 		{
 			return {
@@ -960,6 +976,37 @@ var functions =
 					return false;
 				},
 				type : "bool",
+				templates : templates
+			}
+		}
+	},
+	"merge" :
+	{
+		getTemplates : function(params)
+		{
+			var dst = params[0];
+			var src = params[1];
+			var srcParams = getDictTypeParams(src.getType());
+			var dstParams = getDictTypeParams(dst.getType());
+			checkSameTypes(srcParams[0], dstParams[0]);
+			checkSameTypes(srcParams[1], dstParams[1]);			
+			return srcParams;
+		},
+		build : function(templates)
+		{
+			return {
+				params : 
+				[
+					["dst" , dictType(templates[0], templates[1])], 
+					["src" , dictType(templates[0], templates[1])]
+				],
+				func : function(params) 
+				{	
+					var dst = _.cloneDeep(params[0]);
+					var src = params[1];
+					return _.merge(dst, src);
+				},
+				type : dictType("string", templates[0]),
 				templates : templates
 			}
 		}
@@ -1066,7 +1113,7 @@ var nodes =
 			// var first = fields.first;
 			// var l = fields.second;
 			// // TODO pas beau le Store !!!
-			// var f = first.build(first.getTemplates([new Store(null, getListTemplate(l.getType()))]));
+			// var f = first.build(first.getTemplates([new Store(null, getListTypeParams(l.getType()))]));
 			
 			// var funcType = f.type;
 			// var func = f.func;
@@ -1186,6 +1233,78 @@ var nodes =
 						_.each(list, function(item) {instanceTypeOperators.signal(item, iteratedSignal, params);}, this);
 					}
 				}
+			}
+		}
+	},
+	"dict" :
+	{
+		getTemplates : undefined, // TODO
+		getInstance : function(templates)
+		{
+			// var subType = templates[0];
+			// var subBaseType = getBaseType(subType);
+			// if(subBaseType in library.nodes)
+			// {
+				// var subTypeTemplates = getTemplates(subType);
+				// var typeObj = (subTypeTemplates.length > 0) ? 
+					// library.nodes[subBaseType].getInstance(subTypeTemplates) :
+					// library.nodes[subBaseType];
+				// if(typeObj != undefined && "operators" in typeObj)
+				// {
+					// var instanceTypeOperators = typeObj.operators;
+				// }
+			// }
+
+			return {
+				"fields" : [["dict", dictType(templates[0])]],
+				"builder" : function(fields) 
+				{	
+					var dict = fields.dict;
+					var temp = templates;
+					this.get = function()
+					{
+						return dict;
+					};
+					this.getType = function()
+					{
+						return dictType(templates[0]);
+					}
+				},
+				// operators : {
+					// getPath : function(struct, path)
+					// {
+						// if(path.length == 1)
+						// {
+							// // return struct[path[0]].get();
+							// return struct[path[0]];
+						// }
+						// else
+						// {
+							// var subPath = path.slice(0);
+							// var key = subPath.shift();
+							// return fieldsOperators[key].getPath(struct[key], subPath);
+						// }
+					// },
+					// setPath : function(struct, path, val)
+					// {
+						// if(path.length == 1)
+						// {
+							// struct[path[0]] = val;
+						// }
+						// else
+						// {
+							// var subPath = path.slice(0);
+							// var key = subPath.shift();
+							// fieldsOperators[key].setPath(struct[key], subPath, val);
+						// }
+					// },
+					// signalOperator : instanceTypeOperators ? instanceTypeOperators.signal : null,
+					// instanceType : subBaseType,
+					// signal : function(list, iteratedSignal, params)
+					// {
+						// _.each(list, function(item) {instanceTypeOperators.signal(item, iteratedSignal, params);}, this);
+					// }
+				// }
 			}
 		}
 	},

@@ -1,30 +1,46 @@
 structs:
 	Vec2 :
 		x, y : float
+	Vec3 :
+		x, y, z : float
 	Color :
 		r, g, b : float
 	State : 
 		color : Color
 trees:
 	Obj :
-		state : State
+		stateSet : dict<string, State>
 		groups:
 			Group 
 		leaves:
 			Rect : 
 				pos, size : Vec2
 functions:
-	accumState(State accum, State state):
-		state
-	getState(Obj obj):
-		obj.state
+	accumState(dict<string, State> accum, dict<string, State> state):
+		merge(accum, state)
+	getStateSet(Obj obj):
+		obj.stateSet
 nodes:
 	var defaultState : State(Color(0, 0, 0))
-	var rects : [Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))]
+	var dict<string, State> defaultStateSet
+	var rects : [Rect({}, Vec2(10, 10), Vec2(400, 100))]
 	# var root : Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))
-	var root : Group([Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))], State(Color(0, 0, 0)))
+	var root : Group
+		(
+			[
+				Rect
+				(
+					{}, 
+					Vec2(10, 10), Vec2(400, 100)
+				)
+			
+			], 
+			{color : Color(0, 0, 0)}
+		)
+	# def leafStates	: select root along path :
+		# Rect l : reduce(accumState, map(getState, path), defaultState)
 	def leafStates	: select root along path :
-		Rect l : reduce(accumState, map(getState, path), defaultState)
+		Rect l : reduce(accumState, map(getStateSet, path), defaultStateSet)
 actions :
 	tick : 
 		update rect in rects 
