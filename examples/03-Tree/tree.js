@@ -74,8 +74,36 @@ $.get("tree.nodes", function( text ) {
 		view.position = new Point(model.pos.x + model.size.x * .5, model.pos.y + model.size.y * .5);
 	}
 	
+	function createCircle(model)
+	{
+		var circleModel = model[0];
+		var stateSet = model[1];
+		var color = stateSet.color;
+		var circle = new paper.Shape.Circle({
+			point: [circleModel.pos.x, circleModel.pos.y],
+			radius: [circleModel.radius],
+			fillColor: new Color(color.r, color.g, color.b)
+		});
+		return circle;
+	}
+	
+	function updateCircle(model, view)
+	{
+		var circleModel = model[0];
+		var stateSet = model[1];
+		var color = stateSet.color;
+		view.radius = circleModel.radius;
+		view.position = new Point(circleModel.pos.x + circleModel.radius * .5, circleModel.pos.y + circleModel.radius * .5);
+		view.fillColor.red = color.r; 
+		view.fillColor.green = color.g; 
+		view.fillColor.blue = color.b; 
+	}
+	
 	var updateRectView = makeViewUpdater(createRect, updateRect, deleteElement);
-	var rectsView = [];
+	var rectViews = [];	
+	var updateCircleView = makeViewUpdater(createCircle, updateCircle, deleteElement);
+	var circleViews = [];
+	
 	$states = $('#states');
 	var stateStr = "";
 	var leafStates = code.leafStates.get();
@@ -84,12 +112,14 @@ $.get("tree.nodes", function( text ) {
 		stateStr = stateStr + ", " + state.color.g.toString();
 	});
 	$states.html(stateStr);
+		
 	//view.draw();
 	var tick   = Bacon.interval(20);
 	tick.onValue(function(t)
 	{
 		code.tick.signal();
-		rectsView = updateRectView(code.rects.get(), rectsView);
+		rectViews = updateRectView(code.rects.get(), rectViews);
+		circleViews = updateCircleView(code.circles.get(), circleViews);
 		view.draw();
 	});
 }

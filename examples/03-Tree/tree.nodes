@@ -15,16 +15,28 @@ trees:
 		leaves:
 			Rect : 
 				pos, size : Vec2
+			Circle :
+				pos : Vec2
+				radius : float
 functions:
 	accumState(dict<string, State> accum, dict<string, State> state):
 		merge(accum, state)
 	getStateSet(Obj obj):
 		obj.stateSet
+	list<Circle> getCirclesAndAccumStateMerge(Obj child, Group group)
+	list<Circle> getCirclesAndAccumState(Obj obj): type obj :
+		Circle  : [obj]
+		Group : flatMap
+			(
+				getCirclesAndAccumStateMerge,
+				obj.children
+			)
+		_ : []
+	getCirclesAndAccumStateMerge(Obj child, Group group) :
+		getCirclesAndAccumState(child \ stateSet = merge(group.stateSet, child.stateSet))
 nodes:
 	var defaultState : State(Color(0, 0, 0))
 	var dict<string, State> defaultStateSet
-	var rects : [Rect({}, Vec2(10, 10), Vec2(400, 100))]
-	# var root : Rect(State(Color(0, 1, 0)), Vec2(10, 10), Vec2(400, 100))
 	var root : Group
 		(
 			[
@@ -32,17 +44,33 @@ nodes:
 				(
 					{}, 
 					Vec2(10, 10), Vec2(400, 100)
+				),
+				Circle
+				(
+					{}, 
+					Vec2(100, 100), 50
 				)
 			
 			], 
-			{color : Color(0, 0, 0)}
+			{color : Color(0, 1, 0)}
 		)
 	# def leafStates	: select root along path :
 		# Rect l : reduce(accumState, map(getState, path), defaultState)
 	def leafStates	: select root along path :
-		Rect l : reduce(accumState, map(getStateSet, path), defaultStateSet)
+		Rect : reduce(accumState, map(getStateSet, path), defaultStateSet)
+	def rects : select root :
+		Rect r : r
+	def circles : select root along path :
+		Circle c : tuple(c, reduce(accumState, map(getStateSet, path), defaultStateSet))
 actions :
 	tick : 
-		update rect in rects 
-			with rect \ size.x = rect.size.x + 0.1
-	
+		select root apply:
+			Rect r : 
+				pos.y = r.pos.y + 0.1
+				size.x = r.size.x + 0.1
+			Circle c : 
+				pos.x = c.pos.x + 0.1
+	# addRect : 
+		# select root apply:
+			# Group g : 
+				# children = pushFront(children, Rect({}, Vec2(50, 50), Vec2(40, 10)))

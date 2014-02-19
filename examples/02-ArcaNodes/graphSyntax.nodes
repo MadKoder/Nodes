@@ -118,4 +118,82 @@ setAllCubesToRed(ref Obj root):
 setAllObjToRed(ref Obj root):
 	on select root apply:
 		* : state.color = red
+
+SelectAction =
+	_ "select" it:Var _ "apply" _ action:Action
+	{
+		var res =  {
+			"select" : it,
+			"apply" : action
+		};
+		return res;
+	}
+	
+SelectorActions = 
+	head:Selector _ tail:(_ "," _ s:Selector {return s})* 
+   {
+      return [head].concat(tail);
+   }
 		
+SelectorAction =
+	type:Id _ id:Id _ path:("," _ path:Id)? _ ":" _ val:SelectorAffectations 
+	{
+		var ret = {
+			type : type,
+			id : id,
+			affectations : val
+		};
+		if(path)
+		{
+			ret.path = path;
+		}
+		return ret;
+	}
+	
+SelectorAffectations =
+	head:MergeAffectation _ tail:( _ "," _ (i:MergeAffectation) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+	
+select root along path :
+	accum stateSet using accumStateSet default defaulStateSet :
+		Obj o : getStateSet(obj)
+	match :
+		Circle c : tuple(c, stateSet)
+		
+mapTree root with getStateSet
+
+stateTree : mapTree(getStateSet, root)
+
+accumStateTree : scanTree(accumStateOnObj, root, defaultRoot)
+
+accumStateOnObj(accum, obj):
+	obj \ stateSet = merge(accum.statSet, obj.statSet)
+	
+def circles : select accumStateTree:
+	Circle c : c
+	
+list<Circle> getCircles(Obj obj):
+	type obj :
+		Circle c : [c]
+		Group g : flatMap(getCircles, g.children)
+		_ : []
+
+list<Circle> getCirclesAccumState(Obj obj):
+	cache :
+		obj
+	in 
+		type obj :
+			Circle c : [c]
+			Group g : flatMap
+				(
+					child => getCirclesAccumState
+					(
+						child \ stateSet = merge(g.stateSet, child.stateSet)
+					),
+					g.children
+				)
+			_ : []
+
+

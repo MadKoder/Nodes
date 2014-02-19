@@ -224,7 +224,7 @@ function mluf1(func1, getOutType)
 		},
 		function(type)	// Template guess from input types
 		{
-			return getListTypeParams(type);
+			return getListTypeParam(type);
 		}
 	)
 }
@@ -244,7 +244,7 @@ function mllf1(func1)
 		},
 		function(type)	// Template guess from input types
 		{
-			return getListTypeParams(type);
+			return getListTypeParam(type);
 		}
 	)
 }
@@ -547,7 +547,7 @@ function checkFuncType(type)
 	check(_.isPlainObject(type) && ("inputs" in type) && ("output" in type), "Type " + getBaseType(type) + " is not a function");
 }
 
-function getListTypeParams(type)
+function getListTypeParam(type)
 {
 	checkList(type);
 	return getTemplates(type)[0];
@@ -630,7 +630,7 @@ var functions =
 		},
 		function(paramType)	// Template guess from input types
 		{
-			return getListTypeParams(getListTypeParams(paramType));
+			return getListTypeParam(getListTypeParam(paramType));
 		}
 	),
 	eq : mtf2
@@ -706,8 +706,8 @@ var functions =
 		},
 		function(firstType, secondType)	// Template guess from input types
 		{
-			var firstTemplate = getListTypeParams(firstType);
-			var secondTemplate = getListTypeParams(secondType);
+			var firstTemplate = getListTypeParam(firstType);
+			var secondTemplate = getListTypeParam(secondType);
 			checkSameTypes(firstTemplate, secondTemplate);
 			return firstTemplate;
 		}
@@ -727,7 +727,7 @@ var functions =
 		},
 		function(listType, itemType)	// Template guess from input types
 		{
-			var template = getListTypeParams(listType);
+			var template = getListTypeParam(listType);
 			checkSameTypes(template, itemType);
 			return itemType;
 		}
@@ -753,7 +753,7 @@ var functions =
 			{
 				check(startType == "int", "Slice start parameter is not an int");
 				check(stopType == "int", "Slice stop parameter is not an int");
-				return getListTypeParams(listType);
+				return getListTypeParam(listType);
 			}
 		),
 	"length" : mluf1
@@ -805,7 +805,7 @@ var functions =
 		},
 		function(listType, indexType)	// Template guess from input types
 		{
-			var template = getListTypeParams(listType);
+			var template = getListTypeParam(listType);
 			return template;
 		}
 	),
@@ -821,8 +821,8 @@ var functions =
 		},
 		function(firstList, secondList)	// Template guess from input types
 		{
-			var firstTemplate = getListTypeParams(firstList);
-			var secondTemplate = getListTypeParams(secondList);
+			var firstTemplate = getListTypeParam(firstList);
+			var secondTemplate = getListTypeParam(secondList);
 			return [firstTemplate, secondTemplate];
 		}
 	),
@@ -840,7 +840,7 @@ var functions =
 		},
 		function(listType)	// Template guess from input types
 		{
-			var listTemplate = getListTypeParams(listType);
+			var listTemplate = getListTypeParam(listType);
 			check(getBaseType(listTemplate) == "tuple", "List template is not a tuple : " + getBaseType(listTemplate));
 			var tupleTemplates = getTemplates(listTemplate);
 			check(tupleTemplates.length == 2, "Tuple doesn't have 2 templates : " + tupleTemplates.length);
@@ -865,9 +865,9 @@ var functions =
 		},
 		function(firstList, secondList, thirdList)	// Template guess from input types
 		{
-			var firstTemplate = getListTypeParams(firstList);
-			var secondTemplate = getListTypeParams(secondList);
-			var thirdTemplate = getListTypeParams(thirdList);
+			var firstTemplate = getListTypeParam(firstList);
+			var secondTemplate = getListTypeParam(secondList);
+			var thirdTemplate = getListTypeParam(thirdList);
 			return [firstTemplate, secondTemplate, thirdTemplate];
 		}
 	),
@@ -883,7 +883,7 @@ var functions =
 		getTemplates : function(params)
 		{
 			var list = params[1];
-			var temp0 = getListTypeParams(list.getType());	
+			var temp0 = getListTypeParam(list.getType());	
 			if(params[0].template)
 			{
 				var tmp = new Store(null, temp0);
@@ -916,11 +916,49 @@ var functions =
 			}
 		}
 	},
+	"flatMap" : {
+		getTemplates : function(params)
+		{
+			var list = params[1];
+			var temp0 = getListTypeParam(list.getType());	
+			if(params[0].template)
+			{
+				var tmp = new Store(null, temp0);
+				var funcTemplates = params[0].template.getTemplates([tmp]);
+				// var funcType = getFuncType(params[0], [temp0]);
+				var funcType = getFuncType(params[0], funcTemplates);
+			}
+			else
+			{
+				var funcType = params[0].getType();
+			}
+			return [temp0, getListTypeParam(getOutType(funcType))];
+		},		
+		build : function(templates)
+		{
+			return {
+				params : [["function" , inOut1(templates[0], listTemp(templates[1]))], ["list" , listTemp(templates[0])]],
+				func : function(params) 
+				{	
+					var funcInstance = params[0];
+					return _(params[1]).map(function(val)
+					{
+						// Il faut appeler funcInstance.func pour conserver le "this",
+						// et non pas cacher la methode func puis l'appeler seule
+						return funcInstance.func([val]);
+					})
+					.flatten(true);
+				},
+				type : listTemp(templates[1]),
+				templates : templates
+			}
+		}
+	},
 	"reduce" : {
 		getTemplates : function(params)
 		{
 			var list = params[1];
-			var temp0 = getListTypeParams(list.getType());
+			var temp0 = getListTypeParam(list.getType());
 			var accum = params[2];
 			var temp1 = accum.getType();
 			var funcType = getFuncType(params[0], [temp1, temp0]);
@@ -950,7 +988,7 @@ var functions =
 		{
 			var list = params[0];
 			var item = params[1];
-			var tempType = getListTypeParams(list.getType());
+			var tempType = getListTypeParam(list.getType());
 			checkSameTypes(tempType, item.getType());
 			var funcType = getFuncType(params[2], [tempType]);
 			
@@ -1113,7 +1151,7 @@ var nodes =
 			// var first = fields.first;
 			// var l = fields.second;
 			// // TODO pas beau le Store !!!
-			// var f = first.build(first.getTemplates([new Store(null, getListTypeParams(l.getType()))]));
+			// var f = first.build(first.getTemplates([new Store(null, getListTypeParam(l.getType()))]));
 			
 			// var funcType = f.type;
 			// var func = f.func;

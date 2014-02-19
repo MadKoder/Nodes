@@ -331,13 +331,13 @@ function Affectation(val, paths, setPath)
 	this.val = val;
 	this.paths = paths;
 	this.setPath = setPath;
-	this.affect = function(newObj)
+	this.affect = function(obj)
 	{
 		var val = this.val.get();
 		for(var j = 0; j < this.paths.length; j++)
 		{
 			var path = this.paths[j];
-			this.setPath(newObj, path, val);
+			this.setPath(obj, path, val);
 		}
 	}
 }
@@ -345,53 +345,53 @@ function CondAffectation(cond, thenAffects, elseAffects) {
 	this.cond = cond;
 	this.thenAffects = thenAffects;
 	this.elseAffects = elseAffects;
-	this.affect = function(newObj)
+	this.affect = function(obj)
 	{
 		if(this.cond.get())
 		{
-			_.forEach(this.thenAffects, function(affect){affect.affect(newObj);});
+			_.forEach(this.thenAffects, function(affect){affect.affect(obj);});
 		}
 		else if(this.elseAffects != undefined)
 		{
-			_.forEach(this.elseAffects, function(affect){affect.affect(newObj);});
+			_.forEach(this.elseAffects, function(affect){affect.affect(obj);});
 		}
 	};
 }
+
+function makeAffectations(withListGraph, nodes, setPathOperator)
+{
+	return withListGraph.map(function(mergeExp){
+		
+		if("cond" in mergeExp)
+		{
+			var cond = makeExpr(mergeExp.cond, nodes);
+			var affects = makeAffectations(mergeExp.affectations);
+			var elseAffects = undefined;
+			if("else" in mergeExp)
+			{
+				var elseAffects = makeAffectations(mergeExp["else"]);
+			}
+			return new CondAffectation(cond, affects, elseAffects);
+		}
+		
+		return new Affectation(makeExpr(mergeExp.val, nodes), mergeExp.paths, setPathOperator);
+	});
+}
+
 function Merge(what, withListGraph, nodes)
 {
 	this.what = compileRef(what, nodes).val;
 	var whatType = this.what.getType();
-	var setPath = library.nodes[whatType].operators.setPath;
-	function makeAffectations(withListGraph)
-	{
-		return withListGraph.map(function(mergeExp){
-			
-			if("cond" in mergeExp)
-			{
-				var cond = makeExpr(mergeExp.cond, nodes);
-				var affects = makeAffectations(mergeExp.affectations);
-				var elseAffects = undefined;
-				if("else" in mergeExp)
-				{
-					var elseAffects = makeAffectations(mergeExp["else"]);
-				}
-				return new CondAffectation(cond, affects, elseAffects);
-			}
-			
-			return new Affectation(makeExpr(mergeExp.val, nodes), mergeExp.paths, setPath);
-		});
-	}
-	this.withList = makeAffectations(withListGraph);
+	var setPathOperator = library.nodes[whatType].operators.setPath;
 	
-				
+	this.withList = makeAffectations(withListGraph, nodes, setPathOperator);
+					
 	this.get = function()
 	{
 		//var obj = this.what.get();
 		// TODO methode clone sur les struct ?
 		var newObj = _.cloneDeep(this.what.get());
-		for(var i = 0; i < this.withList.length; i++)
-		{
-			_.forEach(this.withList, function(affect){affect.affect(newObj);});
+		_.forEach(this.withList, function(affect){affect.affect(newObj);});
 			// var mergeWith = this.withList[i];
 			// if("cond" in mergeWith && !mergeWith.cond.get())
 			// {
@@ -406,7 +406,6 @@ function Merge(what, withListGraph, nodes)
 				// var path = mergeWith.paths[j];
 				// this.setPath(newObj, path, val);
 			// }
-		}
 		return newObj;
 	}
 	
@@ -659,18 +658,18 @@ function Select(nodeGraph, externNodes)
 		// TODO utiliser le type component, car le root n'est pas forcement de ce type
 		pathStore = new Store(null, makeTemplate("list", [rootNode.getType()]));
 	}
-	var selectors = _.map(nodeGraph.selectors, function(selector)
+	var matches = _.map(nodeGraph.matches, function(match)
 	{
-		var type = selector.type;
+		var type = match.selector.type;
 		var elementStore = new Store(null, type);
 		var newNodes = {};
-		newNodes[selector["id"]] = elementStore;
+		newNodes[match.selector["id"]] = elementStore;
 		if(pathStore != null)
 		{
 			newNodes[nodeGraph.path] = pathStore;
 		}
 		var mergedNodes = _.merge(_.clone(externNodes), newNodes);
-		var val = makeExpr(selector.val, mergedNodes);
+		var val = makeExpr(match.val, mergedNodes);
 		return	{
 			"type" : type,
 			"elementStore" : elementStore,
@@ -690,20 +689,20 @@ function Select(nodeGraph, externNodes)
 				pathStore.set(path);
 			}
 			var ret = [];
-			for(var i = 0; i < selectors.length; ++i)
+			for(var i = 0; i < matches.length; ++i)
 			{
-				var selector = selectors[i];
-				if(selector.type == type)
+				var match = matches[i];
+				if(match.type == type)
 				{
-					selector.elementStore.set(val);
-					ret.push(selector.val.get());
+					match.elementStore.set(val);
+					ret.push(match.val.get());
 					break;
 				}
 			}
 			
-			if("__children" in val)
+			if("children" in val)
 			{
-				ret = _.reduce(root.__children, function(accum, val)
+				ret = _.reduce(root.children, function(accum, val)
 				{
 					return accum.concat(select(val, path.concat([val])));
 				}, ret);
@@ -720,7 +719,7 @@ function Select(nodeGraph, externNodes)
 	this.getType = function(path)
 	{
 		// TODO check all selectors have same return type
-		return makeTemplate("select", [selectors[0].val.getType()]);
+		return makeTemplate("select", [matches[0].val.getType()]);
 	}
 	
 	this.addSink = function(sink)
@@ -1248,6 +1247,84 @@ function compileSlots(slots, nodes, connections)
 
 var msgIndex = 0;
 
+function ListNodeElementRef(listNode)
+{
+	this.listNode = listNode;
+	this.type = getListTypeParams(listNode.getType());
+	this.list = null;
+	this.index = 0;
+	
+	this.get = function()
+	{
+		return this.list[this.index];
+	}
+	
+	this.set = function(val)
+	{
+		this.list[this.index] = val;
+		this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
+	}		
+	
+	this.addDelta = function(delta)
+	{
+		this.listNode.addDelta({path : [this.index].concat(delta.path), val : delta.val});
+	}	
+	
+	this.getType = function()
+	{
+		return this.type;
+	}
+	
+	this.addSink = function(sink)
+	{
+		// TODO : y'en a besoin ?
+	};
+
+}
+
+function GroupChildRef(children, typeParam, rootNode)
+{
+	this.children = children;
+	this.typeParam = typeParam;
+	this.rootNode = rootNode;
+	this.index = 0;
+	
+	this.get = function()
+	{
+		return this.children[this.index];
+	}
+	
+	this.set = function(val)
+	{
+		this.children[this.index] = val;
+		// TODO : root notification
+		//this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
+	}		
+	
+	// this.addDelta = function(delta)
+	// {
+		// this.listNode.addDelta({path : [this.index].concat(delta.path), val : delta.val});
+	// }	
+	
+	this.getType = function()
+	{
+		return listTemplate(this.typeParam);
+	}
+	
+	this.addSink = function(sink)
+	{
+		// TODO : y'en a besoin ?
+	};
+
+}
+
+function ListDelta(add, remove, updates)
+{
+	this.add = add;
+	this.remove = remove;
+	this.updates = updates;
+}
+
 function makeAction(actionGraph, nodes, connections)
 {
 	if("foreach" in actionGraph)
@@ -1271,48 +1348,97 @@ function makeAction(actionGraph, nodes, connections)
 		return new ForEach(iterated, actionGraph.signal, compiledParams);
 	}
 	
-	function ListElementRef(listNode)
+	if("select" in actionGraph)
 	{
-		this.listNode = listNode;
-		this.type = getListTypeParams(listNode.getType());
-		this.list = null;
-		this.index = 0;
-		
-		this.get = function()
+		function SelectAction(nodeGraph, externNodes)
 		{
-			return this.list[this.index];
+			this.nodes = {};
+			
+			// TODO  connections
+			var rootNode = makeNode(nodeGraph.select, externNodes);
+			var pathStore = null;
+			if(nodeGraph.path)
+			{
+				// TODO utiliser le type component, car le root n'est pas forcement de ce type
+				pathStore = new Store(null, makeTemplate("list", [rootNode.getType()]));
+			}
+			
+			var matches = _.map(nodeGraph.apply, function(match)
+			{
+				var type = match.selector.type;
+				var newNodes = {};
+				
+				if("id" in match.selector)
+				{
+					var elementStore = new Store(null, type);					
+					newNodes[match.selector["id"]] = elementStore;				
+				}
+				
+				if(pathStore != null)
+				{
+					newNodes[nodeGraph.path] = pathStore;
+				}
+				var mergedNodes = _.merge(_.clone(externNodes), newNodes);
+				var setPathOperator = library.nodes[type].operators.setPath;
+				var affectations = makeAffectations(match.affectations, mergedNodes, setPathOperator);
+				var ret =	{
+					"type" : type,
+					"elementStore" : elementStore,
+					"affectations" : affectations
+				};
+				
+				if("id" in match.selector)
+				{					
+					ret.elementStore = elementStore;
+				}
+				
+				return ret;
+			});
+			
+			this.signal = function()
+			{
+				function apply(val, path, rootNode)
+				{
+					var type = val.__type;
+					if(pathStore != null)
+					{
+						pathStore.set(path);
+					}
+					for(var i = 0; i < matches.length; ++i)
+					{
+						var match = matches[i];
+						if(match.type == type)
+						{
+							//val = node.get();
+							match.elementStore.set(val);
+							_.forEach(match.affectations, function(affect){affect.affect(val);});						
+							break;
+						}
+					}
+					
+					if("children" in val)
+					{
+						if(val == null)
+						{
+							val = node.get();
+						}
+						var concatPath = path.concat([val]);
+						_.each(val.children, function(child)
+						{
+							apply(child, concatPath);
+						});
+					}
+				}
+				
+				// TODO set path only when needed
+				var rootVal = rootNode.get();
+				apply(rootVal, [rootVal], rootNode);
+			};
 		}
-		
-		this.set = function(val)
-		{
-			this.list[this.index] = val;
-			this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
-		}		
-		
-		this.addDelta = function(delta)
-		{
-			this.listNode.addDelta({path : [this.index].concat(delta.path), val : delta.val});
-		}	
-		
-		this.getType = function()
-		{
-			return this.type;
-		}
-		
-		this.addSink = function(sink)
-		{
-			// TODO : y'en a besoin ?
-		};
 
+		return new SelectAction(actionGraph, nodes);
 	}
 	
-	function ListDelta(add, remove, updates)
-	{
-		this.add = add;
-		this.remove = remove;
-		this.updates = updates;
-	}
-
 	if("on" in actionGraph)
 	{
 		function ForAction(iterated, itRef, indexStore, action)
@@ -1343,7 +1469,7 @@ function makeAction(actionGraph, nodes, connections)
 		var iterated = compileRef(actionGraph["in"], nodes).val;
 		var localNodes = _.clone(nodes);
 		
-		var itRef = new ListElementRef(iterated);
+		var itRef = new ListNodeElementRef(iterated);
 		// TODO gerer destruct
 		localNodes[actionGraph["on"]] = itRef;
 		var indexStore = null;
@@ -1431,7 +1557,7 @@ function makeAction(actionGraph, nodes, connections)
 		var iterated = compileRef(actionGraph["in"], nodes).val;
 		var localNodes = _.clone(nodes);
 		
-		var itRef = new ListElementRef(iterated);
+		var itRef = new ListNodeElementRef(iterated);
 		// TODO gerer destruct
 		localNodes[actionGraph["update"]] = itRef;
 		var indexStore = null;
@@ -1721,7 +1847,7 @@ function makeStruct(structGraph, name, inheritedFields, groupComponentName)
 		fieldsGraph.unshift
 		(
 			[
-			   "__children",
+			   "children",
 			   {
 				  "base": "list",
 				  "templates": [
