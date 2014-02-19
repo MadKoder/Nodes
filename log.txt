@@ -53,3 +53,6 @@
 	Syntaxe des parametres d'action == parametres de fonctions.
 	Plus de sinks dans tous les nodes, seulement dans les stores, et remontee de tous les addSink vers les store, comme cela seul les nodes ayant reellement besoin d'etre notifies le seront (comme les Events/Reactions)
 	Ajout du type de node cache
+
+17-18/2 : Ajout de la demo Tree.
+	Syntaxes de composite, de select, de select apply

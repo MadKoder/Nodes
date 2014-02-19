@@ -124,11 +124,7 @@ DefVarCache =
 Function =
 	typeAndId:MaybeTypeAndId _ templates:("<" _ t:Templates _ ">" _ {return t;})? _
 	"(" params:ParamsDecl ")" 
-	_ body:
-	(
-		":" _ "(" _ nodes:(node:Node _ ","_ {return node;})* val:Val _ ")"
-		{return {nodes : nodes, val : val};}
-	)?
+	_ body:FuncBody?
 	{
 		var func = {
 			id : typeAndId.id, 
@@ -152,6 +148,11 @@ Function =
 		}
 		return func;
 	}
+
+FuncBody =
+	":" _ val:Val {return {nodes : [], val : val};}
+	/ ":" _ "(" _ nodes:(nodes:Nodes _ "," {return nodes;})? _ val:Val _ ")"
+		{return {nodes : nodes ? nodes : [], val : val};}
 	
 TypeAndId =
   type:Type _ id:Id { return {type:type, id:id};}
@@ -279,11 +280,11 @@ Val =
  
 
 Select =
-	"select " _ id:Var _ path:("along " _ path:Id {return path;})? _ ":" _"(" _ selectors:Selectors _ ")" _
+	"select " _ id:Var _ path:("along " _ path:Id {return path;})? _ ":" _"(" _ matches:SelectMatches _ ")" _
 	{
 		var ret = {
 			select : id,
-			selectors : selectors
+			matches : matches
 		};
 		if(path)
 		{
@@ -292,24 +293,35 @@ Select =
 		return ret;
 	}
 
-Selectors = 
-	head:Selector _ tail:(_ "," _ s:Selector {return s})* 
-   {
-      return [head].concat(tail);
-   }
+SelectMatches = 
+	head:SelectMatch _ tail:(_ "," _ s:SelectMatch {return s})* 
+	{
+		return [head].concat(tail);
+	}
 		
-Selector =
-	type:Id _ id:Id  _ ":" _ val:Val 
+SelectMatch =
+	_ selector:Selector _ ":" _ val:Val 
 	{
 		var ret = {
-			type : type,
-			id : id,
+			selector : selector,
 			val : val
 		};
-		
 		return ret;
 	}
   
+Selector =
+	type:Id _ id:(Id)?  
+	{
+		var ret = {
+			type : type,
+		};
+		if(id)
+		{
+			ret.id = id
+		}
+		return ret;
+	}
+	
 Dict = 
 	"{" _ head:DictEntry? tail:( _ "," _ (i:DictEntry) {return i})* _ "}"
 	{
@@ -411,6 +423,7 @@ Action "Action" =
   Affectation 
   / Foreach
   / ApplyAction
+  / SelectAction
   / SlotCall
   / Update
   /  _ "(" _ actions:Actions _ ")" {return  {
@@ -485,6 +498,38 @@ CondUpdate =
 			"val" : val,
 			"if" : cond
 		};
+	}
+
+SelectAction =
+	_ "select" _ it:Var _ "apply" _ ":" _ "(" _ actions:SelectorActions _ ")"
+	{
+		var res =  {
+			"select" : it,
+			"apply" : actions
+		};
+		return res;
+	}
+	
+SelectorActions = 
+	head:SelectorAction _ tail:(_ "," _ s:SelectorAction {return s})* 
+   {
+      return [head].concat(tail);
+   }
+		
+SelectorAction =
+	selector:Selector _ ":" _ ("(")?_ val:SelectorAffectations _ (")")?
+	{
+		var ret = {
+			selector : selector,
+			affectations : val
+		};
+		return ret;
+	}
+	
+SelectorAffectations =
+	head:MergeAffectation _ tail:( _ "," _ (i:MergeAffectation) {return i})* 
+	{
+		return [head].concat(tail);
 	}
 	
 Foreach =
@@ -688,7 +733,7 @@ Vals =
 	}
 
 MatchType = 
-	"type " _ id:Id _ ":" _ "(" _ matchCases:TypeCases _ ")" 
+	"type" _ id:Id _ ":" _ "(" _ matchCases:TypeCases _ ")" 
 	{
 		return {
 			matchType : id,
@@ -752,7 +797,7 @@ Var =
   / Dereference
   
 Id = 
-	name:([a-zA-Z][a-zA-Z0-9_]*) { 
+	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
 		return name.length == 1 ?
 			name[0] :
 			name[0] + name[1].join(""); 
