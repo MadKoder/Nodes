@@ -269,23 +269,6 @@ SlotDef =
 		return slot;
 	}
 
-Val =
-	"true" {return true;}
-	/ "false" {return false;}
-	/ "[]" { return {array : []};}
-	/ FunctionCall
-	/ Closure
-	/ Range
-	/ Select
-	/ Comprehension 
-	/ Array 
-	/ Dict
-	/ Expression  
-	/ PrimaryExpression
-	/ Var
-	/ Message 
-	/ number 
- 
 Closure = 
 	params:MaybeTypeAndIds _ "->" _ val:Val
 	{
@@ -644,17 +627,32 @@ FieldList
 Field
   = id:Id _ ":" _ val:AdditiveExpression {return [id, val];}
 
-PrimaryExpression
-  = "true" {return true;}
-  / "false" {return false;}
-  / "(" __ expression:Expression __ ")" { return expression; }
-  / array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
-  / number
-  / v:Var { return v;}
-  / String
+Val = 
+	Expression
+	/ PrimaryExpression
+	
+PrimaryExpression = 
+	"true" {return true;}
+	/ "false" {return false;}
+	/ "[]" { return {array : []};}
+	/ FunctionCall
+	/ Closure
+	/ Range
+	/ Select
+	/ Comprehension 
+	/ Array 
+	/ Dict
+	/ Var
+	/ Message 
+	/ number 
+	/ "(" __ expression:Expression __ ")" { return expression; }
+	/ array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
+	/ number
+	/ v:Var { return v;}
+	/ String
 
 FunctionCall = 
-	id:Id _ typeParams:TypeParams? calls:FuncCalls
+	id:Id _ typeParams:TypeParams? _ calls:FuncCalls
 	{	
 		var ret = id;
 		for(var i = 0; i < calls.length; i++)

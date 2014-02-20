@@ -139,6 +139,7 @@ function Store(v, type)
 	this.id = storeId;
 	storeId++;
 	
+	this.dirtyList = [];
 	if(type != null)
 	{
 		var baseType = getBaseType(type);
@@ -164,12 +165,14 @@ function Store(v, type)
 		this.dirty();
 	};
 	
-	this.dirty = function()
+	this.dirty = function(path)
 	{
 		_.each(this.sinks, function(sink)
 		{
 			sink.dirty()
 		});
+		if(path != undefined)
+			this.dirtyList.push(path)
 	}
 	
 	this.addSink = function(sink)
@@ -867,7 +870,7 @@ function StructAccess(node, path) {
 			this.setPathOperator = operators.setPath;
 		}
 		this.setPathOperator(struct, this.path, val);
-		this.node.dirty();
+		this.node.dirty(this.path);
 	};
 	
 	this.getType = function()
@@ -1045,13 +1048,13 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			var closure = node.get();
 			// var type = getOutType(closure.getType());
 			var type = "closure";
-			var templates = [];
+			var typeParams = [];
 			var nodeSpec = new funcToNodeSpec(closure);
 		}
 		else
 		{
 			var type = getBaseType(expr.type);
-			var templates = getTemplates(expr.type);
+			var typeParams = getTemplates(expr.type);
 			if(!(type in library.nodes))
 			{
 				error("Function " + type + " not found in nodes library");
@@ -1072,7 +1075,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		if(("getTemplates" in nodeSpec))
 		{
 			var instance;
-			if("typeParams" in expr)
+			if(typeParams.length == 0 && "typeParams" in expr)
 			{
 				var typeParams = expr.typeParams;
 				if(genericTypeParams)
@@ -1094,7 +1097,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				var vals = _.map(paramsValAndType, "val");
 				//var templates = _.map(paramsValAndType, function(valAndType) {return valAndType.val.getType();});
 				// TODO : faire check entre type explicite et deduit				
-				if(!typeParams)
+				if(typeParams.length == 0)
 					typeParams = nodeSpec.getTemplates(vals);
 				
 				instance = nodeSpec.getInstance(typeParams);
@@ -1103,7 +1106,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			}
 			else
 			{
-				instance = nodeSpec.getInstance(templates);
+				instance = nodeSpec.getInstance(typeParams);
 			}
 			
 			// TODO template explicite
@@ -1125,7 +1128,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					fields[paramSpec[0]] = makeExpr(paramsGraph[paramIndex], nodes);
 				}
 			}
-			node = new nodeSpec.builder(fields, templates);
+			node = new nodeSpec.builder(fields, typeParams);
 		}
 		// TODO type ?
 		// return {val : node, type : node.getType()};
