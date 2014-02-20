@@ -23,11 +23,11 @@ functions:
 		merge(accum, state)
 	getStateSet(Obj obj):
 		obj.stateSet
-	list<Circle> getCirclesAndAccumState(Obj obj): type obj :
-		Circle  : [obj]
+	list<T> getTypeAndAccumState<T>(Obj obj): type obj :
+		T  : [obj]
 		Group : flatMap
 			(
-				Obj child -> getCirclesAndAccumState(child \ stateSet = merge(obj.stateSet, child.stateSet)),
+				Obj child -> getTypeAndAccumState<T>(child \ stateSet = merge(obj.stateSet, child.stateSet)),
 				obj.__children
 			)
 		_ : []
@@ -55,11 +55,10 @@ nodes:
 		# Rect l : reduce(accumState, map(getState, path), defaultState)
 	def leafStates	: select root along path :
 		Rect : reduce(accumState, map(getStateSet, path), defaultStateSet)
-	def rects : select root :
-		Rect r : r
+	def rects : getTypeAndAccumState<Rect>(root)
 	# def circles : select root along path :
 		# Circle c : tuple(c, reduce(accumState, map(getStateSet, path), defaultStateSet))
-	def circles : getCirclesAndAccumState(root)
+	def circles : getTypeAndAccumState<Circle>(root)
 actions :
 	moveAll(Obj obj):
 		type obj apply:
@@ -78,9 +77,9 @@ actions :
 			# Circle c : 
 				# pos.x = c.pos.x + 0.1
 		moveAll(root)
-
-
-	# addRect : 
-		# select root apply:
-			# Group g : 
-				# children = pushFront(children, Rect({}, Vec2(50, 50), Vec2(40, 10)))
+	addRect(Obj obj) : 
+		type obj apply:
+			Group : 
+				obj.__children = pushFront(obj.__children, Rect({}, Vec2(50, 50), Vec2(40, 10)))		
+	addRectToRoot:
+		addRect(root)

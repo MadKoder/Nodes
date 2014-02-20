@@ -728,7 +728,8 @@ var functions =
 		function(listType, itemType)	// Template guess from input types
 		{
 			var template = getListTypeParam(listType);
-			checkSameTypes(template, itemType);
+			// TODO checkSubType
+			//checkSameTypes(template, itemType);
 			return itemType;
 		}
 	),

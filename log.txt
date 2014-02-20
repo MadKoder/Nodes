@@ -62,3 +62,4 @@
 	Ajout des closures
 	
 20/2 : Les closures fonctionnent ! Meme en parametre d'un map ! La mise au point a ete tres compliquee
+	Ajout de l'action match type

@@ -270,20 +270,21 @@ SlotDef =
 	}
 
 Val =
-   "true" {return true;}
-  / "false" {return false;}
-  / "[]" { return {array : []};}
-  / Closure
-  / Range
-  / Select
-  / Comprehension 
-  / Array 
-  / Dict
-  / Expression  
-  / PrimaryExpression
-  / Var
-  / Message 
-  / number 
+	"true" {return true;}
+	/ "false" {return false;}
+	/ "[]" { return {array : []};}
+	/ FunctionCall
+	/ Closure
+	/ Range
+	/ Select
+	/ Comprehension 
+	/ Array 
+	/ Dict
+	/ Expression  
+	/ PrimaryExpression
+	/ Var
+	/ Message 
+	/ number 
  
 Closure = 
 	params:MaybeTypeAndIds _ "->" _ val:Val
@@ -646,7 +647,6 @@ Field
 PrimaryExpression
   = "true" {return true;}
   / "false" {return false;}
-  / FunctionCall
   / "(" __ expression:Expression __ ")" { return expression; }
   / array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
   / number
@@ -654,7 +654,7 @@ PrimaryExpression
   / String
 
 FunctionCall = 
-	id:Id _ calls:FuncCalls
+	id:Id _ typeParams:TypeParams? calls:FuncCalls
 	{	
 		var ret = id;
 		for(var i = 0; i < calls.length; i++)
@@ -666,7 +666,17 @@ FunctionCall =
 			if("params" in call) ret["params"] = call["params"];
 			if("fields" in call) ret["fields"] = call["fields"];
 		}
+		if(typeParams)
+		{
+			ret.typeParams = typeParams;
+		}
 		return ret;
+	}
+	
+TypeParams =
+	"<" _ types:Ids _ ">"
+	{
+		return types;
 	}
 	
 FuncCalls = 

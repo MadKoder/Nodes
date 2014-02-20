@@ -214,7 +214,7 @@ function Store(v, type)
 	}
 }
 
-function Closure(expr, nodes) 
+function Closure(expr, nodes, genericTypeParams) 
 {
 	this.nodes = nodes;
 	this.nodesClosure =  _.mapValues(nodes, function(node)
@@ -230,7 +230,7 @@ function Closure(expr, nodes)
 		return node;
 	}, this);
 	
-	var expr = makeExpr(expr.closure, this.nodesClosure);
+	var expr = makeExpr(expr.closure, this.nodesClosure, genericTypeParams);
 	
 	this.funcSpec = {
 		params : paramSpec,
@@ -424,9 +424,9 @@ function CondAffectation(cond, thenAffects, elseAffects) {
 	};
 }
 
-function makeAffectations(withListGraph, nodes, setPathOperator)
+function makeAffectations(matchesGraph, nodes, setPathOperator)
 {
-	return withListGraph.map(function(mergeExp){
+	return matchesGraph.map(function(mergeExp){
 		
 		if("cond" in mergeExp)
 		{
@@ -444,21 +444,21 @@ function makeAffectations(withListGraph, nodes, setPathOperator)
 	});
 }
 
-function Merge(what, withListGraph, nodes)
+function Merge(what, matchesGraph, nodes)
 {
 	this.what = compileRef(what, nodes).val;
 	var whatType = this.what.getType();
 	var setPathOperator = library.nodes[whatType].operators.setPath;
 	
-	this.withList = makeAffectations(withListGraph, nodes, setPathOperator);
+	this.matches = makeAffectations(matchesGraph, nodes, setPathOperator);
 					
 	this.get = function()
 	{
 		//var obj = this.what.get();
 		// TODO methode clone sur les struct ?
 		var newObj = _.cloneDeep(this.what.get());
-		_.forEach(this.withList, function(affect){affect.affect(newObj);});
-			// var mergeWith = this.withList[i];
+		_.forEach(this.matches, function(affect){affect.affect(newObj);});
+			// var mergeWith = this.matches[i];
 			// if("cond" in mergeWith && !mergeWith.cond.get())
 			// {
 				// if("else" in mergeWith)
@@ -978,7 +978,7 @@ function Cloner(ref)
 		//return _.cloneDeep(this.ref.get());
 	}
 }
-function makeExprAndType(expr, nodes, cloneIfRef)
+function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 {
 	if(isRef(expr))
 	{
@@ -1072,18 +1072,32 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 		if(("getTemplates" in nodeSpec))
 		{
 			var instance;
+			if("typeParams" in expr)
+			{
+				var typeParams = expr.typeParams;
+				if(genericTypeParams)
+				{
+					typeParams = _.map(typeParams, function(type)
+					{
+						if(type in genericTypeParams)
+							return genericTypeParams[type];
+						return type;
+					});
+				}
+			}
 			if(paramsGraph != undefined)
 			{
 				var paramsValAndType = _.map(paramsGraph, function(paramGraph)
 				{
-					return makeExprAndType(paramGraph, nodes);
+					return makeExprAndType(paramGraph, nodes, genericTypeParams);
 				});
 				var vals = _.map(paramsValAndType, "val");
 				//var templates = _.map(paramsValAndType, function(valAndType) {return valAndType.val.getType();});
-				// TODO : faire check entre type explicite et deduit
-				var templates = nodeSpec.getTemplates(vals);
+				// TODO : faire check entre type explicite et deduit				
+				if(!typeParams)
+					typeParams = nodeSpec.getTemplates(vals);
 				
-				instance = nodeSpec.getInstance(templates);
+				instance = nodeSpec.getInstance(typeParams);
 				var paramsSpec = _.map(instance["fields"], function(nameAndType){return nameAndType[0];});
 				fields = _.zipObject(paramsSpec, vals);
 			}
@@ -1093,7 +1107,7 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 			}
 			
 			// TODO template explicite
-			node = new instance.builder(fields, templates);
+			node = new instance.builder(fields, typeParams);
 		}
 		else
 		{
@@ -1150,12 +1164,12 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 				var val = this.what.get();
 				for(var i = 0; i < this.cases.length; i++)
 				{
-					var matchWith = this.cases[i];
-					for(var j = 0; j < matchWith.vals.length; j++)
+					var match = this.cases[i];
+					for(var j = 0; j < match.vals.length; j++)
 					{
-						if(matchWith.vals[j].get() == val)
+						if(match.vals[j].get() == val)
 						{
-							return matchWith.out.get();
+							return match.out.get();
 						}
 					}
 				}
@@ -1172,16 +1186,22 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 		return {val : new Match(expr.match, expr["cases"], expr["else"	]), type : "match"};
 	} else if("matchType" in expr)
 	{
-		function MatchType(what, withList)
+		function MatchType(what, matches)
 		{
 			this.what = getNode(what, nodes);
-			this.withList = withList.map(function(matchExp){
+			this.matches = matches.map(function(matchExp){
 				var matchStore = new Store(null, matchExp.type != "_" ? matchExp.type : this.what.getType());
 				var mergedNodes = _.clone(nodes);
 				mergedNodes[what] = matchStore;
+				var type = matchExp.type;
+				if(genericTypeParams && type in genericTypeParams)
+				{
+					type = genericTypeParams[type];
+				}
+				
 				return {
-					val : makeExpr(matchExp.val, mergedNodes),
-					type : matchExp.type,
+					val : makeExpr(matchExp.val, mergedNodes, genericTypeParams),
+					type : type,
 					matchStore : matchStore
 				};
 			}, this);
@@ -1191,19 +1211,19 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 			{
 				var val = this.what.get();
 				var type = val.__type;
-				for(var i = 0; i < this.withList.length - 1; i++)
+				for(var i = 0; i < this.matches.length - 1; i++)
 				{
-					var matchWith = this.withList[i];
-					if(type == matchWith.type)
+					var match = this.matches[i];
+					if(type == match.type)
 					{
-						matchWith.matchStore.set(val);
-						return matchWith.val.get();
+						match.matchStore.set(val);
+						return match.val.get();
 					}
 				}
 				// else case
-				var matchWith = this.withList[i];
-				matchWith.matchStore.set(val);
-				return matchWith.val.get();
+				var match = this.matches[i];
+				match.matchStore.set(val);
+				return match.val.get();
 				// TODO Error				
 			}
 			
@@ -1225,14 +1245,14 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 		return {val : node, type : "select"};
 	} else if("closure" in expr)
 	{
-		var closure = new Closure(expr, nodes);
+		var closure = new Closure(expr, nodes, genericTypeParams);
 		return {val : closure, type : closure.getType()};
 	}
 }
 
-function makeExpr(expr, nodes, cloneIfRef)
+function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 {
-	return makeExprAndType(expr, nodes, cloneIfRef).val;
+	return makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef).val;
 }
 
 function makeNode(nodeGraph, nodes, connectionsGraph)
@@ -1470,9 +1490,9 @@ function makeAction(actionGraph, nodes, connections)
 	{
 		function MatchTypeAction(actionGraph, nodes)
 		{
-			var withList = actionGraph.with;
+			var matches = actionGraph.with;
 			this.what = getNode(actionGraph.matchType, nodes);
-			this.withList = withList.map(function(matchExp){
+			this.matches = matches.map(function(matchExp){
 				var matchStore = new Store(null, matchExp.type != "_" ? matchExp.type : this.what.getType());
 				var mergedNodes = _.clone(nodes);
 				mergedNodes[actionGraph.matchType] = matchStore;
@@ -1488,13 +1508,13 @@ function makeAction(actionGraph, nodes, connections)
 			{
 				var val = this.what.get();
 				var type = val.__type;
-				for(var i = 0; i < this.withList.length; i++)
+				for(var i = 0; i < this.matches.length; i++)
 				{
-					var matchWith = this.withList[i];
-					if(type == matchWith.type)
+					var match = this.matches[i];
+					if(type == match.type)
 					{
-						matchWith.matchStore.set(val);
-						matchWith.action.signal();
+						match.matchStore.set(val);
+						match.action.signal();
 					}
 				}				
 			}
@@ -1917,7 +1937,8 @@ function makeAction(actionGraph, nodes, connections)
 	{
 		// FIXME : type
 		// Si l'action est une affectation et que le parametre est une reference, il devra etre clone
-		param = makeExpr(paramGraph, localNodes, type == "Send");
+		var cloneIfRef =  type == "Send";
+		param = makeExpr(paramGraph, localNodes, {}, cloneIfRef);
 	}
 	
 	if(type == "if")
@@ -2446,7 +2467,12 @@ function FunctionTemplate(classGraph)
 			instance.internalNodes[getId(node)] = makeNode(node, instance.internalNodes, {});
 		});
 		
-		instance.expr = makeExpr(classGraph["out"].val, instance.internalNodes);
+		var genericTypeParams = {};
+		_.each(classGraph.templates, function(param, index)
+		{
+			genericTypeParams[param] = templates[index];
+		});
+		instance.expr = makeExpr(classGraph["out"].val, instance.internalNodes, genericTypeParams);
 		if("type" in instance)
 		{
 			// Juste check
