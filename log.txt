@@ -56,3 +56,9 @@
 
 17-18/2 : Ajout de la demo Tree.
 	Syntaxes de composite, de select, de select apply
+	
+19/2 : Reflexions sur les syntaxes (trop) specifiques select ... On peut utiliser flatMap au lieu de select.
+	Ajout de flatMap
+	Ajout des closures
+	
+20/2 : Les closures fonctionnent ! Meme en parametre d'un map ! La mise au point a ete tres compliquee

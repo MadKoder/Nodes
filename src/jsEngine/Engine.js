@@ -124,7 +124,7 @@ function Dict(val, keyType)
 	}
 }
 
-Dict
+var storeId = 0;
 function Store(v, type) 
 {
 	this.val = v;
@@ -134,6 +134,10 @@ function Store(v, type)
 	this.tag = 0;
 	
 	this.sinks = [];
+	
+	// DEBUG
+	this.id = storeId;
+	storeId++;
 	
 	if(type != null)
 	{
@@ -209,6 +213,68 @@ function Store(v, type)
 		return this.type;
 	}
 }
+
+function Closure(expr, nodes) 
+{
+	this.nodes = nodes;
+	this.nodesClosure =  _.mapValues(nodes, function(node)
+	{
+		return new Store(null, node.getType());
+	});
+	var paramSpec = [];
+	var paramStores = _.map(expr.params, function(param, index)
+	{
+		var node = new Store(null, param.type);
+		this.nodesClosure[param.id] = node;
+		paramSpec.push(["param" + index.toString(), param.type]);
+		return node;
+	}, this);
+	
+	var expr = makeExpr(expr.closure, this.nodesClosure);
+	
+	this.funcSpec = {
+		params : paramSpec,
+		func : function(params)	{	
+			_.each(params, function(param, index)
+			{
+				paramStores[index].set(param);
+			});
+			return expr.get();
+		},
+		type : expr.getType()
+	}
+	
+	this.type = {
+		inputs : _.map(paramSpec, function(param)
+			{
+				return param[1];
+			}),		
+		output : this.funcSpec.type
+	}
+
+	// DEBUG
+	this.id = storeId;
+	storeId++;
+	
+	this.get = function()
+	{
+		_.each(this.nodesClosure, function(closure, key)
+		{
+			var node = this.nodes[key];
+			if(node)
+			{
+				closure.set(node.get());
+			}
+		}, this);
+		return this.funcSpec;
+	};
+	
+	this.getType = function()
+	{
+		return this.type;
+	}
+}
+
 
 function Cache(node) 
 {
@@ -964,19 +1030,34 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 		{
 			throw "Type undefined in makeNode";
 		}
-		var type = getBaseType(expr.type);
 		
 		var node;
+		if(!_.isString(expr.type) && ("type" in expr.type))
+		{
+			var node = makeExpr(expr.type, nodes);
+			var closure = node.get();
+			// var type = getOutType(closure.getType());
+			var type = "closure";
+			var templates = [];
+			var nodeSpec = new funcToNodeSpec(closure);
+		}
+		else
+		{
+			var type = getBaseType(expr.type);
+			var templates = getTemplates(expr.type);
+			if(!(type in library.nodes))
+			{
+				error("Function " + type + " not found in nodes library");
+			}
+			var nodeSpec = library.nodes[type];
+		}
+
 		var paramsGraph = expr.params;
 		var fieldsGraph = expr.fields;
-		if(!(type in library.nodes))
-		{
-			error("Function " + type + " not found in nodes library");
-		}
-		var nodeSpec = library.nodes[type];
 		var fields = {};
 		if(fieldsGraph != undefined)
 		{
+			// TODO !!!
 			fields = compileFields(fieldsGraph, path, type, nodes, false);
 		}
 
@@ -1001,20 +1082,21 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 			}
 			else
 			{
-				instance = nodeSpec.getInstance(getTemplates(expr.type));
+				instance = nodeSpec.getInstance(templates);
 			}
 			
 			// TODO template explicite
-			node = new instance.builder(fields, getTemplates(expr.type));
+			node = new instance.builder(fields, templates);
 		}
 		else
 		{
 			if(paramsGraph != undefined)
 			{
 				var fieldsSpec = nodeSpec["fields"];
-				if(paramsGraph.length < fieldsSpec.length)
+				var nbParamsSpec = _.filter(fieldsSpec, function(field){return _.isArray(field);}).length;
+				if(paramsGraph.length < nbParamsSpec)
 				{
-					error("Not enough params in constructor of " + type + ". Required " + fieldsSpec.length + " found " + paramsGraph.length);
+					error("Not enough params in constructor of " + type + ". Required " + nbParamsSpec + " found " + paramsGraph.length);
 				}
 				for(var paramIndex = 0; paramIndex < paramsGraph.length; paramIndex++)
 				{
@@ -1022,7 +1104,7 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 					fields[paramSpec[0]] = makeExpr(paramsGraph[paramIndex], nodes);
 				}
 			}
-			node = new library.nodes[type].builder(fields, getTemplates(expr.type));
+			node = new nodeSpec.builder(fields, templates);
 		}
 		// TODO type ?
 		// return {val : node, type : node.getType()};
@@ -1125,6 +1207,10 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 	{
 		var node = new Select(expr, nodes);
 		return {val : node, type : "select"};
+	} else if("closure" in expr)
+	{
+		var closure = new Closure(expr, nodes);
+		return {val : closure, type : closure.getType()};
 	}
 }
 
@@ -1250,7 +1336,7 @@ var msgIndex = 0;
 function ListNodeElementRef(listNode)
 {
 	this.listNode = listNode;
-	this.type = getListTypeParams(listNode.getType());
+	this.type = getListTypeParam(listNode.getType());
 	this.list = null;
 	this.index = 0;
 	

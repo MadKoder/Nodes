@@ -160,6 +160,12 @@ TypeAndId =
 MaybeTypeAndId =
   TypeAndId
   / id:Id {return {type:null, id:id};}
+  
+MaybeTypeAndIds =
+	head:MaybeTypeAndId tail:( _ "," _ (type:MaybeTypeAndId) {return type})* 
+	{
+		return [head].concat(tail);
+	}
 
 Type =
 	base:Id _ templates:("<" _ t:Templates _ ">" _ {return t;})?
@@ -267,6 +273,7 @@ Val =
    "true" {return true;}
   / "false" {return false;}
   / "[]" { return {array : []};}
+  / Closure
   / Range
   / Select
   / Comprehension 
@@ -278,6 +285,14 @@ Val =
   / Message 
   / number 
  
+Closure = 
+	params:MaybeTypeAndIds _ "->" _ val:Val
+	{
+		return{
+			"closure" : val,
+			"params" : params
+		};
+	}
 
 Select =
 	"select " _ id:Var _ path:("along " _ path:Id {return path;})? _ ":" _"(" _ matches:SelectMatches _ ")" _
@@ -614,15 +629,37 @@ PrimaryExpression
   / String
 
 FunctionCall = 
-	id:Id _ "("_ params:(Params)? _ ")" 
+	id:Id _ calls:FuncCalls
 	{	
-		var func = {type : id};
+		var ret = id;
+		for(var i = 0; i < calls.length; i++)
+		{
+			ret = {
+				type : ret
+			};
+			var call = calls[i];
+			if("params" in call) ret["params"] = call["params"];
+			if("fields" in call) ret["fields"] = call["fields"];
+		}
+		return ret;
+	}
+	
+FuncCalls = 
+	head:FuncCall _ tail:( _ (i:FuncCall) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+FuncCall = 
+	"("_ params:(Params)? _ ")"
+	{
+		var ret = {};
 		if(params != null)
 		{
-			if("params" in params) func["params"] = params["params"];
-			if("fields" in params) func["fields"] = params["fields"];
+			if("params" in params) ret["params"] = params["params"];
+			if("fields" in params) ret["fields"] = params["fields"];
 		}
-		return func;
+		return ret;
 	}
 	
 String = 
@@ -727,7 +764,7 @@ ElseCase =
 	}
 	
 Vals =
-	head:Val _ tail:( _ "," _ (i:Val) {return i})* 
+	!("_"!Id) head:Val _ tail:( _ "," _ (i:Val) {return i})* 
 	{
 		return [head].concat(tail);
 	}

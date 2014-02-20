@@ -1,0 +1,7 @@
+functions:
+	inc(int x):
+		int y -> x * y
+nodes:
+	var a : inc(2)(5)
+	var l : [1, 2]
+	var l2 : map(x -> x + 1, l)
