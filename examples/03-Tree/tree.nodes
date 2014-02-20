@@ -23,17 +23,14 @@ functions:
 		merge(accum, state)
 	getStateSet(Obj obj):
 		obj.stateSet
-	list<Circle> getCirclesAndAccumStateMerge(Obj child, Group group)
 	list<Circle> getCirclesAndAccumState(Obj obj): type obj :
 		Circle  : [obj]
 		Group : flatMap
 			(
-				getCirclesAndAccumStateMerge,
-				obj.children
+				Obj child -> getCirclesAndAccumState(child \ stateSet = merge(obj.stateSet, child.stateSet)),
+				obj.__children
 			)
 		_ : []
-	getCirclesAndAccumStateMerge(Obj child, Group group) :
-		getCirclesAndAccumState(child \ stateSet = merge(group.stateSet, child.stateSet))
 nodes:
 	var defaultState : State(Color(0, 0, 0))
 	var dict<string, State> defaultStateSet
@@ -60,16 +57,29 @@ nodes:
 		Rect : reduce(accumState, map(getStateSet, path), defaultStateSet)
 	def rects : select root :
 		Rect r : r
-	def circles : select root along path :
-		Circle c : tuple(c, reduce(accumState, map(getStateSet, path), defaultStateSet))
+	# def circles : select root along path :
+		# Circle c : tuple(c, reduce(accumState, map(getStateSet, path), defaultStateSet))
+	def circles : getCirclesAndAccumState(root)
 actions :
+	moveAll(Obj obj):
+		type obj apply:
+			Rect : 
+				obj.pos.y = obj.pos.y + 0.1
+				obj.size.x = obj.size.x + 0.1
+			Circle : 
+				obj.pos.x = obj.pos.x + 0.1
+			Group : 
+				on child in obj.__children apply moveAll(child)
 	tick : 
-		select root apply:
-			Rect r : 
-				pos.y = r.pos.y + 0.1
-				size.x = r.size.x + 0.1
-			Circle c : 
-				pos.x = c.pos.x + 0.1
+		# select root apply:
+			# Rect r : 
+				# pos.y = r.pos.y + 0.1
+				# size.x = r.size.x + 0.1
+			# Circle c : 
+				# pos.x = c.pos.x + 0.1
+		moveAll(root)
+
+
 	# addRect : 
 		# select root apply:
 			# Group g : 

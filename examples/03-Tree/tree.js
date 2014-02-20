@@ -76,8 +76,10 @@ $.get("tree.nodes", function( text ) {
 	
 	function createCircle(model)
 	{
-		var circleModel = model[0];
-		var stateSet = model[1];
+		//var circleModel = model[0];
+		// var stateSet = model[1];
+		var circleModel = model;
+		var stateSet = circleModel.stateSet;
 		var color = stateSet.color;
 		var circle = new paper.Shape.Circle({
 			point: [circleModel.pos.x, circleModel.pos.y],
@@ -89,8 +91,10 @@ $.get("tree.nodes", function( text ) {
 	
 	function updateCircle(model, view)
 	{
-		var circleModel = model[0];
-		var stateSet = model[1];
+		//var circleModel = model[0];
+		// var stateSet = model[1];
+		var circleModel = model;
+		var stateSet = circleModel.stateSet;
 		var color = stateSet.color;
 		view.radius = circleModel.radius;
 		view.position = new Point(circleModel.pos.x + circleModel.radius * .5, circleModel.pos.y + circleModel.radius * .5);

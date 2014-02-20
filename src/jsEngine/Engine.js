@@ -766,9 +766,9 @@ function Select(nodeGraph, externNodes)
 				}
 			}
 			
-			if("children" in val)
+			if("__children" in val)
 			{
-				ret = _.reduce(root.children, function(accum, val)
+				ret = _.reduce(root.__children, function(accum, val)
 				{
 					return accum.concat(select(val, path.concat([val])));
 				}, ret);
@@ -809,9 +809,12 @@ function getFieldType(fields, path)
 	var head = path[0];
 	// Les champs sont des tableaux [nom, type]
 	// On recupere le type de celui dont le nom correspond
-	var fieldType = _(fields)
-		.filter(function(field){return (field[0] == head);})
-		.value()[0][1];
+	var field = _.find(fields, function(field){return (field[0] == head);})
+	if(field == undefined)
+	{
+		error("No field " + head + " in structure " + fields.toString());
+	}
+	var fieldType = field[1];
 	
 	if(path.length == 1)
 		return fieldType;
@@ -941,8 +944,12 @@ function compileRef(ref, nodes, promiseAllowed)
 				return makeExpr(p.index, nodes).val;
 			return p;
 		});
-		// TODO ?
-		var type = node.getType(path);
+		// If reference is an action, no type...
+		// TODO : make another function for resolving references to actions ?
+		if("getType" in node)
+		{
+			var type = node.getType(path);
+		}
 		//var type = undefined;
 		if(split.length > 1)
 		{
@@ -1169,25 +1176,34 @@ function makeExprAndType(expr, nodes, cloneIfRef)
 		{
 			this.what = getNode(what, nodes);
 			this.withList = withList.map(function(matchExp){
+				var matchStore = new Store(null, matchExp.type != "_" ? matchExp.type : this.what.getType());
+				var mergedNodes = _.clone(nodes);
+				mergedNodes[what] = matchStore;
 				return {
-					val : makeExpr(matchExp.val, nodes),
-					type : matchExp.type
+					val : makeExpr(matchExp.val, mergedNodes),
+					type : matchExp.type,
+					matchStore : matchStore
 				};
-			});
+			}, this);
 			var whatType = this.what.getType();
 						
 			this.get = function()
 			{
 				var val = this.what.get();
 				var type = val.__type;
-				for(var i = 0; i < this.withList.length; i++)
+				for(var i = 0; i < this.withList.length - 1; i++)
 				{
 					var matchWith = this.withList[i];
 					if(type == matchWith.type)
 					{
+						matchWith.matchStore.set(val);
 						return matchWith.val.get();
 					}
 				}
+				// else case
+				var matchWith = this.withList[i];
+				matchWith.matchStore.set(val);
+				return matchWith.val.get();
 				// TODO Error				
 			}
 			
@@ -1411,8 +1427,24 @@ function ListDelta(add, remove, updates)
 	this.updates = updates;
 }
 
+function concatActions(beginActions, actionGraph)
+{
+	if(actionGraph.type == "Seq")
+	{
+		actionGraph.slots = beginActions.concat(actionGraph.slots);
+	} else
+	{
+		actionGraph = {
+			"type" : "Seq",
+			"slots" : beginActions.concat([actionGraph])
+		};
+	}
+	return actionGraph;
+}
+
 function makeAction(actionGraph, nodes, connections)
 {
+	
 	if("foreach" in actionGraph)
 	{
 		function ForEach(list, signal, params)
@@ -1432,6 +1464,44 @@ function makeAction(actionGraph, nodes, connections)
 		var compiledParams = _.map(paramsGraph, function(param){return makeExpr(param, nodes);});
 		// TODO check signal and params valid with list element type
 		return new ForEach(iterated, actionGraph.signal, compiledParams);
+	}
+	
+	if("matchType" in actionGraph)
+	{
+		function MatchTypeAction(actionGraph, nodes)
+		{
+			var withList = actionGraph.with;
+			this.what = getNode(actionGraph.matchType, nodes);
+			this.withList = withList.map(function(matchExp){
+				var matchStore = new Store(null, matchExp.type != "_" ? matchExp.type : this.what.getType());
+				var mergedNodes = _.clone(nodes);
+				mergedNodes[actionGraph.matchType] = matchStore;
+				return {
+					action : makeAction(matchExp.action, mergedNodes),
+					type : matchExp.type,
+					matchStore : matchStore
+				};
+			}, this);
+			var whatType = this.what.getType();
+						
+			this.signal = function()
+			{
+				var val = this.what.get();
+				var type = val.__type;
+				for(var i = 0; i < this.withList.length; i++)
+				{
+					var matchWith = this.withList[i];
+					if(type == matchWith.type)
+					{
+						matchWith.matchStore.set(val);
+						matchWith.action.signal();
+					}
+				}				
+			}
+		}
+
+		// TODO type avec template
+		return new MatchTypeAction(actionGraph, nodes);
 	}
 	
 	if("select" in actionGraph)
@@ -1502,14 +1572,14 @@ function makeAction(actionGraph, nodes, connections)
 						}
 					}
 					
-					if("children" in val)
+					if("__children" in val)
 					{
 						if(val == null)
 						{
 							val = node.get();
 						}
 						var concatPath = path.concat([val]);
-						_.each(val.children, function(child)
+						_.each(val.__children, function(child)
 						{
 							apply(child, concatPath);
 						});
@@ -1711,31 +1781,6 @@ function makeAction(actionGraph, nodes, connections)
 		return new Signal(compileRef(actionGraph["var"], nodes).val, actionGraph.signal, compiledParams)
 	}
 	
-	function concatActions(beginActions, actionGraph)
-	{
-		if(actionGraph.type == "Seq")
-		{
-			actionGraph.slots = beginActions.concat(actionGraph.slots);
-		} else
-		{
-			actionGraph = {
-				"type" : "Seq",
-				"slots" : beginActions.concat([actionGraph])
-			};
-		}
-		return actionGraph;
-	}
-	
-	// TODO action avec parametres
-	if("params" in actionGraph)
-	{
-		//TODO manage multiple params
-		var param = actionGraph.params[0];
-		var paramId = param[0];
-		nodes[paramId] = new ActionParam(param[1]);
-		actionGraph = concatActions([paramId], actionGraph);
-	}
-	
 	// Les generateurs (les <-) sont transformes en Store, 
 	// qui sont alimentes au debut de l'actionGraph
 	var generators = [];
@@ -1799,6 +1844,16 @@ function makeAction(actionGraph, nodes, connections)
 			}
 		}
 		return [];
+	}
+	
+	// TODO action avec parametres
+	if("params" in actionGraph)
+	{
+		//TODO manage multiple params
+		var param = actionGraph.params[0];
+		var paramId = param[0];
+		nodes[paramId] = new ActionParam(param[1]);
+		actionGraph = concatActions([paramId], actionGraph);
 	}
 	
 	// TODO gere action avec juste un local (sert a  rien mais bon ...)
@@ -1910,7 +1965,7 @@ function makeAction(actionGraph, nodes, connections)
 				if(param != null)
 				{
 					slots = compileSlots([actionGraph.type], localNodes, connections);	
-					type = "Send";
+					type = "Signal";
 				} else
 				{
 					return compileRef(type, localNodes).val;
@@ -1933,7 +1988,7 @@ function makeStruct(structGraph, name, inheritedFields, groupComponentName)
 		fieldsGraph.unshift
 		(
 			[
-			   "children",
+			   "__children",
 			   {
 				  "base": "list",
 				  "templates": [
@@ -2600,8 +2655,9 @@ function compileGraph(graph, lib, previousNodes)
     for(var i = 0; i < actionsGraph.length; i++)
 	{
 		var actionGraph = actionsGraph[i];
+		nodes[getId(actionGraph)] = {};
 		var action = makeAction(actionGraph, nodes, connectionsGraph);
-		nodes[getId(actionGraph)] = action;
+		_.merge(nodes[getId(actionGraph)], action);
 		actions.push(action);
     }
 	

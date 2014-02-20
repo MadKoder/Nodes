@@ -947,7 +947,7 @@ var functions =
 						// et non pas cacher la methode func puis l'appeler seule
 						return funcInstance.func([val]);
 					})
-					.flatten(true);
+					.flatten(true).value();
 				},
 				type : listTemp(templates[1]),
 				templates : templates
@@ -1436,6 +1436,19 @@ function Send(slots, param) {
     };
 }
 
+function Signal(slots, param) {
+    this.slots = slots;
+    this.param = param;
+	this.signal = function(val, path)
+    {
+		var val = this.param.get();
+		for(var i = 0; i < this.slots.length; i++)
+		{
+			this.slots[i].signal(val);
+		}
+    };
+}
+
 function Seq(slots, param) {
     this.slots = slots;
     this.signal = function(v)
@@ -1455,6 +1468,7 @@ var actions=
 {
 	"Print" : Print,
 	"Send" : Send,
+	"Signal" : Signal,
 	"Seq" : Seq,
 	"Alert" :  function (slots, param) 
 	{

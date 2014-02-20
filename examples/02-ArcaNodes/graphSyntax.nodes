@@ -197,3 +197,8 @@ list<Circle> getCirclesAccumState(Obj obj):
 			_ : []
 
 
+setRectToRed(ref Obj obj):
+	typeApply obj :
+		Rect : obj.stateSet = merge(obj.stateSet, {color : Color(1, 0, 0)}) 
+		Group : on child in obj.children apply
+			setRectToRed(child)

@@ -438,6 +438,7 @@ Action "Action" =
   Affectation 
   / Foreach
   / ApplyAction
+  / MatchTypeAction
   / SelectAction
   / SlotCall
   / Update
@@ -460,8 +461,8 @@ Action "Action" =
 	}
 
 ApplyAction =
-	_ "on " _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ 
-	array:Val _ "apply " _ action:Action
+	_ "on" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ 
+	array:Val _ "apply" _ action:Action
 	{
 		var res =  {
 			"on" : it,
@@ -475,6 +476,30 @@ ApplyAction =
 		return res;
 	}
 	
+MatchTypeAction = 
+	"type" _ id:Var _ "apply" _ ":" _ "(" _ matchCases:TypeActionCases _ ")" 
+	{
+		return {
+			matchType : id,
+			with : matchCases
+		};
+	}
+		
+TypeActionCases = 
+	head:TypeActionCase _ tail:( _ "," _ (i:TypeActionCase) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+	
+TypeActionCase = 
+	type:Id _ ":" _ action:Action
+	{
+		return {
+			type : type,
+			action : action
+		}
+	}
+
 Update =
 	"update" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Val _
 	"with " _ val:ValOrCondUpdate _ filter:("filter " _ test:Val {return test})?
