@@ -182,9 +182,9 @@ function Store(v, type)
 		this.sinks.push(sink);
 	};
 	
-	this.signal = function(signal, params)
+	this.signal = function(signal, params, path)
 	{
-		operators.signal(this.val, signal, params);
+		operators.signal(this.val, signal, params, path);
 		this.dirty();
 	};
 	
@@ -1398,6 +1398,11 @@ function ListNodeElementRef(listNode)
 		this.listNode.dirty([this.index]);
 		this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
 	}		
+	
+	this.signal = function(signal, params)
+	{
+		this.listNode.signal(signal, params, [this.index]);
+	}
 	
 	this.dirty = function(path)
 	{
@@ -2735,7 +2740,7 @@ function compileGraph(graph, lib, previousNodes)
 					localNodes[param[0]] = node;
 					inputs.push(node);
 				});
-				slotGraph.params = undefined;
+				delete slotGraph.params;
 			}
 			//slotGraph.params = [["self", structGraph.name]].concat(slotGraph.params);
 			var slotName = id[1];

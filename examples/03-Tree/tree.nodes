@@ -31,6 +31,9 @@ functions:
 				obj.__children
 			)
 		_ : []
+	list<Group> findGroups(Obj obj):  type obj :
+		Group : pushFront(flatMap(findGroups, obj.__children), obj)
+		_ : []
 nodes:
 	var defaultState : State(Color(0, 0, 0))
 	var dict<string, State> defaultStateSet
@@ -94,10 +97,11 @@ actions :
 			# Group : 
 				# obj.__children = pushFront(obj.__children, Rect({}, Vec2(50, 50), Vec2(40, 10)))
 				# on child in obj.__children apply addRect(child)
-	Obj.addRect : 
+	Obj.addRect(int i) : 
 		type self apply:
 			Group : 
-				self.__children = pushFront(self.__children, Rect({}, Vec2(50, 50), Vec2(40, 10)))
-				foreach self.__children addRect()
+				if length(findGroups(self)) ==  1 then self.__children = pushFront(self.__children, Rect({}, Vec2(50 * i, 50), Vec2(40, 10)))
+				foreach self.__children addRect(i + 1)
+				# on child, index in self.__children apply child.addRect(index + 1)
 	addRectToRoot:
 		root.addRect()
