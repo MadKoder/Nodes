@@ -1113,7 +1113,7 @@ function funcToNodeSpec(funcProto)
 	return new FunctionNode(funcProto);
 }
 
-
+var currentPath = [];
 
 var nodes = 
 {
@@ -1267,11 +1267,16 @@ var nodes =
 					},
 					signalOperator : instanceTypeOperators ? instanceTypeOperators.signal : null,
 					instanceType : subBaseType,
-					signal : function(list, iteratedSignal, params, path)
+					signal : function(list, iteratedSignal, params, path, rootAndPath)
 					{
 						if(!path || path.length == 0)
 						{
-							_.each(list, function(item) {instanceTypeOperators.signal(item, iteratedSignal, params);}, this);
+							_.each(list, function(item, index) 
+							{
+								currentPath.push(index);
+								instanceTypeOperators.signal(item, iteratedSignal, params, [], {root : rootAndPath.root, path : rootAndPath.path.concat([index])});
+								currentPath.pop();
+							}, this);
 						}
 						else
 						{
@@ -1437,12 +1442,12 @@ function Print(slots, param) {
 function Send(slots, param) {
     this.slots = slots;
     this.param = param;
-	this.signal = function(val, path)
+	this.signal = function(rootAndPath)
     {
 		var val = this.param.get();
 		for(var i = 0; i < this.slots.length; i++)
 		{
-			this.slots[i].set(val);
+			this.slots[i].set(val, rootAndPath);
 		}
     };
 }
@@ -1450,23 +1455,23 @@ function Send(slots, param) {
 function Signal(slots, param) {
     this.slots = slots;
     this.param = param;
-	this.signal = function(val, path)
+	this.signal = function(rootAndPath)
     {
 		var val = this.param.get();
 		for(var i = 0; i < this.slots.length; i++)
 		{
-			this.slots[i].signal(val);
+			this.slots[i].signal(val, rootAndPath);
 		}
     };
 }
 
 function Seq(slots, param) {
     this.slots = slots;
-    this.signal = function(v)
+    this.signal = function(rootAndPath)
     {
 		for(var i = 0; i < this.slots.length; i++)
 		{
-			this.slots[i].signal(v);
+			this.slots[i].signal(rootAndPath);
 		}
     };
 	this.getType = function()

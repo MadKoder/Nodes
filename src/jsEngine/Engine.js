@@ -162,7 +162,7 @@ function Store(v, type)
 	this.set = function(val)
 	{
 		this.val = val;
-		this.dirty();
+		this.dirty([]);
 	};
 	
 	this.dirty = function(path)
@@ -171,10 +171,11 @@ function Store(v, type)
 		{
 			sink.dirty()
 		});
-		if(path != undefined)
+		if(path == undefined)
 		{
-			this.dirtyList.push(path)
+			throw "Path undefined in dirty"
 		}
+		this.dirtyList.push(path)
 	}
 	
 	this.addSink = function(sink)
@@ -184,8 +185,9 @@ function Store(v, type)
 	
 	this.signal = function(signal, params, path)
 	{
-		operators.signal(this.val, signal, params, path);
-		this.dirty();
+		var rootAndPath = {root : this, path : []};
+		operators.signal(this.val, signal, params, path, rootAndPath);
+		// this.dirty();
 	};
 	
 	this.addDelta = function(delta)
@@ -219,17 +221,61 @@ function Store(v, type)
 	}
 }
 
+function SubStore(type) 
+{
+	this.val = null;
+	this.type = type;
+
+	// DEBUG
+	this.id = storeId;
+	storeId++;
+	
+	if(type != null)
+	{
+		var baseType = getBaseType(type);
+		var templates = getTemplates(type);
+		var typeObj = (templates.length > 0) ? 
+			library.nodes[baseType].getInstance(templates) :
+			library.nodes[type];
+		if(typeObj != undefined && "operators" in typeObj)
+		{
+			var operators = typeObj.operators;
+			//this.signalOperator = operators.signal;
+		}
+	}
+	
+	this.get = function()
+	{
+		return this.val;
+	};
+
+	this.set = function(val)
+	{
+		this.val = val;
+	};
+	
+	this.signal = function(signal, params, path, rootAndPath)
+	{
+		operators.signal(this.val, signal, params, path, rootAndPath);
+	};
+	
+	this.getType = function()
+	{
+		return this.type;
+	}
+}
+
 function Closure(expr, nodes, genericTypeParams) 
 {
 	this.nodes = nodes;
 	this.nodesClosure =  _.mapValues(nodes, function(node)
 	{
-		return new Store(null, node.getType());
+		return new SubStore(node.getType());
 	});
 	var paramSpec = [];
 	var paramStores = _.map(expr.params, function(param, index)
 	{
-		var node = new Store(null, param.type);
+		var node = new SubStore(param.type);
 		this.nodesClosure[param.id] = node;
 		paramSpec.push(["param" + index.toString(), param.type]);
 		return node;
@@ -517,7 +563,7 @@ function Comprehension(nodeGraph, externNodes)
 		var inputGraph = iterator["for"];
 		if(_.isString(inputGraph))
 		{
-			inputs[index] = new Store(null, inputTemplateType);
+			inputs[index] = new SubStore(inputTemplateType);
 			this.nodes[iterator["for"]] = inputs[index];
 		} else // destruct
 		{
@@ -525,7 +571,7 @@ function Comprehension(nodeGraph, externNodes)
 			var destructTypes = getTemplates(inputTemplateType);
 			destructInputs[index] = _.map(destructTypes, function(type)
 			{
-				return new Store(null, type)
+				return new SubStore(type)
 			});
 			this.nodes = _(destructGraph)
 				.zipObject(destructInputs[index])
@@ -535,7 +581,7 @@ function Comprehension(nodeGraph, externNodes)
 		{
 			// TODO  Path ?
 			// TODO param nodes = union(this.nodes, externNodes)
-			comprehensionIndices[index] = new Store(null, "int");
+			comprehensionIndices[index] = new SubStore("int");
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
 		};
 	}, this);
@@ -727,12 +773,12 @@ function Select(nodeGraph, externNodes)
 	if(nodeGraph.path)
 	{
 		// TODO utiliser le type component, car le root n'est pas forcement de ce type
-		pathStore = new Store(null, makeTemplate("list", [rootNode.getType()]));
+		pathStore = new SubStore(makeTemplate("list", [rootNode.getType()]));
 	}
 	var matches = _.map(nodeGraph.matches, function(match)
 	{
 		var type = match.selector.type;
-		var elementStore = new Store(null, type);
+		var elementStore = new SubStore(type);
 		var newNodes = {};
 		newNodes[match.selector["id"]] = elementStore;
 		if(pathStore != null)
@@ -859,7 +905,7 @@ function StructAccess(node, path) {
 		return this.getPathOperator(val, this.path);
 	};
 	
-	this.set = function(val)
+	this.set = function(val, rootAndPath)
 	{
 		var struct = this.node.get();
 		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
@@ -871,14 +917,25 @@ function StructAccess(node, path) {
 			var operators = library.nodes[val.__type].operators;
 			this.setPathOperator = operators.setPath;
 		}
+		currentPath = currentPath.concat(this.path);
 		this.setPathOperator(struct, this.path, val);
-		this.node.dirty(this.path);
+		if(rootAndPath)
+		{
+			rootAndPath.root.dirty(rootAndPath.path.concat(this.path));
+		}
+		else
+		{
+			this.node.dirty(this.path);
+		}
+		currentPath = currentPath.slice(0, -this.path.length);
 	};
 	
-	this.signal = function(signal, params)
+	this.signal = function(signal, params, rootAndPath)
 	{
-		operators.signal(this.get(), signal, params, this.path);
-		this.node.dirty();
+		currentPath = currentPath.concat(this.path);
+		operators.signal(this.get(), signal, params, this.path, {root : rootAndPath.root, path : rootAndPath.path.concat(this.path)});
+		// this.node.dirty();
+		currentPath = currentPath.slice(0, -this.path.length);
 	};
 	
 	this.getType = function()
@@ -1201,7 +1258,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		{
 			this.what = getNode(what, nodes);
 			this.matches = matches.map(function(matchExp){
-				var matchStore = new Store(null, matchExp.type != "_" ? matchExp.type : this.what.getType());
+				var matchStore = new SubStore(matchExp.type != "_" ? matchExp.type : this.what.getType());
 				var mergedNodes = _.clone(nodes);
 				mergedNodes[what] = matchStore;
 				var type = matchExp.type;
@@ -1312,15 +1369,15 @@ function IfElseParam(param, thenSlot, elseSlot) {
 	this.thenSlot = thenSlot;
     this.elseSlot = elseSlot;
 	this.param = param;
-    this.signal = function(val)
+    this.signal = function(rootAndPath)
     {
 		if(this.param.get())
 		{
-			this.thenSlot.signal();
+			this.thenSlot.signal(rootAndPath);
 		}
 		else if(this.elseSlot != undefined)
 		{
-			this.elseSlot.signal();
+			this.elseSlot.signal(rootAndPath);
 		}
     };
 }
@@ -1495,9 +1552,9 @@ function makeAction(actionGraph, nodes, connections)
 			this.iteratedSignal = signal;
 			this.params = params;
 			
-			this.signal = function()
+			this.signal = function(rootAndPath)
 			{
-				this.list.signal(this.iteratedSignal, this.params);
+				this.list.signal(this.iteratedSignal, this.params, rootAndPath);
 			}
 		}
 		var iterated = compileRef(actionGraph["foreach"], nodes).val;
@@ -1515,7 +1572,7 @@ function makeAction(actionGraph, nodes, connections)
 			var matches = actionGraph.with;
 			this.what = getNode(actionGraph.matchType, nodes);
 			this.matches = matches.map(function(matchExp){
-				var matchStore = new Store(null, matchExp.type != "_" ? matchExp.type : this.what.getType());
+				var matchStore = new SubStore(matchExp.type != "_" ? matchExp.type : this.what.getType());
 				var mergedNodes = _.clone(nodes);
 				mergedNodes[actionGraph.matchType] = matchStore;
 				return {
@@ -1526,7 +1583,7 @@ function makeAction(actionGraph, nodes, connections)
 			}, this);
 			var whatType = this.what.getType();
 						
-			this.signal = function()
+			this.signal = function(rootAndPath)
 			{
 				var val = this.what.get();
 				var type = val.__type;
@@ -1536,7 +1593,7 @@ function makeAction(actionGraph, nodes, connections)
 					if(type == match.type)
 					{
 						match.matchStore.set(val);
-						match.action.signal();
+						match.action.signal(rootAndPath);
 					}
 				}
 			}
@@ -1558,7 +1615,7 @@ function makeAction(actionGraph, nodes, connections)
 			if(nodeGraph.path)
 			{
 				// TODO utiliser le type component, car le root n'est pas forcement de ce type
-				pathStore = new Store(null, makeTemplate("list", [rootNode.getType()]));
+				pathStore = new SubStore(makeTemplate("list", [rootNode.getType()]));
 			}
 			
 			var matches = _.map(nodeGraph.apply, function(match)
@@ -1568,7 +1625,7 @@ function makeAction(actionGraph, nodes, connections)
 				
 				if("id" in match.selector)
 				{
-					var elementStore = new Store(null, type);					
+					var elementStore = new SubStore(type);					
 					newNodes[match.selector["id"]] = elementStore;				
 				}
 				
@@ -1673,7 +1730,7 @@ function makeAction(actionGraph, nodes, connections)
 		var indexStore = null;
 		if("index" in actionGraph)
 		{
-			indexStore = new Store(null, "int")
+			indexStore = new SubStore("int")
 			localNodes[actionGraph["index"]] = indexStore;
 		}
 		// TODO : check that action only change iterator
@@ -1761,7 +1818,7 @@ function makeAction(actionGraph, nodes, connections)
 		var indexStore = null;
 		if("index" in actionGraph)
 		{
-			indexStore = new Store(null, "int")
+			indexStore = new SubStore("int")
 			localNodes[actionGraph["index"]] = indexStore;
 		}
 
@@ -1815,7 +1872,7 @@ function makeAction(actionGraph, nodes, connections)
 			this.signal = function()
 			{
 				// TODO ameliorer params.params
-				this.node.signal(this.nodeSignal, this.params);
+				this.node.signal(this.nodeSignal, this.params, [], {root : this.node, path : []});
 			}
 		}
 		var paramsGraph = actionGraph.params;
@@ -1833,7 +1890,7 @@ function makeAction(actionGraph, nodes, connections)
 			var producerGraph = _.cloneDeep(val);
 			producerGraph.type = producerGraph.msg;
 			var msgProducer = makeNode(producerGraph, nodes, {});
-			var msgStore = new Store(null, msgProducer.getType());
+			var msgStore = new SubStore(msgProducer.getType());
 			msgProducer.slots = [msgStore];
 			var producerName = "__msgProducer" + msgIndex;
 			nodes[producerName] = msgProducer;
@@ -2142,8 +2199,8 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 				}
 			},
 			slots : {},
-			selfStore : superClassName ? library.nodes[superClassName].operators.selfStore : new Store(null, name),
-			signal : function(struct, id, params, path)
+			selfStore : superClassName ? library.nodes[superClassName].operators.selfStore : new SubStore(name),
+			signal : function(struct, id, params, path, rootAndPath)
 			{
 				if(!path || path.length == 0)
 				{
@@ -2153,13 +2210,13 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 					{
 						slot.inputs[i].set(param.get());
 					});
-					slot.action.signal();
+					slot.action.signal(rootAndPath);
 				}
 				else
 				{
 					var subPath = path.slice(0);
 					var key = subPath.shift();
-					fieldsOperators[key].signal(struct, id, params, subPath);
+					fieldsOperators[key].signal(struct, id, params, subPath, rootAndPath);
 				}
 			},
 			clone : function(struct)
@@ -2191,7 +2248,7 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			var inputs = [];
 			_.each(slotGraph.params, function(param)
 			{
-				var node = new Store(null, param[1]);
+				var node = new SubStore(param[1]);
 				localNodes[param[0]] = node;
 				inputs.push(node);
 			});
@@ -2506,7 +2563,7 @@ function FunctionTemplate(classGraph)
 		{
 			// Replace template declarations by their instances:
 			var type = instantiateTemplates(paramAndType[1], templateNameToInstances);
-			var node = new Store(null, type);
+			var node = new SubStore(type);
 			instance.inputNodes.push(node);
 			instance.internalNodes[paramAndType[0]] = node;
 		});
@@ -2611,7 +2668,7 @@ function compileGraph(graph, lib, previousNodes)
 						_.each(funcGraph["in"], function(paramAndType)
 						{
 							var type = paramAndType[1];
-							var node = new Store(null, type);
+							var node = new SubStore(type);
 							func.inputNodes.push(node);
 							func.internalNodes[paramAndType[0]] = node;
 						});
@@ -2736,7 +2793,7 @@ function compileGraph(graph, lib, previousNodes)
 			{
 				_.each(slotGraph.params, function(param)
 				{
-					var node = new Store(null, param[1]);
+					var node = new SubStore(param[1]);
 					localNodes[param[0]] = node;
 					inputs.push(node);
 				});
