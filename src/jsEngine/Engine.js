@@ -1637,7 +1637,7 @@ function makeAction(actionGraph, nodes, connections)
 		return new SelectAction(actionGraph, nodes);
 	}
 	
-	if("on" in actionGraph)
+	if("for" in actionGraph)
 	{
 		function ForAction(iterated, itRef, indexStore, action)
 		{
@@ -1669,7 +1669,7 @@ function makeAction(actionGraph, nodes, connections)
 		
 		var itRef = new ListNodeElementRef(iterated);
 		// TODO gerer destruct
-		localNodes[actionGraph["on"]] = itRef;
+		localNodes[actionGraph["for"]] = itRef;
 		var indexStore = null;
 		if("index" in actionGraph)
 		{
@@ -1679,7 +1679,7 @@ function makeAction(actionGraph, nodes, connections)
 		// TODO : check that action only change iterator
 		var action = makeAction
 		(
-			actionGraph["apply"],
+			actionGraph["do"],
 			localNodes
 		);
 

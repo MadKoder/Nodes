@@ -171,7 +171,7 @@ actions :
 			bulletStart = Vec2(12, 0)
 		loc manCells = occupiedCells(manBounds(newPos), cellSize)
 		
-		on column, i in maze apply
+		for column, i in maze do
 			update cell, j in column
 				with 0 if contains(manCells, Vec2(i, j), eqVec2) && cell == 1
 				

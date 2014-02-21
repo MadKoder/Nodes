@@ -82,7 +82,7 @@ actions :
 			Circle : 
 				self.pos.x = self.pos.x + 0.1
 			Group : 
-				# on child in obj.__children apply moveAll(child)
+				# for child in obj.__children do moveAll(child)
 				foreach self.__children moveAll()
 	tick : 
 		# select root apply:
@@ -102,6 +102,6 @@ actions :
 			Group : 
 				if length(findGroups(self)) ==  1 then self.__children = pushFront(self.__children, Rect({}, Vec2(50 * i, 50), Vec2(40, 10)))
 				foreach self.__children addRect(i + 1)
-				# on child, index in self.__children apply child.addRect(index + 1)
+				# for child, index in self.__children do child.addRect(index + 1)
 	addRectToRoot:
 		root.addRect()

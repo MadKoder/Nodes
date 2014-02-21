@@ -421,7 +421,7 @@ Actions "Actions" =
 Action "Action" = 
   Affectation 
   / Foreach
-  / ApplyAction
+  / ForAction
   / MatchTypeAction
   / SelectAction
   / SlotCall
@@ -444,14 +444,14 @@ Action "Action" =
 		return action;
 	}
 
-ApplyAction =
-	_ "on" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ 
-	array:Val _ "apply" _ action:Action
+ForAction =
+	_ "for" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ 
+	array:Val _ "do" _ action:Action
 	{
 		var res =  {
-			"on" : it,
+			"for" : it,
 			"in" : array,
-			"apply" : action
+			"do" : action
 		};
 		if(index != null)
 		{
