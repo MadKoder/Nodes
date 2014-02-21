@@ -1267,9 +1267,19 @@ var nodes =
 					},
 					signalOperator : instanceTypeOperators ? instanceTypeOperators.signal : null,
 					instanceType : subBaseType,
-					signal : function(list, iteratedSignal, params)
+					signal : function(list, iteratedSignal, params, path)
 					{
-						_.each(list, function(item) {instanceTypeOperators.signal(item, iteratedSignal, params);}, this);
+						if(!path || path.length == 0)
+						{
+							_.each(list, function(item) {instanceTypeOperators.signal(item, iteratedSignal, params);}, this);
+						}
+						else
+						{
+							var subPath = path.slice(0);
+							var index = subPath.shift();
+							instanceTypeOperators.signal(list[index], iteratedSignal, params, subPath);
+						}
+						
 					}
 				}
 			}

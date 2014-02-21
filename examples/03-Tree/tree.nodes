@@ -11,7 +11,7 @@ trees:
 	Obj :
 		stateSet : dict<string, State>
 		groups:
-			Group 
+			Group
 		leaves:
 			Rect : 
 				pos, size : Vec2
@@ -47,7 +47,18 @@ nodes:
 					{}, 
 					Vec2(100, 100), 50
 				)
-			
+				,
+				Group
+				(
+					[
+						Circle
+						(
+							{}, 
+							Vec2(10, 10), 10
+						)
+					],
+					{}
+				)
 			], 
 			{color : Color(0, 1, 0)}
 		)
@@ -60,15 +71,16 @@ nodes:
 		# Circle c : tuple(c, reduce(accumState, map(getStateSet, path), defaultStateSet))
 	def circles : getTypeAndAccumState<Circle>(root)
 actions :
-	moveAll(Obj obj):
-		type obj apply:
+	Obj.moveAll :
+		type self apply:
 			Rect : 
-				obj.pos.y = obj.pos.y + 0.1
-				obj.size.x = obj.size.x + 0.1
+				self.pos.y = self.pos.y + 0.1
+				self.size.x = self.size.x + 0.1
 			Circle : 
-				obj.pos.x = obj.pos.x + 0.1
+				self.pos.x = self.pos.x + 0.1
 			Group : 
-				on child in obj.__children apply moveAll(child)
+				# on child in obj.__children apply moveAll(child)
+				foreach self.__children moveAll()
 	tick : 
 		# select root apply:
 			# Rect r : 
@@ -76,10 +88,16 @@ actions :
 				# size.x = r.size.x + 0.1
 			# Circle c : 
 				# pos.x = c.pos.x + 0.1
-		moveAll(root)
-	addRect(Obj obj) : 
-		type obj apply:
+		root.moveAll()
+	# addRect(Obj obj) : 
+		# type obj apply:
+			# Group : 
+				# obj.__children = pushFront(obj.__children, Rect({}, Vec2(50, 50), Vec2(40, 10)))
+				# on child in obj.__children apply addRect(child)
+	Obj.addRect : 
+		type self apply:
 			Group : 
-				obj.__children = pushFront(obj.__children, Rect({}, Vec2(50, 50), Vec2(40, 10)))		
+				self.__children = pushFront(self.__children, Rect({}, Vec2(50, 50), Vec2(40, 10)))
+				foreach self.__children addRect()
 	addRectToRoot:
-		addRect(root)
+		root.addRect()

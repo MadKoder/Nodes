@@ -110,16 +110,17 @@ $.get("tree.nodes", function( text ) {
 	
 	$states = $('#states');
 	var stateStr = "";
-	var leafStates = code.leafStates.get();
-	_.each(leafStates, function(state)
-	{
-		stateStr = stateStr + ", " + state.color.g.toString();
-	});
-	$states.html(stateStr);
+	// var leafStates = code.leafStates.get();
+	// _.each(leafStates, function(state)
+	// {
+		// stateStr = stateStr + ", " + state.color.g.toString();
+	// });
+	// $states.html(stateStr);
 		
 	//view.draw();
 	var tick   = Bacon.interval(20);
-	code.addRect.signal(code.root.get());
+	// code.addRect.signal(code.root.get());
+	code.addRectToRoot.signal();
 	tick.onValue(function(t)
 	{
 		code.tick.signal();

@@ -172,7 +172,9 @@ function Store(v, type)
 			sink.dirty()
 		});
 		if(path != undefined)
+		{
 			this.dirtyList.push(path)
+		}
 	}
 	
 	this.addSink = function(sink)
@@ -180,7 +182,7 @@ function Store(v, type)
 		this.sinks.push(sink);
 	};
 	
-	this.signalStored = function(signal, params)
+	this.signal = function(signal, params)
 	{
 		operators.signal(this.val, signal, params);
 		this.dirty();
@@ -873,6 +875,12 @@ function StructAccess(node, path) {
 		this.node.dirty(this.path);
 	};
 	
+	this.signal = function(signal, params)
+	{
+		operators.signal(this.get(), signal, params, this.path);
+		this.node.dirty();
+	};
+	
 	this.getType = function()
 	{
 		return this.type;
@@ -1387,8 +1395,14 @@ function ListNodeElementRef(listNode)
 	this.set = function(val)
 	{
 		this.list[this.index] = val;
+		this.listNode.dirty([this.index]);
 		this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
 	}		
+	
+	this.dirty = function(path)
+	{
+		this.listNode.dirty(path);
+	}
 	
 	this.addDelta = function(delta)
 	{
@@ -1478,7 +1492,7 @@ function makeAction(actionGraph, nodes, connections)
 			
 			this.signal = function()
 			{
-				this.list.signalStored(this.iteratedSignal, this.params);
+				this.list.signal(this.iteratedSignal, this.params);
 			}
 		}
 		var iterated = compileRef(actionGraph["foreach"], nodes).val;
@@ -1519,7 +1533,7 @@ function makeAction(actionGraph, nodes, connections)
 						match.matchStore.set(val);
 						match.action.signal();
 					}
-				}				
+				}
 			}
 		}
 
@@ -1790,13 +1804,13 @@ function makeAction(actionGraph, nodes, connections)
 		function Signal(node, signal, params)
 		{
 			this.node = node;
-			this.signalStored = signal;
+			this.nodeSignal = signal;
 			this.params = params;
 			
 			this.signal = function()
 			{
 				// TODO ameliorer params.params
-				this.node.signalStored(this.signalStored, this.params);
+				this.node.signal(this.nodeSignal, this.params);
 			}
 		}
 		var paramsGraph = actionGraph.params;
@@ -2003,11 +2017,11 @@ function makeAction(actionGraph, nodes, connections)
 	}
 }
 
-function makeStruct(structGraph, name, inheritedFields, groupComponentName)
+function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 {
 	var fieldsGraph = inheritedFields.concat(structGraph.fields ? structGraph.fields : []);
 	
-	if(groupComponentName)
+	if(isGroup)
 	{
 		fieldsGraph.unshift
 		(
@@ -2016,7 +2030,7 @@ function makeStruct(structGraph, name, inheritedFields, groupComponentName)
 			   {
 				  "base": "list",
 				  "templates": [
-					 groupComponentName
+					 superClassName
 				  ]
 			   }
 			]
@@ -2026,11 +2040,27 @@ function makeStruct(structGraph, name, inheritedFields, groupComponentName)
 	for(var i = 0; i < fieldsGraph.length; i++)
 	{
 		var fieldType = fieldsGraph[i][1];
-		if(fieldType in library.nodes && "operators" in library.nodes[fieldType])
+		if(_.isPlainObject(fieldType))
 		{
-			var fieldName = fieldsGraph[i][0];
-			fieldsOperators[fieldName] = library.nodes[fieldType].operators;
-		}		
+			var baseType = getBaseType(fieldType);
+			if(baseType in library.nodes)
+			{
+				var instance = library.nodes[baseType].getInstance(getTemplates(fieldType));
+				if("operators" in instance)
+				{
+					var fieldName = fieldsGraph[i][0];
+					fieldsOperators[fieldName] = instance.operators;
+				}
+			}
+		}
+		else
+		{
+			if(fieldType in library.nodes && "operators" in library.nodes[fieldType])
+			{
+				var fieldName = fieldsGraph[i][0];
+				fieldsOperators[fieldName] = library.nodes[fieldType].operators;
+			}
+		}
 	}
 	
 	function makeBuilder(structGraph)
@@ -2107,16 +2137,25 @@ function makeStruct(structGraph, name, inheritedFields, groupComponentName)
 				}
 			},
 			slots : {},
-			selfStore : new Store(null, name),
-			signal : function(struct, id, params)
+			selfStore : superClassName ? library.nodes[superClassName].operators.selfStore : new Store(null, name),
+			signal : function(struct, id, params, path)
 			{
-				this.selfStore.set(struct);
-				var slot = this.slots[id];
-				_.each(params, function(param, i)
+				if(!path || path.length == 0)
 				{
-					slot.inputs[i].set(param.get());
-				});
-				slot.action.signal(params);
+					this.selfStore.set(struct);
+					var slot = this.slots[id];
+					_.each(params, function(param, i)
+					{
+						slot.inputs[i].set(param.get());
+					});
+					slot.action.signal();
+				}
+				else
+				{
+					var subPath = path.slice(0);
+					var key = subPath.shift();
+					fieldsOperators[key].signal(struct, id, params, subPath);
+				}
 			},
 			clone : function(struct)
 			{
@@ -2127,11 +2166,15 @@ function makeStruct(structGraph, name, inheritedFields, groupComponentName)
 					return field;
 				});
 			}
-		}
+		},
+		subClasses : []
 	}
 	
 	//node.operators.selfStore.signalOperator = node.operators
 	library.nodes[name] = node;
+	
+	if(superClassName)
+		library.nodes[superClassName].subClasses.push(name);
 	
 	for(var i = 0; i < fieldsGraph.length; i++)
 	{
@@ -2155,20 +2198,20 @@ function makeStruct(structGraph, name, inheritedFields, groupComponentName)
 		}
 	}
 	
-	function makeSubs(subs, groupComponentName)
+	function makeSubs(subs, superClassName, isGroup)
 	{
 		if(subs)
 		{
 			for(var i = 0; i < subs.length; i++)
 			{
 				var subStructGraph = subs[i];
-				makeStruct(subStructGraph, subStructGraph.name, fieldsGraph, groupComponentName);
+				makeStruct(subStructGraph, subStructGraph.name, fieldsGraph, superClassName, isGroup);
 			}
 		}
 	}
-	makeSubs(structGraph.subs);
-	makeSubs(structGraph.groups, structGraph.name);
-	makeSubs(structGraph.leaves);
+	makeSubs(structGraph.subs, structGraph.name, false);
+	makeSubs(structGraph.groups, structGraph.name, true);
+	makeSubs(structGraph.leaves, structGraph.name, false);
 }
 
 function Transmitter(slots) 
@@ -2608,14 +2651,6 @@ function compileGraph(graph, lib, previousNodes)
 		}
 	}
 	
-	var structGraphs = graph.structs;
-	if(structGraphs != undefined)
-	{
-		
-	}
-	
-	
-	
 	// Ajout des dependences d'un noeud
 	function makeAddDependencies(n)
 	{
@@ -2684,10 +2719,51 @@ function compileGraph(graph, lib, previousNodes)
     for(var i = 0; i < actionsGraph.length; i++)
 	{
 		var actionGraph = actionsGraph[i];
-		nodes[getId(actionGraph)] = {};
-		var action = makeAction(actionGraph, nodes, connectionsGraph);
-		_.merge(nodes[getId(actionGraph)], action);
-		actions.push(action);
+		var id = getId(actionGraph);
+		if(id.length == 2) // Struct slot
+		{
+			var node = library.nodes[id[0]];
+			
+			var slotGraph = _.clone(actionGraph);
+			var localNodes = {"self" : node.operators.selfStore};
+			var inputs = [];
+			if(slotGraph.params)
+			{
+				_.each(slotGraph.params, function(param)
+				{
+					var node = new Store(null, param[1]);
+					localNodes[param[0]] = node;
+					inputs.push(node);
+				});
+				slotGraph.params = undefined;
+			}
+			//slotGraph.params = [["self", structGraph.name]].concat(slotGraph.params);
+			var slotName = id[1];
+			var action = makeAction(slotGraph, localNodes);
+			var slot = {
+				action : action,
+				inputs : inputs
+			};
+			node.operators.slots[slotName] = slot;
+			function addSlotToSubClasses(slot, superClass)
+			{
+				var subClasses = superClass.subClasses;
+				_.each(subClasses, function(subClassName)
+				{
+					var subClass = library.nodes[subClassName];
+					subClass.operators.slots[slotName] = slot;
+					addSlotToSubClasses(slot, subClass);
+				});
+			}
+			addSlotToSubClasses(slot, node);
+		} else // global action
+		{
+			id = id[0];
+			nodes[id] = {};
+			var action = makeAction(actionGraph, nodes, connectionsGraph);
+			_.merge(nodes[id], action);
+			actions.push(action);
+		}
     }
 	
 	var eventsGraph = graph.events;
