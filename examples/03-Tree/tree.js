@@ -120,7 +120,7 @@ $.get("tree.nodes", function( text ) {
 	//view.draw();
 	var tick   = Bacon.interval(20);
 	// code.addRect.signal(code.root.get());
-	code.addRectToRoot.signal(0);
+	code.addRectToRoot.signal(2);
 	tick.onValue(function(t)
 	{
 		code.tick.signal();

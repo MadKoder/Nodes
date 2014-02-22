@@ -439,7 +439,7 @@ Action "Action" =
 	}  
   / id:Id _ val:("("_ Val? _ ")")? 
 	{ 
-		var action = {type : id};
+		var action = {signal : id};
 		if(val[2] != undefined && val[2] !== "") action.param = val[2];
 		return action;
 	}

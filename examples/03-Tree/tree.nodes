@@ -97,11 +97,11 @@ actions :
 			# Group : 
 				# obj.__children = pushFront(obj.__children, Rect({}, Vec2(50, 50), Vec2(40, 10)))
 				# on child in obj.__children apply addRect(child)
-	Obj.addRect(int i) : 
+	Obj.addRect(int x, int i) : 
 		type self apply:
 			Group : 
 				if length(findGroups(self)) ==  1 then self.__children = pushFront(self.__children, Rect({}, Vec2(50 * i, 50), Vec2(40, 10)))
-				foreach self.__children addRect(i + 1)
+				foreach self.__children addRect(x, i + 1)
 				# for child, index in self.__children do child.addRect(index + 1)
-	addRectToRoot:
-		root.addRect()
+	addRectToRoot(int i):
+		root.addRect(0, i)

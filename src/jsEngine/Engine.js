@@ -175,7 +175,8 @@ function Store(v, type)
 		{
 			throw "Path undefined in dirty"
 		}
-		this.dirtyList.push(path)
+		// TODO maybe later
+		// this.dirtyList.push(path)
 	}
 	
 	this.addSink = function(sink)
@@ -1946,13 +1947,13 @@ function makeAction(actionGraph, nodes, connections)
 	}
 	
 	// TODO action avec parametres
-	if("params" in actionGraph)
+	if("inParams" in actionGraph)
 	{
 		//TODO manage multiple params
-		var param = actionGraph.params[0];
-		var paramId = param[0];
-		nodes[paramId] = new ActionParam(param[1]);
-		actionGraph = concatActions([paramId], actionGraph);
+		// var inParam = actionGraph.inParams[0];
+		// var paramId = inParam[0];
+		// nodes[paramId] = new ActionParam(inParam[1]);
+		//actionGraph = concatActions([paramId], actionGraph);
 	}
 	
 	// TODO gere action avec juste un local (sert a  rien mais bon ...)
@@ -2016,7 +2017,7 @@ function makeAction(actionGraph, nodes, connections)
 	{
 		// FIXME : type
 		// Si l'action est une affectation et que le parametre est une reference, il devra etre clone
-		var cloneIfRef =  type == "Send";
+		var cloneIfRef =  (type == "Send");
 		param = makeExpr(paramGraph, localNodes, {}, cloneIfRef);
 	}
 	
@@ -2057,6 +2058,10 @@ function makeAction(actionGraph, nodes, connections)
 		if("slots" in actionGraph)
 		{
 			slots = compileSlots(actionGraph.slots, localNodes, connections);
+			if(type == "Seq" && slots.length == 1)
+			{
+				return slots[0];
+			}
 		} else
 		{
 			// Envoi d'un signal a un node
@@ -2789,15 +2794,15 @@ function compileGraph(graph, lib, previousNodes)
 			var slotGraph = _.clone(actionGraph);
 			var localNodes = {"self" : node.operators.selfStore};
 			var inputs = [];
-			if(slotGraph.params)
+			if(slotGraph.inParams)
 			{
-				_.each(slotGraph.params, function(param)
+				_.each(slotGraph.inParams, function(param)
 				{
 					var node = new SubStore(param[1]);
 					localNodes[param[0]] = node;
 					inputs.push(node);
 				});
-				delete slotGraph.params;
+				delete slotGraph.inParams;
 			}
 			//slotGraph.params = [["self", structGraph.name]].concat(slotGraph.params);
 			var slotName = id[1];
@@ -2820,11 +2825,46 @@ function compileGraph(graph, lib, previousNodes)
 			addSlotToSubClasses(slot, node);
 		} else // global action
 		{
+			var localNodes = _.clone(nodes);
+			var inputs = [];
+			if(actionGraph.inParams)
+			{
+				_.each(actionGraph.inParams, function(param)
+				{
+					var node = new SubStore(param[1]);
+					localNodes[param[0]] = node;
+					inputs.push(node);
+				});
+			}
+			
 			id = id[0];
+			nodes[id] = {};
+			var action = makeAction(actionGraph, localNodes);
+			
+			function ActionParams(action, inputs)
+			{
+				this.action = action;
+				this.inputs = inputs;
+				
+				this.signal = function(params)
+				{
+					_.each(params, function(param, i)
+					{
+						this.inputs[i].set(param);
+					}, this);
+					this.action.signal();
+				}
+			}
+			
+			action = new ActionParams(action, inputs);
+			_.merge(nodes[id], action);
+			actions.push(action);
+			
+			/*id = id[0];
 			nodes[id] = {};
 			var action = makeAction(actionGraph, nodes, connectionsGraph);
 			_.merge(nodes[id], action);
-			actions.push(action);
+			actions.push(action);*/
 		}
     }
 	
