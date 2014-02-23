@@ -28,11 +28,11 @@ functions:
 		Group : flatMap
 			(
 				Obj child -> getTypeAndAccumState<T>(child \ stateSet = merge(obj.stateSet, child.stateSet)),
-				obj.__children
+				obj.children
 			)
 		_ : []
 	list<Group> findGroups(Obj obj):  type obj :
-		Group : pushFront(flatMap(findGroups, obj.__children), obj)
+		Group : pushFront(flatMap(findGroups, obj.children), obj)
 		_ : []
 nodes:
 	var defaultState : State(Color(0, 0, 0))
@@ -67,12 +67,16 @@ nodes:
 		)
 	# def leafStates	: select root along path :
 		# Rect l : reduce(accumState, map(getState, path), defaultState)
+	
 	def leafStates	: select root along path :
 		Rect : reduce(accumState, map(getStateSet, path), defaultStateSet)
 	def rects : getTypeAndAccumState<Rect>(root)
 	# def circles : select root along path :
 		# Circle c : tuple(c, reduce(accumState, map(getStateSet, path), defaultStateSet))
 	def circles : getTypeAndAccumState<Circle>(root)
+	var figureToAdd : "Circle"
+	var editedFigureIndex : 0
+	var editedFigureInitialPos : Vec2(0, 0)
 actions :
 	Obj.moveAll :
 		type self apply:
@@ -82,8 +86,8 @@ actions :
 			Circle : 
 				self.pos.x = self.pos.x + 0.1
 			Group : 
-				# for child in obj.__children do moveAll(child)
-				foreach self.__children moveAll()
+				# for child in obj.children do moveAll(child)
+				foreach self.children moveAll()
 	tick : 
 		# select root apply:
 			# Rect r : 
@@ -95,13 +99,39 @@ actions :
 	# addRect(Obj obj) : 
 		# type obj apply:
 			# Group : 
-				# obj.__children = pushFront(obj.__children, Rect({}, Vec2(50, 50), Vec2(40, 10)))
-				# on child in obj.__children apply addRect(child)
+				# obj.children = pushFront(obj.children, Rect({}, Vec2(50, 50), Vec2(40, 10)))
+				# on child in obj.children apply addRect(child)
 	Obj.addRect(int x, int i) : 
 		type self apply:
 			Group : 
-				if length(findGroups(self)) ==  1 then self.__children = pushFront(self.__children, Rect({}, Vec2(50 * i, 50), Vec2(40, 10)))
-				foreach self.__children addRect(x, i + 1)
-				# for child, index in self.__children do child.addRect(index + 1)
+				if length(findGroups(self)) ==  1 then self.children = pushFront(self.children, Rect({}, Vec2(50 * i, 50), Vec2(40, 10)))
+				foreach self.children addRect(x, i + 1)
+				# for child, index in self.children do child.addRect(index + 1)
 	addRectToRoot(int i):
 		root.addRect(0, i)
+	addRect(int x, int y):
+		root.children = pushFront(root.children, Rect({}, Vec2(x, y), Vec2(1, 1)))
+	addCircle(int x, int y):
+		root.children = pushFront(root.children, Circle({}, Vec2(x, y), 1))	
+	addFigure(int x, int y):
+		loc figure = if figureToAdd == "Circle" then  Circle({}, Vec2(x, y), 1) else  Rect({}, Vec2(x, y), Vec2(1, 1))
+		root.children = pushFront(root.children, figure)
+	beginAddFigure(int x, int y):
+		addFigure(x, y)
+		editedFigureInitialPos = Vec2(x, y)
+		editedFigureIndex = 0
+	resizeEditedFigure(int x, int y):
+		loc editedFigure = at(root.children, editedFigureIndex)
+		if figureToAdd == "Circle" then 
+			editedFigure = editedFigure 
+			\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
+			\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
+		if figureToAdd == "Rect" then 
+			editedFigure = editedFigure 
+			\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y))
+			\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))
+		# editedFigure = editedFigure \ pos = Vec2(x, y)
+		# root.children[editedFigureIndex] = editedFigure
+		update child, i in root.children
+			with editedFigure if i == editedFigureIndex
+		

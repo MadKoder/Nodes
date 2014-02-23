@@ -82,7 +82,7 @@ $.get("tree.nodes", function( text ) {
 		var stateSet = circleModel.stateSet;
 		var color = stateSet.color;
 		var circle = new paper.Shape.Circle({
-			point: [circleModel.pos.x, circleModel.pos.y],
+			center: [circleModel.pos.x, circleModel.pos.y],
 			radius: [circleModel.radius],
 			fillColor: new Color(color.r, color.g, color.b)
 		});
@@ -97,7 +97,7 @@ $.get("tree.nodes", function( text ) {
 		var stateSet = circleModel.stateSet;
 		var color = stateSet.color;
 		view.radius = circleModel.radius;
-		view.position = new Point(circleModel.pos.x + circleModel.radius * .5, circleModel.pos.y + circleModel.radius * .5);
+		view.position = new Point(circleModel.pos.x, circleModel.pos.y);
 		view.fillColor.red = color.r; 
 		view.fillColor.green = color.g; 
 		view.fillColor.blue = color.b; 
@@ -116,14 +116,41 @@ $.get("tree.nodes", function( text ) {
 		// stateStr = stateStr + ", " + state.color.g.toString();
 	// });
 	// $states.html(stateStr);
-		
+	
+	$( "#circles" ).button().click(function() 
+	{
+		code.figureToAdd.set("Circle");
+	});
+
+	$( "#rectangles" ).button().click(function() 
+	{
+		code.figureToAdd.set("Rect");
+	});
+	
+	var path;
+	paper.tool.distanceThreshold = 10;
+	paper.tool.attach("mousedown", function (event) {
+		// Create a new path every time the mouse is clicked
+		// path = new Path();
+		// path.add(event.point);
+		// path.strokeColor = 'black';
+		//code.addFigure.signal([event.point.x, event.point.y]);
+		code.beginAddFigure.signal([new Store(event.point.x), new Store(event.point.y)]);
+	});
+
+	paper.tool.attach("mousedrag", function(event) {
+		// Add a point to the path every time the mouse is dragged
+		// path.add(event.point);
+		code.resizeEditedFigure.signal([new Store(event.point.x), new Store(event.point.y)])
+	});
+
 	//view.draw();
 	var tick   = Bacon.interval(20);
 	// code.addRect.signal(code.root.get());
-	code.addRectToRoot.signal(2);
+	code.addRectToRoot.signal([new Store(2)]);
 	tick.onValue(function(t)
 	{
-		code.tick.signal();
+		// code.tick.signal();
 		rectViews = updateRectView(code.rects.get(), rectViews);
 		circleViews = updateCircleView(code.circles.get(), circleViews);
 		view.draw();

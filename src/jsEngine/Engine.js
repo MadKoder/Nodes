@@ -818,9 +818,9 @@ function Select(nodeGraph, externNodes)
 				}
 			}
 			
-			if("__children" in val)
+			if("children" in val)
 			{
-				ret = _.reduce(root.__children, function(accum, val)
+				ret = _.reduce(root.children, function(accum, val)
 				{
 					return accum.concat(select(val, path.concat([val])));
 				}, ret);
@@ -938,6 +938,11 @@ function StructAccess(node, path) {
 		// this.node.dirty();
 		currentPath = currentPath.slice(0, -this.path.length);
 	};
+	
+	this.dirty = function(path)
+	{
+		this.node.dirty(this.path.concat(path));
+	}
 	
 	this.getType = function()
 	{
@@ -1454,7 +1459,8 @@ function ListNodeElementRef(listNode)
 	{
 		this.list[this.index] = val;
 		this.listNode.dirty([this.index]);
-		this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
+		// TODO : retablir ?
+		// this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
 	}		
 	
 	this.signal = function(signal, params)
@@ -1672,14 +1678,14 @@ function makeAction(actionGraph, nodes, connections)
 						}
 					}
 					
-					if("__children" in val)
+					if("children" in val)
 					{
 						if(val == null)
 						{
 							val = node.get();
 						}
 						var concatPath = path.concat([val]);
-						_.each(val.__children, function(child)
+						_.each(val.children, function(child)
 						{
 							apply(child, concatPath);
 						});
@@ -1864,7 +1870,7 @@ function makeAction(actionGraph, nodes, connections)
 	
 	if("signal" in actionGraph)
 	{
-		function Signal(node, signal, params)
+		function SignalNode(node, signal, params)
 		{
 			this.node = node;
 			this.nodeSignal = signal;
@@ -1878,7 +1884,22 @@ function makeAction(actionGraph, nodes, connections)
 		}
 		var paramsGraph = actionGraph.params;
 		var compiledParams = _.map(paramsGraph, function(param){return makeExpr(param, nodes);});
-		return new Signal(compileRef(actionGraph["var"], nodes).val, actionGraph.signal, compiledParams)
+		if("var" in actionGraph)
+		{
+			return new SignalNode(compileRef(actionGraph["var"], nodes).val, actionGraph.signal, compiledParams)
+		}
+		function SignalAction(action, params)
+		{
+			this.action = action;
+			this.params = params;
+			
+			this.signal = function()
+			{
+				// TODO ameliorer params.params
+				this.action.signal(this.params, [], {root : this.node, path : []});
+			}
+		}
+		return new SignalAction(compileRef(actionGraph["signal"], nodes).val, compiledParams);
 	}
 	
 	// Les generateurs (les <-) sont transformes en Store, 
@@ -2093,7 +2114,7 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 		fieldsGraph.unshift
 		(
 			[
-			   "__children",
+			   "children",
 			   {
 				  "base": "list",
 				  "templates": [
@@ -2850,7 +2871,7 @@ function compileGraph(graph, lib, previousNodes)
 				{
 					_.each(params, function(param, i)
 					{
-						this.inputs[i].set(param);
+						this.inputs[i].set(param.get());
 					}, this);
 					this.action.signal();
 				}

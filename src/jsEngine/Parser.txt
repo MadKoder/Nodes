@@ -6,7 +6,7 @@ start "start" =
 		a.id = id;
 		if(params != null)
 		{
-			a.params = params;
+			a.inParams = params;
 		}
 		return a;
 	}
@@ -437,11 +437,12 @@ Action "Action" =
 			while:param, 
 			do:action};
 	}  
-  / id:Id _ val:("("_ Val? _ ")")? 
+  / id:Id _ params:("("_ params:ExpressionList? _ ")" {return params;})? 
 	{ 
-		var action = {signal : id};
-		if(val[2] != undefined && val[2] !== "") action.param = val[2];
-		return action;
+		return {
+			signal : id,
+			params : params != null ? params : [],
+		};
 	}
 
 ForAction =
