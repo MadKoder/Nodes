@@ -66,3 +66,8 @@
 	
 21/2 : RQ importante : contrairement aux mutateurs (les slots de classes), las actions avec reference ne sont pas coherentes : elles ne cadrent pas avec le systeme d'envoi de messages. Et les references, c'est pas bien.
 	-> actions avec references transformes en slot de classe ajoute a l'exterieur : un slot de classe ne peut modifier que le self, aucune action ne peut prendre un parametre en ref.
+	
+24/2 : Ajout des signals de struct.
+	Les slots font partie des valeurs -> stockes avec
+	Question : doit-on faire des signals par node ou par valeur ?
+	Par valeur, ils peuvent faire partie d'une hierarchie (par ex. d'ui)

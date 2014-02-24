@@ -24,7 +24,6 @@ start "start" =
 Node =
 	defVarCache:DefVarCache? _ typeAndId:MaybeTypeAndId _ 
 		val:(Affect _ val:Val {return val;})? _
-		connections:(_ connections:Connections  _ {return connections;})?
 	{
 		var node;
 		if(val == null)
@@ -52,10 +51,6 @@ Node =
 		{
 			node.cache = typeAndId.id;
 		}
-		if(connections != null)
-		{
-			node.connections = connections;
-		}
 		return node;
 	}
 	
@@ -66,7 +61,7 @@ Connections =
    }
    
 Connection =
-	_ signal:Id? _ "=>" _ action:Action  _ 
+	_ signal:Id _ "=>" _ action:Action  _ 
 	{
 		var ret = {
 			action : action
@@ -653,8 +648,8 @@ Field
   = id:Id _ ":" _ val:AdditiveExpression {return [id, val];}
 
 Val = 
-	Expression
-	/ PrimaryExpression
+	!Connection exp:Expression {return exp;}
+	/ !Connection exp:PrimaryExpression {return exp;}
 	
 PrimaryExpression = 
 	"true" {return true;}
@@ -688,6 +683,7 @@ FunctionCall =
 			var call = calls[i];
 			if("params" in call) ret["params"] = call["params"];
 			if("fields" in call) ret["fields"] = call["fields"];
+			if("connections" in call) ret["connections"] = call["connections"];
 		}
 		if(typeParams)
 		{
@@ -709,7 +705,22 @@ FuncCalls =
 	}
 
 FuncCall = 
-	"("_ params:(Params)? _ ")"
+	"(" _ connections:(Connections) _ ")"
+	{
+		return {
+			connections : connections
+		};
+	}
+	/ "(" _ params:(Params) _ "," _ connections:(Connections) _ ")"
+	{
+		var ret = {
+			connections : connections
+		};
+		if("params" in params) ret["params"] = params["params"];
+		if("fields" in params) ret["fields"] = params["fields"];
+		return ret;
+	}
+	/ "(" _ params:(Params)? _ ")"
 	{
 		var ret = {};
 		if(params != null)

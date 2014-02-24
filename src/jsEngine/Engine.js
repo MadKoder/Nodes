@@ -125,6 +125,9 @@ function Dict(val, keyType)
 }
 
 var storeId = 0;
+
+var connections = null;
+
 function Store(v, type) 
 {
 	this.val = v;
@@ -944,6 +947,11 @@ function StructAccess(node, path) {
 		this.node.dirty(this.path.concat(path));
 	}
 	
+	this.addDelta = function(delta)
+	{
+		this.node.deltas.push(delta);
+	}
+	
 	this.getType = function()
 	{
 		return this.type;
@@ -1200,6 +1208,17 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				}
 			}
 			node = new nodeSpec.builder(fields, typeParams);
+		}
+		
+		if("connections" in expr)
+		{
+			var signals = node.get().__signals;
+			var type = node.getType();
+			connections.push({
+				signals : signals,
+				type : type,
+				connections : expr.connections
+			});
 		}
 		// TODO type ?
 		// return {val : node, type : node.getType()};
@@ -1460,7 +1479,7 @@ function ListNodeElementRef(listNode)
 		this.list[this.index] = val;
 		this.listNode.dirty([this.index]);
 		// TODO : retablir ?
-		// this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
+		this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
 	}		
 	
 	this.signal = function(signal, params)
@@ -1561,7 +1580,7 @@ function makeAction(actionGraph, nodes, connections)
 			
 			this.signal = function(rootAndPath)
 			{
-				this.list.signal(this.iteratedSignal, this.params, rootAndPath);
+				this.list.signal("foreach", [this.iteratedSignal].concat(this.params), rootAndPath);
 			}
 		}
 		var iterated = compileRef(actionGraph["foreach"], nodes).val;
@@ -2710,7 +2729,7 @@ function compileGraph(graph, lib, previousNodes)
 	var nodes = previousNodes != undefined ? previousNodes : {};
 	msgIndex = 0;
 	library = lib;
-	
+	connections = [];
 	//return;
 	
 	if("structsAndFuncs" in graph)
@@ -2966,16 +2985,16 @@ function compileGraph(graph, lib, previousNodes)
 		_.reduce(eventGraph.when, makeAddDependencies(event), eventsDependencies);
     }
 	
-	var connections = {};
-	for(var i = 0; i < connectionsGraph.length; i++)
-	{
-		var connection = connectionsGraph[i];
-		var slots = connection.slots.map(function(slot){
-			return getNode(slot, nodes)
-		});
+	// var connections = {};
+	// for(var i = 0; i < connectionsGraph.length; i++)
+	// {
+		// var connection = connectionsGraph[i];
+		// var slots = connection.slots.map(function(slot){
+			// return getNode(slot, nodes)
+		// });
 		
-		connection.source.slots = slots; 
-    }
+		// connection.source.slots = slots; 
+    // }
 	
 	for(var i = 0; i < graphNodes.length; i++)
 	{
@@ -3001,6 +3020,18 @@ function compileGraph(graph, lib, previousNodes)
 		}
     }
 	
+	_.each(connections, function(connection)
+	{
+		var signals = connection.signals;
+		var type = connection.type;
+		var slots = library.nodes[type].operators.slots;
+		_.each(connection.connections, function(connection)
+		{
+			var mergedNodes = _.clone(nodes);
+			_.merge(mergedNodes, slots[connection.signal].localNodes);
+			signals[connection.signal].push(makeAction(connection.action, mergedNodes));
+		});
+	});
 	function getNodeName(node)
 	{
 		for(var key in nodes)

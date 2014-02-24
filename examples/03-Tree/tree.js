@@ -116,7 +116,19 @@ $.get("tree.nodes", function( text ) {
 		// stateStr = stateStr + ", " + state.color.g.toString();
 	// });
 	// $states.html(stateStr);
-	
+	var $buttons = $("#buttons");
+	var index = 0;
+	_.each(code.buttons.get(), function(button)
+	{
+		var buttonId = "button" + index.toString();
+		var buttonIndex = index;
+		$buttons.append("<div> <button id=" + buttonId + "></button> </div>");
+		$("#" + buttonId).button().html("Add " + button.desc).click(function() 
+		{
+			code.buttons.signal("onClick", [new Store(button.desc)], [buttonIndex]);
+		});
+		index++;
+	});
 	$( "#circles" ).button().click(function() 
 	{
 		//code.figureToAdd.set("Circle");
@@ -126,7 +138,7 @@ $.get("tree.nodes", function( text ) {
 	$( "#rectangles" ).button().click(function() 
 	{
 		// code.figureToAdd.set("Rect");
-		code.rectButton.signal("onClick", [new Store("Rect")], []);
+		code.buttons.signal("onClick", [new Store("Rect")], [0]);
 	});
 	
 	var path;

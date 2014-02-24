@@ -82,10 +82,10 @@ nodes:
 	var figureToAdd : "Circle"
 	var editedFigureIndex : 0
 	var editedFigureInitialPos : Vec2(0, 0)
-	var rectButton : Button("Add rectangle")
-		click => figureToAdd = what
-	var circleButton : Button("Add circles")
-		click => figureToAdd = what
+	# var rectButton : Button("Add rectangle")
+		# click => figureToAdd = what
+	var circleButton : Button("Add circles", click => figureToAdd = what)
+	var buttons = [Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
 actions :
 	Obj.moveAll :
 		type self apply:

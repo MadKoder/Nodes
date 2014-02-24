@@ -662,6 +662,14 @@ var functions =
 		},
 		inOut2("int", "int", mt("list", ["int"]))
 	),
+	strcat :  mf2
+	(
+		function (first, second) 
+		{
+			return first + second;
+		},
+		inOut2("string", "string", "string")
+	),
 	"neg" : mff1(function (x) {return -x;}),
 	"+" : mff2(function (x, y) {return x + y;}),
     "-" : mff2(function (x, y) {return x - y;}),
@@ -1267,22 +1275,30 @@ var nodes =
 					},
 					signalOperator : instanceTypeOperators ? instanceTypeOperators.signal : null,
 					instanceType : subBaseType,
-					signal : function(list, iteratedSignal, params, path, rootAndPath)
+					signal : function(list, sig, params, path, rootAndPath)
 					{
 						if(!path || path.length == 0)
 						{
-							_.each(list, function(item, index) 
+							if(sig == "foreach")
 							{
-								currentPath.push(index);
-								instanceTypeOperators.signal(item, iteratedSignal, params, [], {root : rootAndPath.root, path : rootAndPath.path.concat([index])});
-								currentPath.pop();
-							}, this);
+								var subParams  = params.slice(0);
+								var iteratedSignal = subParams.shift();
+								_.each(list, function(item, index) 
+								{
+									currentPath.push(index);
+									instanceTypeOperators.signal(item, iteratedSignal, subParams, [], {root : rootAndPath.root, path : rootAndPath.path.concat([index])});
+									currentPath.pop();
+								}, this);
+							} else
+							{
+								throw "Unknown signal for list : " + sig;
+							}
 						}
 						else
 						{
 							var subPath = path.slice(0);
 							var index = subPath.shift();
-							instanceTypeOperators.signal(list[index], iteratedSignal, params, subPath);
+							instanceTypeOperators.signal(list[index], sig, params, subPath);
 						}
 						
 					}
