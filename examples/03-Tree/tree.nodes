@@ -7,6 +7,11 @@ structs:
 		r, g, b : float
 	State : 
 		color : Color
+	Button :
+		desc : string
+		signal click(string what)
+		slot onClick(string what):
+			self.click(what)
 trees:
 	Obj :
 		stateSet : dict<string, State>
@@ -77,6 +82,10 @@ nodes:
 	var figureToAdd : "Circle"
 	var editedFigureIndex : 0
 	var editedFigureInitialPos : Vec2(0, 0)
+	var rectButton : Button("Add rectangle")
+		click => figureToAdd = what
+	var circleButton : Button("Add circles")
+		click => figureToAdd = what
 actions :
 	Obj.moveAll :
 		type self apply:
@@ -114,7 +123,8 @@ actions :
 	addCircle(int x, int y):
 		root.children = pushFront(root.children, Circle({}, Vec2(x, y), 1))	
 	addFigure(int x, int y):
-		loc figure = if figureToAdd == "Circle" then  Circle({}, Vec2(x, y), 1) else  Rect({}, Vec2(x, y), Vec2(1, 1))
+		loc figure = if figureToAdd == "Circle" then  
+			Circle({}, Vec2(x, y), 1) else  Rect({}, Vec2(x, y), Vec2(1, 1))
 		root.children = pushFront(root.children, figure)
 	beginAddFigure(int x, int y):
 		addFigure(x, y)
@@ -124,14 +134,13 @@ actions :
 		loc editedFigure = at(root.children, editedFigureIndex)
 		if figureToAdd == "Circle" then 
 			editedFigure = editedFigure 
-			\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
-			\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
-		if figureToAdd == "Rect" then 
+				\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
+				\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
+			else 
 			editedFigure = editedFigure 
-			\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y))
-			\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))
-		# editedFigure = editedFigure \ pos = Vec2(x, y)
+				\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y))
+				\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))
+			# editedFigure = editedFigure \ pos = Vec2(x, y)
 		# root.children[editedFigureIndex] = editedFigure
 		update child, i in root.children
 			with editedFigure if i == editedFigureIndex
-		

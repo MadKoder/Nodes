@@ -24,7 +24,7 @@ start "start" =
 Node =
 	defVarCache:DefVarCache? _ typeAndId:MaybeTypeAndId _ 
 		val:(Affect _ val:Val {return val;})? _
-		slots:("(" _ "->" _ slots:Slots  _ ")" {return slots;})?
+		connections:(_ connections:Connections  _ {return connections;})?
 	{
 		var node;
 		if(val == null)
@@ -52,13 +52,32 @@ Node =
 		{
 			node.cache = typeAndId.id;
 		}
-		if(slots != null)
+		if(connections != null)
 		{
-			node.slots = slots;
+			node.connections = connections;
 		}
 		return node;
 	}
-
+	
+Connections = 
+   head:Connection _ tail:(_ "," _ (c:Connection) {return c})* 
+   {
+      return [head].concat(tail);
+   }
+   
+Connection =
+	_ signal:Id? _ "=>" _ action:Action  _ 
+	{
+		var ret = {
+			action : action
+		};
+		if(signal)
+		{
+			ret.signal = signal;
+		}
+		return ret;
+	}
+	
 Affect = ":" / "="
 
 Event =
@@ -253,20 +272,25 @@ FieldDef =
 		});
 	}
 	/ SlotDef
+	/ SignalDef
 	
 SlotDef = 
-	_ "slot " _ id:Id _ params:("(" params:ParamsDecl ")" {return params;})? _ ":" action:Action
+	_ "slot" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _ ":" action:Action
 	{
-		var slot = {
+		return {
 			slot : id,
 			action : action,
-			params : []
+			params : (params != null) ? params : []
 		};
-		if(params != null)
-		{
-			slot.params = slot.params.concat(params);
-		}
-		return slot;
+	}
+	
+SignalDef = 
+	_ "signal" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _
+	{
+		return {
+			signal : id,
+			params : (params != null) ? params : []
+		};
 	}
 
 Closure = 

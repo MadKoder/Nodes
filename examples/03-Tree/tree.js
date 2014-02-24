@@ -119,12 +119,14 @@ $.get("tree.nodes", function( text ) {
 	
 	$( "#circles" ).button().click(function() 
 	{
-		code.figureToAdd.set("Circle");
+		//code.figureToAdd.set("Circle");
+		code.circleButton.signal("onClick", [new Store("Circle")], []);
 	});
 
 	$( "#rectangles" ).button().click(function() 
 	{
-		code.figureToAdd.set("Rect");
+		// code.figureToAdd.set("Rect");
+		code.rectButton.signal("onClick", [new Store("Rect")], []);
 	});
 	
 	var path;

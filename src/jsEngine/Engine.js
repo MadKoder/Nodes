@@ -2158,6 +2158,8 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			this.fields = {
 				__type : name
 			};
+			this.operators = library.nodes[name].operators;
+			this.signals = {};
 			for(var i = 0; i < fieldsGraph.length; i++)
 			{
 				var field = fieldsGraph[i];
@@ -2170,13 +2172,32 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 						error("Field " + fieldName + " not found in parameters of " + name + " constructor");
 					}
 					this.fields[fieldName] = fieldVal;
+				} else if("signal" in field)
+				{
+					function StructSignal() {
+						this.slots = [];
+						this.signal = function(rootAndPath)
+						{
+							for(var i = 0; i < this.slots.length; i++)
+							{
+								this.slots[i].signal(rootAndPath);
+							}
+						};
+					}
+					var signalGraph = field;
+					// node.operators.signals[signalGraph.signal] = {};
+					if(!("_signals" in this.fields))
+					{
+						this.fields.__signals = {};
+					}
+					this.fields.__signals[signalGraph.signal] = []
 				}
 			};
 			this.get = function()
 			{
-				return _.mapValues(this.fields, function(field){
+				return _.mapValues(this.fields, function(field, key){
 					// TODO : ameliorer
-					return isString(field) ? field :  field.get();
+					return ((key == "__type") || (key == "__signals")) ? field :  field.get();
 				});
 				//return this.fields;
 			};	
@@ -2188,6 +2209,10 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			{
 				_.each(this.fields, function(field, key){if(key != "__type")field.addSink(sink);});				
 			};
+			this.signal = function(id, params)
+			{
+				this.operators.signal(this.get(), id, params, [], null);
+			}
 		}
 
 		return builder;
@@ -2225,7 +2250,6 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 				}
 			},
 			slots : {},
-			selfStore : superClassName ? library.nodes[superClassName].operators.selfStore : new SubStore(name),
 			signal : function(struct, id, params, path, rootAndPath)
 			{
 				if(!path || path.length == 0)
@@ -2261,6 +2285,8 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 	//node.operators.selfStore.signalOperator = node.operators
 	library.nodes[name] = node;
 	
+	node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new SubStore(name);
+	
 	if(superClassName)
 		library.nodes[superClassName].subClasses.push(name);
 	
@@ -2269,20 +2295,52 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 		var field = fieldsGraph[i];
 		if(!_.isArray(field))
 		{
-			var slotGraph = field;
-			var localNodes = {"self" : node.operators.selfStore};
-			var inputs = [];
-			_.each(slotGraph.params, function(param)
+			if("slot" in field)
 			{
-				var node = new SubStore(param[1]);
-				localNodes[param[0]] = node;
-				inputs.push(node);
-			});
-			slotGraph.params = [["self", structGraph.name]].concat(slotGraph.params);
-			node.operators.slots[field.slot] = {
-				action : makeAction(slotGraph.action, localNodes),
-				inputs : inputs
-			};
+				var slotGraph = field;
+				var localNodes = {"self" : node.operators.selfStore};
+				var inputs = [];
+				_.each(slotGraph.params, function(param)
+				{
+					var node = new SubStore(param[1]);
+					localNodes[param[0]] = node;
+					inputs.push(node);
+				});
+				slotGraph.params = [["self", structGraph.name]].concat(slotGraph.params);
+				node.operators.slots[field.slot] = {
+					action : makeAction(slotGraph.action, localNodes),
+					inputs : inputs
+				};
+			} else
+			{
+				function StructSignal(id) {
+					this.id = id;
+					this.selfStore = node.operators.selfStore;
+					this.signal = function(rootAndPath)
+					{
+						var slots = this.selfStore.get().__signals[this.id];
+						for(var i = 0; i < slots.length; i++)
+						{
+							slots[i].signal(rootAndPath);
+						}
+					};
+				}
+				var signalGraph = field;
+				var inputs = [];
+				var localNodes = {"self" : node.operators.selfStore};
+				_.each(signalGraph.params, function(param)
+				{
+					var node = new SubStore(param[1]);
+					localNodes[param[0]] = node;
+					inputs.push(node);
+				});
+				// node.operators.signals[signalGraph.signal] = {};
+				node.operators.slots[signalGraph.signal] =  {
+					action : new StructSignal(signalGraph.signal),
+					inputs : inputs,
+					localNodes : localNodes
+				};
+			}
 		}
 	}
 	
@@ -2799,6 +2857,14 @@ function compileGraph(graph, lib, previousNodes)
 			// }
 			eventsDependencies[id] = [];
 			_.reduce(nodeGraph, makeAddDependencies(nodes[id]), eventsDependencies);
+			// if("connections" in nodeGraph)
+			// {
+				
+				// connectionsGraph.push({
+					// source : nodes[id],
+					// actions : 
+				// })
+			// }
 		}
     }
 	
@@ -2909,6 +2975,30 @@ function compileGraph(graph, lib, previousNodes)
 		});
 		
 		connection.source.slots = slots; 
+    }
+	
+	for(var i = 0; i < graphNodes.length; i++)
+	{
+		var nodeRow = graphNodes[i];
+		for(var j = 0; j < nodeRow.length; j++)
+		{
+			var nodeGraph = nodeRow[j];
+			var id = getId(nodeGraph);
+			
+			if("connections" in nodeGraph)
+			{
+				var node = nodes[id];
+				var signals = node.get().__signals;
+				var type = node.getType();
+				var slots = library.nodes[type].operators.slots;
+				_.each(nodeGraph.connections, function(connection)
+				{
+					var mergedNodes = _.clone(nodes);
+					_.merge(mergedNodes, slots[connection.signal].localNodes);
+					signals[connection.signal].push(makeAction(connection.action, mergedNodes));
+				});
+			}
+		}
     }
 	
 	function getNodeName(node)

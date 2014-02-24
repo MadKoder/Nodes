@@ -1,0 +1,12 @@
+actions :
+	resizeEditedFigure(int x, int y):
+		if figureToAdd == "Circle" then :
+			editedFigure = editedFigure 
+				\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
+				\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
+			else 
+			editedFigure = editedFigure 
+				\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y))
+				\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))
+		update child, i in root.children
+			with editedFigure if i == editedFigureIndex
