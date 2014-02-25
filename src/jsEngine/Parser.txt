@@ -246,7 +246,15 @@ FieldsAndSubs =
 	{
 		return {
 			fields : fields,
-			subs : subs != null ? subs : []};
+			subs : subs != null ? subs : []
+		};
+	}
+	/ _ "subs" _ ":" _ "(" _ structs:Structs _ ")"
+	{
+		return {
+			fields : [],
+			subs : structs
+		};
 	}
 
 
@@ -255,19 +263,19 @@ FieldsDef =
 	{
 		// le [].concat.apply(head, tail) effectue un flatten sur tail
 		// car le deuxieme param de apply est la liste des arguments
-		return [].concat.apply(head, tail);
+		//return [].concat.apply(head, tail);
+		return [head].concat(tail);
 
 	}
 
 FieldDef = 
-	!"subs" _ idList:IdList _ ":" _ type:Type
-	{
-		return idList.map(function(id){
-			return [id, type];
-		});
-	}
-	/ SlotDef
+	SlotDef
 	/ SignalDef
+	/ !"subs" _ type:Type _ id:Id _ 
+	{
+		return [id, type];
+	}
+	
 	
 SlotDef = 
 	_ "slot" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _ ":" action:Action

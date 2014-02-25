@@ -1,6 +1,7 @@
 structs:
 	Vec2 :
-		x, y : float
+		float x
+		float y
 functions:
 	eqVec2(Vec2 v0, Vec2 v1):
 		v0.x == v1.x && v0.y == v1.y

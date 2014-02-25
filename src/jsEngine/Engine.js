@@ -243,7 +243,7 @@ function SubStore(type)
 			library.nodes[type];
 		if(typeObj != undefined && "operators" in typeObj)
 		{
-			var operators = typeObj.operators;
+			this.operators = typeObj.operators;
 			//this.signalOperator = operators.signal;
 		}
 	}
@@ -257,6 +257,58 @@ function SubStore(type)
 	{
 		this.val = val;
 	};
+	
+	this.signal = function(signal, params, path, rootAndPath)
+	{
+		this.operators.signal(this.val, signal, params, path, rootAndPath);
+	};
+	
+	this.getType = function()
+	{
+		return this.type;
+	}
+}
+
+function FuncInput(type) 
+{
+	this.stack = [];
+	this.type = type;
+	this.lastIndex = -1;
+	
+	// DEBUG
+	this.id = storeId;
+	storeId++;
+	
+	if(type != null)
+	{
+		var baseType = getBaseType(type);
+		var templates = getTemplates(type);
+		var typeObj = (templates.length > 0) ? 
+			library.nodes[baseType].getInstance(templates) :
+			library.nodes[type];
+		if(typeObj != undefined && "operators" in typeObj)
+		{
+			var operators = typeObj.operators;
+			//this.signalOperator = operators.signal;
+		}
+	}
+	
+	this.get = function()
+	{
+		return this.stack[this.lastIndex];
+	};
+
+	this.push = function(val)
+	{
+		this.stack.push(val);
+		this.lastIndex++;
+	};
+	
+	this.pop = function()
+	{
+		this.stack.pop();
+		this.lastIndex--;
+	}
 	
 	this.signal = function(signal, params, path, rootAndPath)
 	{
@@ -937,7 +989,7 @@ function StructAccess(node, path) {
 	this.signal = function(signal, params, rootAndPath)
 	{
 		currentPath = currentPath.concat(this.path);
-		operators.signal(this.get(), signal, params, this.path, {root : rootAndPath.root, path : rootAndPath.path.concat(this.path)});
+		operators.signal(this.node.get(), signal, params, this.path, {root : rootAndPath.root, path : rootAndPath.path.concat(this.path)});
 		// this.node.dirty();
 		currentPath = currentPath.slice(0, -this.path.length);
 	};
@@ -2205,7 +2257,7 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 					}
 					var signalGraph = field;
 					// node.operators.signals[signalGraph.signal] = {};
-					if(!("_signals" in this.fields))
+					if(!("__signals" in this.fields))
 					{
 						this.fields.__signals = {};
 					}
@@ -2240,6 +2292,7 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 	var node = {
 		fields : fieldsGraph,
 		builder : makeBuilder(structGraph),
+		fieldsOp : fieldsOperators,
 		operators : {
 			getPath : function(struct, path)
 			{
@@ -2274,7 +2327,11 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 				if(!path || path.length == 0)
 				{
 					this.selfStore.set(struct);
-					var slot = this.slots[id];
+					// Need this because selfStore is shared between the entire class hierarchy
+					this.selfStore.operators = this;
+					// Dynamic dispatch
+					var slots = library.nodes[struct.__type].operators.slots;
+					var slot = slots[id];
 					_.each(params, function(param, i)
 					{
 						slot.inputs[i].set(param.get());
@@ -2285,7 +2342,9 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 				{
 					var subPath = path.slice(0);
 					var key = subPath.shift();
-					fieldsOperators[key].signal(struct, id, params, subPath, rootAndPath);
+					// Dynamic dispatch
+					var fieldsOp = library.nodes[struct.__type].fieldsOp;
+					fieldsOp[key].signal(struct[key], id, params, subPath, rootAndPath);
 				}
 			},
 			clone : function(struct)
@@ -2304,7 +2363,10 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 	//node.operators.selfStore.signalOperator = node.operators
 	library.nodes[name] = node;
 	
+	// Why do we need to use the same store.
+	// Problem with this code is the type, because operators are only those of the root type
 	node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new SubStore(name);
+	// node.operators.selfStore = new SubStore(name);
 	
 	if(superClassName)
 		library.nodes[superClassName].subClasses.push(name);
@@ -2504,23 +2566,22 @@ function FunctionInstance(classGraph)
 	this.name = classGraph.id;
 	this.params = classGraph["in"];
 	this.expr = null;
-	this.pushedValues = _.range(this.params.length).map(function()
-	{
-		return [];
-	});
+	// this.pushedValues = _.range(this.params.length).map(function()
+	// {
+		// return [];
+	// });
 	this.func = function(params) 
 	{	
 		_.each(params, function(param, i)
 		{
-			this.pushedValues[i].push(this.inputNodes[i].get());
-			this.inputNodes[i].set(param);
+			this.inputNodes[i].push(param);
 		}, this);
 		
 		var result = this.expr.get();
 		
 		_.each(params, function(param, i)
 		{
-			this.inputNodes[i].set(this.pushedValues[i].pop());
+			this.inputNodes[i].pop();
 		}, this);
 		
 		return result;
@@ -2666,7 +2727,7 @@ function FunctionTemplate(classGraph)
 		{
 			// Replace template declarations by their instances:
 			var type = instantiateTemplates(paramAndType[1], templateNameToInstances);
-			var node = new SubStore(type);
+			var node = new FuncInput(type);
 			instance.inputNodes.push(node);
 			instance.internalNodes[paramAndType[0]] = node;
 		});
@@ -2771,7 +2832,7 @@ function compileGraph(graph, lib, previousNodes)
 						_.each(funcGraph["in"], function(paramAndType)
 						{
 							var type = paramAndType[1];
-							var node = new SubStore(type);
+							var node = new FuncInput(type);
 							func.inputNodes.push(node);
 							func.internalNodes[paramAndType[0]] = node;
 						});

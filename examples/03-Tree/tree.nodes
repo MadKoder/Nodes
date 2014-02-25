@@ -1,28 +1,41 @@
 structs:
 	Vec2 :
-		x, y : float
+		float x
+		float y
 	Vec3 :
-		x, y, z : float
+		float x
+		float y
+		float z
 	Color :
-		r, g, b : float
+		float r
+		float g
+		float b
 	State : 
-		color : Color
-	Button :
-		desc : string
-		signal click(string what)
-		slot onClick(string what):
-			self.click(what)
+		Color color
+	Ui : 
+		subs :
+			Group:
+				list<Ui> children
+				subs :
+					HGroup
+					VGroup
+			Button :
+				string desc
+				signal click(string what)
+				slot onClick(string what):
+					self.click(what)
 trees:
 	Obj :
-		stateSet : dict<string, State>
+		dict<string, State> stateSet
 		groups:
 			Group
 		leaves:
 			Rect : 
-				pos, size : Vec2
+				Vec2 pos
+				Vec2 size
 			Circle :
-				pos : Vec2
-				radius : float
+				Vec2 pos
+				float radius 
 functions:
 	accumState(dict<string, State> accum, dict<string, State> state):
 		merge(accum, state)
@@ -85,6 +98,19 @@ nodes:
 	# var rectButton : Button("Add rectangle")
 		# click => figureToAdd = what
 	var circleButton : Button("Add circles", click => figureToAdd = what)
+	var ui : VGroup
+		(
+			[
+				HGroup
+				(
+					[Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
+				),
+				HGroup
+				(
+					[Button(fig, click => figureToAdd = what) for fig in ["Toto", "Tata"]]
+				)
+			]
+		)
 	var buttons = [Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
 actions :
 	Obj.moveAll :

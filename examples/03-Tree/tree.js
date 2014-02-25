@@ -116,30 +116,79 @@ $.get("tree.nodes", function( text ) {
 		// stateStr = stateStr + ", " + state.color.g.toString();
 	// });
 	// $states.html(stateStr);
-	var $buttons = $("#buttons");
-	var index = 0;
-	_.each(code.buttons.get(), function(button)
+	var $ui = $("#ui");	
+	var ui = code.ui.get();
+	function enclose(str, parentType)
 	{
-		var buttonId = "button" + index.toString();
-		var buttonIndex = index;
-		$buttons.append("<div> <button id=" + buttonId + "></button> </div>");
-		$("#" + buttonId).button().html("Add " + button.desc).click(function() 
+		switch(parentType)
 		{
-			code.buttons.signal("onClick", [new Store(button.desc)], [buttonIndex]);
-		});
-		index++;
-	});
-	$( "#circles" ).button().click(function() 
-	{
-		//code.figureToAdd.set("Circle");
-		code.circleButton.signal("onClick", [new Store("Circle")], []);
-	});
+			case "VGroup" :
+				return "<div>" + str + "</div>";
+			case "HGroup" :
+				return "<div class=\"hgroup\">" + str + "</div>";
+			case "" :
+				return str;
+		}
+	}
 
-	$( "#rectangles" ).button().click(function() 
+	var uiIndex = 0;
+	function buildUi(model, parentView, parentType, path)
 	{
-		// code.figureToAdd.set("Rect");
-		code.buttons.signal("onClick", [new Store("Rect")], [0]);
-	});
+		
+		var type = model.__type;
+		switch(type)
+		{
+			case "Button" :
+				var uiId = type + uiIndex.toString();
+				var buttonIndex = uiIndex;
+				parentView.append(enclose("<button id=" + uiId + "></button>", parentType));
+				$("#" + uiId).button().html("Add " + model.desc).click(function() 
+				{
+					code.ui.signal("onClick", [new Store(model.desc)], path);
+				});
+				uiIndex++;
+				break;
+			case "HGroup" :
+			case "VGroup" :
+				var uiId = type + uiIndex.toString();
+				// parentView.append(enclose("<div id=" + uiId + "></div>", parentType));
+				parentView.append((parentType == "HGroup") ? 
+					"<div class=\"hgroup\" id=" + uiId + "></div>" :
+					"<div id=" + uiId + "></div>"
+				);
+				var $ui = $("#" + uiId);
+				uiIndex++;
+				_.each(model.children, function(child, index)
+				{
+					buildUi(child, $ui, type, path.concat(["children", index]));
+				});
+				break;
+		}
+	}
+
+	buildUi(ui, $ui, "", []);
+	var $buttons = $("#buttons");
+	// var index = 0;
+	// _.each(code.buttons.get(), function(button)
+	// {
+	// 	var buttonId = "button" + index.toString();
+	// 	var buttonIndex = index;
+	// 	$buttons.append("<div> <button id=" + buttonId + "></button> </div>");
+	// 	$("#" + buttonId).button().html("Add " + button.desc).click(function() 
+	// 	{
+	// 		code.buttons.signal("onClick", [new Store(button.desc)], [buttonIndex]);
+	// 	});
+	// 	index++;
+	// });
+	// $( "#circles" ).button().click(function() 
+	// {
+	// 	code.circleButton.signal("onClick", [new Store("Circle")], []);
+	// });
+
+	// $( "#rectangles" ).button().click(function() 
+	// {
+	// 	code.buttons.signal("onClick", [new Store("Rect")], [0]);
+	// });
 	
 	var path;
 	paper.tool.distanceThreshold = 10;
