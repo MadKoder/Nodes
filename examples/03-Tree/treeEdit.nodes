@@ -26,6 +26,7 @@ structs:
 					self.click(what)
 trees:
 	Obj :
+		int id
 		dict<string, State> stateSet
 		groups:
 			Group
@@ -55,41 +56,14 @@ functions:
 nodes:
 	var defaultState : State(Color(0, 0, 0))
 	var dict<string, State> defaultStateSet
+	var newId : 1
 	var root : Group
 		(
-			[
-				Rect
-				(
-					{}, 
-					Vec2(10, 10), Vec2(400, 100)
-				),
-				Circle
-				(
-					{}, 
-					Vec2(100, 100), 50
-				)
-				,
-				Group
-				(
-					[
-						Circle
-						(
-							{}, 
-							Vec2(10, 10), 10
-						)
-					],
-					{}
-				)
-			], 
+			[], 
+			0,
 			{color : Color(0, 1, 0)}
 		)
-	# def leafStates	: select root along path :
-		# Rect l : reduce(accumState, map(getState, path), defaultState)
-	def leafStates	: select root along path :
-		Rect : reduce(accumState, map(getStateSet, path), defaultStateSet)
 	def rects : getTypeAndAccumState<Rect>(root)
-	# def circles : select root along path :
-		# Circle c : tuple(c, reduce(accumState, map(getStateSet, path), defaultStateSet))
 	def circles : getTypeAndAccumState<Circle>(root)
 	var figureToAdd : "Circle"
 	var editedFigureIndex : 0
@@ -127,45 +101,16 @@ nodes:
 	var buttons = [Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
 	var currentAction : "Add"
 actions :
-	Obj.moveAll :
-		type self apply:
-			Rect : 
-				self.pos.y = self.pos.y + 0.1
-				self.size.x = self.size.x + 0.1
-			Circle : 
-				self.pos.x = self.pos.x + 0.1
-			Group : 
-				# for child in obj.children do moveAll(child)
-				foreach self.children moveAll()
-	tick : 
-		select root apply:
-			Rect r : 
-				pos.y = r.pos.y + 0.1
-				size.x = r.size.x + 0.1
-			Circle c : 
-				pos.x = c.pos.x + 0.1
-		root.moveAll()
-	Obj.addRect(int x, int i) : 
-		type self apply:
-			Group : 
-				if length(findGroups(self)) ==  1 
-					then self.children = pushFront(self.children, Rect({}, Vec2(50 * i, 50), Vec2(40, 10)))
-				foreach self.children addRect(x, i + 1)
-				# for child, index in self.children do child.addRect(index + 1)
-	addRectToRoot(int i):
-		root.addRect(0, i)
 	addRect(int x, int y):
-		root.children = pushFront(root.children, Rect({}, Vec2(x, y), Vec2(1, 1)))
+		root.children = pushFront(root.children, Rect(newId, {}, Vec2(x, y), Vec2(1, 1)))
+		newId = newId + 1
 	addCircle(int x, int y):
-		root.children = pushFront(root.children, Circle({}, Vec2(x, y), 1))	
+		root.children = pushFront(root.children, Circle(newId, {}, Vec2(x, y), 1))	
+		newId = newId + 1
 	addFigure(int x, int y):
-		root.children = pushFront
-			(
-				root.children, 
-				if figureToAdd == "Circle" 
-					then  Circle({}, Vec2(x, y), 1) 
-					else  Rect({}, Vec2(x, y), Vec2(1, 1))
-			)
+		match figureToAdd do :
+			"Circle" : addCircle(x, y)
+			"Rect" : addRect(x, y)
 	beginAddFigure(int x, int y):
 		addFigure(x, y)
 		editedFigureInitialPos = Vec2(x, y)

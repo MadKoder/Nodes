@@ -48,7 +48,7 @@ structs:
 		Vec2 pos
 		string facing
 		int animState
-		slot move(Rect innerBounds, int cellSize, list<list<bool>> maze, int maxAnimState) : 
+		slot move(Rect innerBounds, int cellSize, list<list<int>> maze, int maxAnimState) : 
 			loc changeDir = <-Random(100)
 			loc newDir = <-Random(3)		
 			if changeDir == 0 then self.facing = intToFacing(mod(facingToInt(self.facing) + newDir, 4))
@@ -85,7 +85,7 @@ functions:
 		Vec2(floor(pos.x / cellSize), floor(pos.y / cellSize))
 	makeMonster(Vec2 pos, string facing) :
 		Monster(pos, facing, 0)
-	cellAsciiToInt(string char):
+	cellAsciiToInt(char char):
 		match char:
 			" " : 0
 			"d" : 1

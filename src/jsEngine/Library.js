@@ -4,6 +4,61 @@ function check(test, str)
 		throw "Compilation error. " + str;
 }
 
+function typeToString(type)
+{
+	var baseType = getBaseType(type);
+	var typeParams = getTemplates(type);
+	if(typeParams.length == 0)
+	{
+		return baseType;
+	}
+	return baseType + "<" + _.each(typeParams, typeToString).join(",") + ">";
+}
+
+function isSameOrSubType(checkedType, refType)
+{
+	var checkedBaseType = getBaseType(checkedType);
+	var refBaseType = getBaseType(refType);
+	if(checkedBaseType != refBaseType)
+	{
+		if(refBaseType == "float" && checkedBaseType == "int")
+		{
+			return true;
+		}
+		return false;
+	}
+	var checkedTypeParams = getTemplates(checkedType);
+	var refTypeParams = getTemplates(refType);
+	if(checkedTypeParams.length != refTypeParams.length)
+	{
+		return false;
+	}
+
+	// Empty list is always sub-type of any other list type
+	if((checkedBaseType == "list") && (checkedTypeParams[0] == undefined))
+	{
+		return true
+	}
+
+	_(checkedTypeParams).zip(refTypeParams).each(function(types)
+	{
+		if(types[0] != types[1])
+			return false;
+	})
+	return true;
+}
+
+function getMostGenericType(fstType, scdType)
+{
+	// return the most generic of the two types
+	if(isSameOrSubType(fstType, scdType))
+		return scdType;
+	if(isSameOrSubType(scdType, fstType))
+		return fstType;
+	error("Type ^parameters are not compatible : " + typeToString(fstType) + " and " + typeToString(scdType))
+	// return undefined;
+}
+
 function sameTypes(firstType, secondType)
 {
 	if(_.isString(firstType))
@@ -26,7 +81,7 @@ function sameTypes(firstType, secondType)
 
 function checkSameTypes(firstType, secondType)
 {
-	check(sameTypes(firstType, secondType), "Template types are different, cannot instantiate function");
+	check(sameTypes(firstType, secondType), "Template types are different : " + typeToString(firstType) + " and " + typeToString(secondType));
 }
 
 function makeTemplate(base, templates)
@@ -43,77 +98,6 @@ function mt(base, templates)
 		base : base,
 		templates : templates
 	};
-}
-
-function makeFunction1(func1, getTypeFunc, name)
-{
-	function func(fields) 
-	{	
-		var first = fields.first;
-		this.get = function()
-		{
-			return func1(first.get());
-		};
-		this.getType = function()
-		{
-			// TODO
-			return getTypeFunc(first);
-		};
-		this.name = name;
-	}
-	
-	return {
-		"fields" : [["first", "float"]],
-		"builder" : func
-	}
-}
-
-function makeFunction2(func2, getTypeFunc, name)
-{
-	function func(fields) 
-	{	
-		var first = fields.first;
-		var second = fields.second;
-		this.get = function()
-		{
-			return func2(first.get(), second.get());
-		};
-		this.getType = function()
-		{
-			// TODO
-			return getTypeFunc(first, second);
-		};
-		this.name = name;
-	}
-	
-	return {
-		"fields" : [["first", "float"], ["second", "float"]],
-		"builder" : func
-	}
-}
-
-function makeFunction3(func3, getTypeFunc)
-{
-	function func(fields) 
-	{	
-		var first = fields.first;
-		var second = fields.second;
-		var third = fields.third;
-		this.get = function()
-		{
-			return func3(first.get(), second.get(), third.get());
-		};
-		this.getType = function()
-		{
-			// TODO
-			return getTypeFunc(first, second, third);
-		};
-	}
-	
-	return {
-		"fields" : [["first", "float"], ["second", "float"], ["third", "float"]],
-		"builder" : func
-	}
 }
 
 function inOut1(input, output)
@@ -160,6 +144,7 @@ function mff1(func1)
 		inOut1("float", "float")
 	)
 }
+
 
 function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 {
@@ -261,7 +246,8 @@ function mf2(func2, inAndOutTypes)
 	}
 }
 
-// Float (arithmetic) functions
+
+// Float functions
 function mff2(func2)
 {
 	return mf2
@@ -270,6 +256,8 @@ function mff2(func2)
 		inOut2("float", "float", "float")
 	)
 }
+
+
 
 // Comparison functions
 function mcf2(func2)
@@ -288,6 +276,46 @@ function mbf2(func2)
 	(
 		func2,
 		inOut2("bool", "bool", "bool")
+	)
+}
+
+function mtf2(func2, getInAndOutTypes, getTemplateFunc)
+{
+	return {
+		getTemplates : function(params)
+		{
+			return [getTemplateFunc(params[0].getType(), params[1].getType())];
+		},		
+		build : function(templates)
+		{
+			var inAndOutTypes = getInAndOutTypes(templates[0]);
+			return {
+				params : [["first" , inAndOutTypes.inputs[0]], ["second" , inAndOutTypes.inputs[1]]],
+				func : function(params) 
+				{	
+					return func2(params[0], params[1]);
+				},
+				type : inAndOutTypes.output
+			}
+		}
+	}
+}
+
+// Arithmetic (take float and int) functions
+// Beware : implicit cast if mixing int and float, not dangerous in javascript
+function maf2(func2)
+{
+	return mtf2
+	(
+		func2,
+		function(template) // Input and output types
+		{
+			return inOut2(template, template, template);
+		},
+		function(x, y)	// Template guess from input types
+		{
+			return(getMostGenericType(x, y));
+		}
 	)
 }
 
@@ -671,16 +699,48 @@ var functions =
 		inOut2("string", "string", "string")
 	),
 	"neg" : mff1(function (x) {return -x;}),
-	"+" : mff2(function (x, y) {return x + y;}),
-    "-" : mff2(function (x, y) {return x - y;}),
-    "*" : mff2(function (x, y) {return x * y;}),
-    "/" : mff2(function (x, y) {return x / y;}),
+	"+" : maf2(function(x, y) {return x + y;}),
+	"-" : maf2(function(x, y){return x - y;}),
+    "*" : maf2(function (x, y) {return x * y;}),
+    "/" : maf2(function (x, y) {return x / y;}),
 	"<" : mcf2(function (x, y) {return x < y;}),
 	">" : mcf2(function (x, y) {return x > y;}),
 	"<=" : mcf2(function (x, y) {return x <= y;}),
 	">=" : mcf2(function (x, y) {return x >= y;}),
-	"==" : mcf2(function (x, y) {return x == y;}),
-	"!=" : mcf2(function (x, y) {return x != y;}),
+	"==" : 	mtf2
+	(
+		function(first, second) // The function
+		{	
+			return first == second;
+		},
+		function(template) // Input and output types
+		{
+			return inOut2(template, template, "bool");
+		},
+		function(firstType, secondType)	// Template guess from input types
+		{
+			// TODO checkSubType
+			checkSameTypes(firstType, secondType);
+			return firstType;
+		}
+	),
+	"!=" : mtf2
+	(
+		function(first, second) // The function
+		{	
+			return first != second;
+		},
+		function(template) // Input and output types
+		{
+			return inOut2(template, template, "bool");
+		},
+		function(firstType, secondType)	// Template guess from input types
+		{
+			// TODO checkSubType
+			checkSameTypes(firstType, secondType);
+			return firstType;
+		}
+	),
 	"eq" : mcf2(function (x, y) {return x == y;}),
 	"||" : mbf2(function (x, y) {return x || y;}),
 	"&&" : mbf2(function (x, y) {return x && y;}),
@@ -689,7 +749,14 @@ var functions =
 		function (x) {return !x;},
 		inOut1("bool", "bool")
 	),
-	"mod" : mff2(function (x, y) {return (x + y) % y;}), // On ne veut pas de nombre negatif
+	"mod" :  mf2
+	(
+		function (x, y) 
+		{
+			return (x + y) % y; // We don't want negative number
+		},
+		inOut2("int", "int", "int")
+	),
 	"min" : mff2(function (x, y) {return x > y ? y : x;}), 
 	"max" : mff2(function (x, y) {return x < y ? y : x;}), 
 	"clamp" : mff3(function (x, min, max) {return x < min ? min : x > max ? max : x}),
@@ -701,7 +768,10 @@ var functions =
 	{
 		return Math.floor(x + .5);
 	}),
-	"floor" : mff1(function (x){return Math.floor(x);}), 
+	"floor" : mf1(
+		function (x){return Math.floor(x);},
+		inOut1("float", "int")
+	), 
 	"concat" : mtf2
 	(
 		function(first, second) // The function
@@ -1182,31 +1252,52 @@ var nodes =
 	
 	"Random" : makeRandom(),
 	"RandomList" : makeRandomList(),
-    "if" :  {
-		"fields" : [["first", "float"], ["second", "float"], ["third", "float"]],
-		"builder" : function(fields) 
-		{	
-			var first = fields.first;
-			var second = fields.second;
-			var third = fields.third;
+    "if" :  
+	{
+		getTemplates : function(params)
+		{
+			var condType = params[0].getType();
+			checkSameTypes(condType, "bool");
 			
-			this.get = function()
-			{
-				if(first.get())
-				{
-					return second.get();
+			var fstType = params[1].getType();
+			var scdType = params[2].getType();
+			
+			var mostGenericType = getMostGenericType(fstType, scdType);
+			if(mostGenericType != undefined)
+				return mostGenericType;
+			error("\"If\" parameters are not of compatible types : " + typeToString(fstType) + " and " + typeToString(scdType))
+		},
+		getInstance : function(templates)
+		{
+			var typeParam = templates[0];
+
+			return {
+				"fields" : [["first", "bool"], ["second", typeParam], ["third", typeParam]],
+				"builder" : function(fields) 
+				{	
+					var first = fields.first;
+					var second = fields.second;
+					var third = fields.third;
+					
+					this.get = function()
+					{
+						if(first.get())
+						{
+							return second.get();
+						}
+						return third.get();
+					};
+					this.getType = function(){
+							return third.getType();
+					};
+					this.addSink = function(sink)
+					{
+						first.addSink(sink);
+						second.addSink(sink);
+						third.addSink(sink);
+					};
 				}
-				return third.get();
-			};
-			this.getType = function(){
-					return third.getType();
-			};
-			this.addSink = function(sink)
-			{
-				first.addSink(sink);
-				second.addSink(sink);
-				third.addSink(sink);
-			};
+			}
 		}
 	},
 	"list" :

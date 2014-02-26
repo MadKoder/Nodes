@@ -37,7 +37,7 @@ function makeViewUpdater(createViewFunc, updateViewFunc, deleteViewFunc)
 
 paper.install(window);
 
-$.get("tree.nodes", function( text ) {
+$.get("treeEdit.nodes", function( text ) {
 // $.get( "structSlots.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
@@ -212,7 +212,7 @@ $.get("tree.nodes", function( text ) {
 	//view.draw();
 	var tick   = Bacon.interval(20);
 	// code.addRect.signal(code.root.get());
-	code.addRectToRoot.signal([new Store(2)]);
+	// code.addRectToRoot.signal([new Store(2)]);
 	tick.onValue(function(t)
 	{
 		// code.tick.signal();

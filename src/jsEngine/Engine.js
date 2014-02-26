@@ -1133,7 +1133,22 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		return compiledRef;
 	} else if (isNumber(expr) || isBool(expr))
 	{
-		var type = isNumber(expr) ? "float" : "bool"
+		var type;
+		if(isNumber(expr))
+		{
+			if(Math.floor(expr) != expr)
+			{
+				type = "float";
+			}
+			else
+			{
+				type = "int";
+			}
+		} 
+		else
+		{
+			type = "bool";
+		}
 		return {val : new Store(expr, type), type : type};
 		// return expr;
 	} else if("array" in expr)
@@ -1264,6 +1279,37 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				for(var paramIndex = 0; paramIndex < paramsGraph.length; paramIndex++)
 				{
 					var paramSpec = fieldsSpec[paramIndex];
+					var val = makeExpr(paramsGraph[paramIndex], nodes);
+					function getType(val)
+					{
+						if(_.isNumber(val))
+						{
+							return "float";
+						} else if(_.isString(val))
+						{
+							return "string";
+						} else if(_.isArray(val))
+						{
+							if(val.length == 0)
+							{
+								return listTemplate(null);
+							}
+							else
+							{
+								return listTemplate(getType(val[0]));								
+							}
+						} else
+						{
+							return val.__type;
+						}
+					}
+					var valType = getType(val);
+					
+					if(!isSameOrSubType(val.getType(), paramSpec[1]))
+					{
+						error("Parameter of index " + paramIndex + " in call of " + 
+							expr.type + " is of type " + typeToString(val.getType()) + ", required type " + typeToString(paramSpec[1]));
+					}
 					fields[paramSpec[0]] = makeExpr(paramsGraph[paramIndex], nodes);
 				}
 			}
