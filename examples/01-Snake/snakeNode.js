@@ -65,11 +65,6 @@ $.get( "snake.txt", function( text ) {
 	$score = $('#score')
 	tick.onValue(function(t){
 		compiledGraph.moveSnake.signal();
-		for(var i = 0; i < compiledGraph.__events.length; i++)
-		{		
-			//compiledGraph.__events[i].signal();
-		}
-		//drawGame(new Pos(sizeNode.get().x, sizeNode.get().y));
 		var snake  = posNode.get().map(function(pos){return new Pos(pos.x, pos.y);});
 		drawSnake(snake);
 		var head  = [new Pos(compiledGraph.headPos.get().x, compiledGraph.headPos.get().y)];

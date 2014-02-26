@@ -2863,23 +2863,22 @@ function Event(condition, action)
 	this.condition = condition;
 	this.action = action;
 	this.triggered = false;
-	
-	this.signal = function()
+	this.condition.addSink(this);
+
+	this.dirty = function()
 	{
-		if(this.triggered)
+		if(this.condition.get())
 		{
-			this.triggered = this.condition.get();
-		} else if(this.condition.get())
-		{
-			this.triggered = true;
 			this.action.signal();
 		}
-	}
+	}	
 }
+
 function makeEvent(event, nodes, connections)
 {
 	var condition = makeExpr(event["when"], nodes);
 	var action = makeAction(event["do"], nodes, connections);
+
 	return new Event(condition, action);
 }
 
@@ -2976,48 +2975,8 @@ function compileGraph(graph, lib, previousNodes)
 		}
 	}
 	
-	// Ajout des dependences d'un noeud
-	function makeAddDependencies(n)
-	{
-		// Le noeud que l'on ajoutera a toutes ses dependences
-		// dependencies are in the format {source : [sinks]}, each entry is a node name with all nodes that depend on it
-		var node = n;
-		function addDependencies(dependencies, val, key, collection)
-		{
-			if(_.isArray(val))
-			{
-				// Si la valeur est un tableau, il faut eliminer tous les cas ou ce n'est pas une reference 
-				// TODO a mettre a jour en cas d'ajout d'objets contenant un tableau
-				if(
-					!("array" in collection) 
-					&& !("params" in collection) 
-					&& !("slots" in collection)
-					&& val[0] in dependencies 
-				)
-				{
-					// Le noeud ne doit etre qu'une fois dans la liste des dependences
-					if(!_.contains(dependencies[val[0]], node))
-						dependencies[val[0]].push(node);
-					return dependencies;
-				} else
-				{
-					// Si ce n'est pas une reference, descente recursive
-					return _.reduce(val, addDependencies, dependencies)
-				}
-			} else if(_.isObject(val))
-			{
-				// Descente recursive
-				return _.reduce(val, addDependencies, dependencies)
-			} 
-			return dependencies;
-		}
-		
-		return addDependencies;
-	}
-	
 	var graphNodes = graph.nodes;
     var connectionsGraph = graph.connections;
-    var eventsDependencies = {};
     for(var i = 0; i < graphNodes.length; i++)
 	{
 		var nodeRow = graphNodes[i];
@@ -3034,8 +2993,6 @@ function compileGraph(graph, lib, previousNodes)
 				// console.log(err);
 				// error("Cannot build node " + id);
 			// }
-			eventsDependencies[id] = [];
-			_.reduce(nodeGraph, makeAddDependencies(nodes[id]), eventsDependencies);
 			// if("connections" in nodeGraph)
 			// {
 				
@@ -3135,26 +3092,11 @@ function compileGraph(graph, lib, previousNodes)
     }
 	
 	var eventsGraph = graph.events;
-	nodes.__events = [];
 	for(var i = 0; i < eventsGraph.length; i++)
 	{
 		var eventGraph = eventsGraph[i];
 		var event = makeEvent(eventGraph, nodes, connectionsGraph);
-		nodes.__events.push(event);
-		
-		_.reduce(eventGraph.when, makeAddDependencies(event), eventsDependencies);
     }
-	
-	// var connections = {};
-	// for(var i = 0; i < connectionsGraph.length; i++)
-	// {
-		// var connection = connectionsGraph[i];
-		// var slots = connection.slots.map(function(slot){
-			// return getNode(slot, nodes)
-		// });
-		
-		// connection.source.slots = slots; 
-    // }
 	
 	for(var i = 0; i < graphNodes.length; i++)
 	{
@@ -3192,90 +3134,6 @@ function compileGraph(graph, lib, previousNodes)
 			signals[connection.signal].push(makeAction(connection.action, mergedNodes));
 		});
 	});
-	function getNodeName(node)
-	{
-		for(var key in nodes)
-		{
-			if(nodes[key] == node)
-				return key;
-		}
-	}
-	//TODO promise slots
-	
-	// Recuperation des slots dependants d'un autre
-	function getDepends(slot, eventsDependencies)
-	{
-		var slotName = getNodeName(slot);
-		var slots = [];
-		if(slotName != undefined)
-		{
-			// Si le slot est un node
-			var depends = eventsDependencies[slotName];
-			// et qu'il a une entree dans les dependances 
-			// (i.e. ce n'est pas un node interne)
-			if(depends != undefined)
-			{
-				// On parcourt toutes ses dependances
-				for(var j = 0; j < depends.length; j++)
-				{
-					var depend = depends[j];
-					var dependName = getNodeName(depend);
-					if(dependName in eventsDependencies)
-					{
-						// C'est une donnee -> descente recursive
-						var dependsSlots = getDepends(depend, eventsDependencies);
-						slots = slots.concat(dependsSlots);
-					} else
-					{
-						// C'est un event -> ajout dans les slots
-						slots.push(depend);
-					}
-				}
-			}
-		} else if("slots" in slot)
-		{
-			// Sinon si c'est une sous-action, descente recursive
-			for(var i = 0; i < slot.slots.length; i++)
-			{
-				slots = slots.concat(getDepends(slot.slots[i], eventsDependencies));
-			}
-		}
-		return slots;
-	}
-	
-	// Ajout des nodes dependants de l'action
-	function applyDependencies(node, eventsDependencies)
-	{
-		var slots = [];
-		if("slots" in node)
-		{
-			slots = node.slots;
-			// TODO : traiter slot unique
-			
-			var newSlots = [];
-			for(var i = 0; i < slots.length; i++)
-			{
-				var slot = slots[i];
-				// Ajout du slot et de ses evenements dependants
-				newSlots.push(slot);
-				newSlots = newSlots.concat(getDepends(slot, eventsDependencies));
-			}
-			
-			node.slots = newSlots;
-		}
-	}
-	
-	for(var key in nodes)
-	{
-		var node = nodes[key];
-		applyDependencies(node, eventsDependencies);
-	}
-	
-	for(var i = 0; i < nodes.__events.length; i++)
-	{
-		var event = nodes.__events[i];
-		applyDependencies(event.action, eventsDependencies);		
-	}
 	
 	return nodes;
 }

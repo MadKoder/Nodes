@@ -92,7 +92,7 @@ function findCommonSuperClass(fstType, scdType)
 		var superClass = classDef.superClass;
 		if(superClass)
 		{
-			if(isSubType(scdType, superClass))
+			if(isStrictSubType(scdType, superClass))
 			{
 				return true;
 			}

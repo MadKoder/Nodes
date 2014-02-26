@@ -37,21 +37,23 @@ trees:
 				Vec2 pos
 				float radius 
 functions:
-	accumState(dict<string, State> accum, dict<string, State> state):
+	accumState(dict<string, State> accum, dict<string, State> state)
 		merge(accum, state)
-	getStateSet(Obj obj):
+	getStateSet(Obj obj)
 		obj.stateSet
-	list<T> getTypeAndAccumState<T>(Obj obj): type obj :
-		T  : [obj]
-		Group : flatMap
-			(
-				Obj child -> getTypeAndAccumState<T>(child \ stateSet = merge(obj.stateSet, child.stateSet)),
-				obj.children
-			)
-		_ : []
-	list<Group> findGroups(Obj obj):  type obj :
-		Group : pushFront(flatMap(findGroups, obj.children), obj)
-		_ : []
+	list<T> getTypeAndAccumState<T>(Obj obj)
+		type obj :
+			T  : [obj]
+			Group : flatMap
+				(
+					Obj child -> getTypeAndAccumState<T>(child \ stateSet = merge(obj.stateSet, child.stateSet)),
+					obj.children
+				)
+			_ : []
+	list<Group> findGroups(Obj obj)
+		type obj :
+			Group : pushFront(flatMap(findGroups, obj.children), obj)
+			_ : []
 nodes:
 	var defaultState : State(Color(0, 0, 0))
 	var dict<string, State> defaultStateSet
@@ -128,26 +130,26 @@ nodes:
 	var currentAction : "Add"
 actions :
 	Obj.moveAll :
-		type self apply:
-			Rect : 
+		type self do:
+			Rect => 
 				self.pos.y = self.pos.y + 0.1
 				self.size.x = self.size.x + 0.1
-			Circle : 
+			Circle => 
 				self.pos.x = self.pos.x + 0.1
-			Group : 
+			Group =>
 				# for child in obj.children do moveAll(child)
 				foreach self.children moveAll()
 	tick : 
-		select root apply:
-			Rect r : 
-				pos.y = r.pos.y + 0.1
-				size.x = r.size.x + 0.1
-			Circle c : 
-				pos.x = c.pos.x + 0.1
+		# select root do :
+		# 	Rect r =>
+		# 		pos.y = r.pos.y + 0.1
+		# 		size.x = r.size.x + 0.1
+		# 	Circle c => 
+		# 		pos.x = c.pos.x + 0.1
 		root.moveAll()
 	Obj.addRect(int x, int i) : 
-		type self apply:
-			Group : 
+		type self do:
+			Group =>
 				if length(findGroups(self)) ==  1 
 					then self.children = pushFront(self.children, Rect({}, Vec2(50 * i, 50), Vec2(40, 10)))
 				foreach self.children addRect(x, i + 1)

@@ -91,10 +91,14 @@ $.get("treeEdit.nodes", function( text ) {
 	
 	function createRect(model)
 	{
+		var stateSet = model.stateSet;
+		var color = stateSet.color;
+		var strokeColor = stateSet.strokeColor;
 		var rect = new paper.Shape.Rectangle({
 			point: [model.pos.x, model.pos.y],
 			size: [model.size.x, model.size.y],
-			strokeColor: 'black'
+			fillColor: new Color(color.r, color.g, color.b),
+			strokeColor: new Color(strokeColor.r, strokeColor.g, strokeColor.b)
 		});
 		rect.data = model.id;
 		return rect;
@@ -109,15 +113,16 @@ $.get("treeEdit.nodes", function( text ) {
 	
 	function createCircle(model)
 	{
-		//var circleModel = model[0];
+		//var model = model[0];
 		// var stateSet = model[1];
-		var circleModel = model;
-		var stateSet = circleModel.stateSet;
+		var stateSet = model.stateSet;
 		var color = stateSet.color;
+		var strokeColor = stateSet.strokeColor;
 		var circle = new paper.Shape.Circle({
-			center: [circleModel.pos.x, circleModel.pos.y],
-			radius: [circleModel.radius],
-			fillColor: new Color(color.r, color.g, color.b)
+			center: [model.pos.x, model.pos.y],
+			radius: [model.radius],
+			fillColor: new Color(color.r, color.g, color.b),
+			strokeColor: new Color(strokeColor.r, strokeColor.g, strokeColor.b)
 		});
 		circle.data = model.id;
 		return circle;
@@ -125,13 +130,12 @@ $.get("treeEdit.nodes", function( text ) {
 	
 	function updateCircle(model, view)
 	{
-		//var circleModel = model[0];
+		//var model = model[0];
 		// var stateSet = model[1];
-		var circleModel = model;
-		var stateSet = circleModel.stateSet;
+		var stateSet = model.stateSet;
 		var color = stateSet.color;
-		view.radius = circleModel.radius;
-		view.position = new Point(circleModel.pos.x, circleModel.pos.y);
+		view.radius = model.radius;
+		view.position = new Point(model.pos.x, model.pos.y);
 		view.fillColor.red = color.r; 
 		view.fillColor.green = color.g; 
 		view.fillColor.blue = color.b; 

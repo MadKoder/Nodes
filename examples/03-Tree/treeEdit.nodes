@@ -39,8 +39,10 @@ trees:
 					Circle :
 						float radius 
 functions:
-	addVec2(Vec2 v0, Vec2 v1) 		Vec2(v0.x + v1.x, v0.y + v1.y)
-	subVec2(Vec2 v0, Vec2 v1) 		Vec2(v0.x - v1.x, v0.y - v1.y)
+	addVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x + v1.x, v0.y + v1.y)
+	subVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x - v1.x, v0.y - v1.y)
 	accumState(dict<string, State> accum, dict<string, State> state) 		merge(accum, state)
 	getStateSet(Obj obj) 		obj.stateSet
 	list<T> getTypeAndAccumState<T>(Obj obj) type obj :
@@ -62,7 +64,10 @@ nodes:
 		(
 			[], 
 			0,
-			{color : Color(0, 1, 0)}
+			{
+				color : Color(0, 1, 0),
+				strokeColor : Color(1, 0, 1)
+			}
 		)
 	def rects : getTypeAndAccumState<Rect>(root)
 	def circles : getTypeAndAccumState<Circle>(root)
