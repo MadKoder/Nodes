@@ -71,3 +71,8 @@
 	Les slots font partie des valeurs -> stockes avec
 	Question : doit-on faire des signals par node ou par valeur ?
 	Par valeur, ils peuvent faire partie d'une hierarchie (par ex. d'ui)
+
+25/2 : Harmonisation de la syntaxe des champs de structs : format "type id", comme pour les fonctions.
+	Pb : ne supporte pas plusieurs id avec un type (int a,b,...) a cause de l'indetermination sur les membres suivant dans le parser. On est donc limite a une declaration par champs.
+	De plus en plus de fonctions font appel au type d'une valeur pour determiner les champs, operateurs, inputs qui vont bien à l'interieur d'une hierarchie, car dans le cas typique d'un store, seul le type de base est stocke.
+	-> Le type d'une valeur doit a terme etre remmplace par un pointeur vers un objet complet (= tmv)

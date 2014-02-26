@@ -103,15 +103,33 @@ nodes:
 			[
 				HGroup
 				(
-					[Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
+					[
+						Button
+						(
+							"Add circle",
+							click => 
+								currentAction = "Add"
+								figureToAdd = "Circle"
+						),
+						Button
+						(
+							"Add rectangle", 
+							click => 
+								currentAction = "Add"
+								figureToAdd = "Rect"
+						)
+					]
 				),
 				HGroup
 				(
-					[Button(fig, click => figureToAdd = what) for fig in ["Toto", "Tata"]]
+					[
+						Button("Move", click => currentAction = "Move")
+					]
 				)
 			]
 		)
 	var buttons = [Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
+	var currentAction : "Add"
 actions :
 	Obj.moveAll :
 		type self apply:
@@ -158,15 +176,29 @@ actions :
 		editedFigureIndex = 0
 	resizeEditedFigure(int x, int y):
 		loc editedFigure = at(root.children, editedFigureIndex)
-		if figureToAdd == "Circle" then 
-			editedFigure = editedFigure 
-				\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
-				\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
-			else 
-			editedFigure = editedFigure 
-				\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y))
-				\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))
+		# match figureToAdd do :
+		# 	"Circle" : editedFigure = editedFigure 
+		# 		\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
+		# 		\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
+		# 	"Rect" : editedFigure = editedFigure 
+		# 		\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y))
+		# 		\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))
 			# editedFigure = editedFigure \ pos = Vec2(x, y)
 		# root.children[editedFigureIndex] = editedFigure
 		update child, i in root.children
-			with editedFigure if i == editedFigureIndex
+			with type child :
+				Rect : child
+					\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y))
+					\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))
+				Circle : child 
+					\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
+					\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
+			if i == editedFigureIndex
+	# selectFigureToMove(int x, int y):
+	# 	loc selectedId = hit(Vec2(x, y))
+	mouseDown(int x, int y):
+		if currentAction == "Add" then beginAddFigure(x, y)
+		# if currentAction == "Move" then selectFigureToMove(x, y)
+	mouseDrag(int x, int y):
+		if currentAction == "Add" then resizeEditedFigure(x, y)
+		# if currentAction == 

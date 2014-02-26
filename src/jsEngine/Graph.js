@@ -314,6 +314,7 @@ function makeValStr(lines, i, state)
 	var valStr = "";
 	var baseIndent = getNbTabs(lines[i]);
 	var previousIndent = baseIndent;
+	var previousDeltaIndent = 0;
 	var firstLineIndex = lineIndex = i;
 	var openBraces = 0;
 	var addBraces = _.range(20).map(function(){return false;});
@@ -332,9 +333,9 @@ function makeValStr(lines, i, state)
 			{
 				valStr += "(";
 				openBraces++;
-			} else if(currentIndent < previousIndent && addBraces[deltaIndent + 1])
+			} else for(var i = previousDeltaIndent; i > deltaIndent; i--)
 			{
-				for(var i = currentIndent; i < previousIndent; i++)
+				if(addBraces[i])
 				{
 					valStr += ")";
 					openBraces--;
@@ -342,9 +343,10 @@ function makeValStr(lines, i, state)
 			}
 			if(currentIndent <= previousIndent && addBraces[deltaIndent])
 				valStr += ",";
-			addBraces[deltaIndent + 1] = /.*:$/.test(trimedLine);
+			addBraces[deltaIndent + 1] = /.*:$/.test(trimedLine) || /.*=>$/.test(trimedLine);
 			valStr += " " + trimedLine;
 			previousIndent = currentIndent;
+			previousDeltaIndent = deltaIndent
 		}
 		lineIndex++;
 	}

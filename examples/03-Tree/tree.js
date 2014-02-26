@@ -142,7 +142,7 @@ $.get("tree.nodes", function( text ) {
 				var uiId = type + uiIndex.toString();
 				var buttonIndex = uiIndex;
 				parentView.append(enclose("<button id=" + uiId + "></button>", parentType));
-				$("#" + uiId).button().html("Add " + model.desc).click(function() 
+				$("#" + uiId).button().html(model.desc).click(function() 
 				{
 					code.ui.signal("onClick", [new Store(model.desc)], path);
 				});
@@ -198,13 +198,15 @@ $.get("tree.nodes", function( text ) {
 		// path.add(event.point);
 		// path.strokeColor = 'black';
 		//code.addFigure.signal([event.point.x, event.point.y]);
-		code.beginAddFigure.signal([new Store(event.point.x), new Store(event.point.y)]);
+		// code.beginAddFigure.signal([new Store(event.point.x), new Store(event.point.y)]);
+		code.mouseDown.signal([new Store(event.point.x), new Store(event.point.y)])
 	});
 
 	paper.tool.attach("mousedrag", function(event) {
 		// Add a point to the path every time the mouse is dragged
 		// path.add(event.point);
-		code.resizeEditedFigure.signal([new Store(event.point.x), new Store(event.point.y)])
+		//code.resizeEditedFigure.signal([new Store(event.point.x), new Store(event.point.y)])
+		code.mouseDrag.signal([new Store(event.point.x), new Store(event.point.y)])
 	});
 
 	//view.draw();

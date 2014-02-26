@@ -944,7 +944,15 @@ function StructAccess(node, path) {
 	this.setPathOperator = operators.setPath;
 	
 	var fields = typeObj.fields;
-	this.type = getFieldType(fields, path);
+	try
+	{
+		this.type = getFieldType(fields, path);
+	}
+	catch(err)
+	{
+		console.log(err);
+		error("No field " + path + " in node of type " + node.getType());		
+	}
 
 	this.get = function()
 	{
@@ -1331,10 +1339,10 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		return {val : new Match(expr.match, expr["cases"], expr["else"	]), type : "match"};
 	} else if("matchType" in expr)
 	{
-		function MatchType(what, matches)
+		function MatchType(what, cases)
 		{
 			this.what = getNode(what, nodes);
-			this.matches = matches.map(function(matchExp){
+			this.cases = cases.map(function(matchExp){
 				var matchStore = new SubStore(matchExp.type != "_" ? matchExp.type : this.what.getType());
 				var mergedNodes = _.clone(nodes);
 				mergedNodes[what] = matchStore;
@@ -1356,9 +1364,9 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			{
 				var val = this.what.get();
 				var type = val.__type;
-				for(var i = 0; i < this.matches.length - 1; i++)
+				for(var i = 0; i < this.cases.length - 1; i++)
 				{
-					var match = this.matches[i];
+					var match = this.cases[i];
 					if(type == match.type)
 					{
 						match.matchStore.set(val);
@@ -1366,7 +1374,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					}
 				}
 				// else case
-				var match = this.matches[i];
+				var match = this.cases[i];
 				match.matchStore.set(val);
 				return match.val.get();
 				// TODO Error				
@@ -1379,7 +1387,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		}
 
 		// TODO type avec template
-		return {val : new MatchType(expr.matchType, expr["with"]), type : "match"};
+		return {val : new MatchType(expr.matchType, expr["cases"]), type : "match"};
 	} else if("comp" in expr)
 	{
 		var node = new Comprehension(expr, nodes);
@@ -1643,13 +1651,57 @@ function makeAction(actionGraph, nodes, connections)
 		return new ForEach(iterated, actionGraph.signal, compiledParams);
 	}
 	
+	if("match" in actionGraph)
+	{
+		function MatchAction(actionGraph, nodes)
+		{
+			var cases = actionGraph.cases;
+			this.what = makeExpr(actionGraph.match, nodes);
+			this.cases = cases.map(function(caseGraph){
+				return {
+					vals : _.map(caseGraph.vals, function(val)
+					{
+						return makeExpr(val, nodes);
+					}),
+					action : makeAction(caseGraph.action, nodes)
+				};
+			}, this);
+			if("else" in actionGraph)
+			{
+				this.elseCase = makeAction(actionGraph["else"], nodes);
+			}
+						
+			this.signal = function(rootAndPath)
+			{
+				var val = this.what.get();
+				for(var i = 0; i < this.cases.length; i++)
+				{
+					var match = this.cases[i];
+					for(var j = 0; j < match.vals.length; j++)
+					{
+						if(match.vals[j].get() == val)
+						{
+							match.action.signal(rootAndPath);
+							return;
+						}
+					}
+				}
+				if(this.elseCase)
+					this.elseCase.signal(rootAndPath);
+			}
+		}
+
+		// TODO type avec template
+		return new MatchAction(actionGraph, nodes);
+	}
+	
 	if("matchType" in actionGraph)
 	{
 		function MatchTypeAction(actionGraph, nodes)
 		{
-			var matches = actionGraph.with;
+			var cases = actionGraph.cases;
 			this.what = getNode(actionGraph.matchType, nodes);
-			this.matches = matches.map(function(matchExp){
+			this.cases = cases.map(function(matchExp){
 				var matchStore = new SubStore(matchExp.type != "_" ? matchExp.type : this.what.getType());
 				var mergedNodes = _.clone(nodes);
 				mergedNodes[actionGraph.matchType] = matchStore;
@@ -1665,9 +1717,9 @@ function makeAction(actionGraph, nodes, connections)
 			{
 				var val = this.what.get();
 				var type = val.__type;
-				for(var i = 0; i < this.matches.length; i++)
+				for(var i = 0; i < this.cases.length; i++)
 				{
-					var match = this.matches[i];
+					var match = this.cases[i];
 					if(type == match.type)
 					{
 						match.matchStore.set(val);

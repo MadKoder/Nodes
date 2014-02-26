@@ -1,12 +1,14 @@
 actions :
 	resizeEditedFigure(int x, int y):
-		if figureToAdd == "Circle" then :
-			editedFigure = editedFigure 
+		loc editedFigure = at(root.children, editedFigureIndex)
+		match figureToAdd do :
+			"Circle" : editedFigure = editedFigure 
 				\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
 				\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
-			else 
-			editedFigure = editedFigure 
+			"Rect" : editedFigure = editedFigure 
 				\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y))
 				\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))
+			# editedFigure = editedFigure \ pos = Vec2(x, y)
+		# root.children[editedFigureIndex] = editedFigure
 		update child, i in root.children
 			with editedFigure if i == editedFigureIndex

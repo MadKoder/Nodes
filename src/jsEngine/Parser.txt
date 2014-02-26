@@ -449,11 +449,13 @@ Action "Action" =
   Affectation 
   / Foreach
   / ForAction
+  / MatchAction
   / MatchTypeAction
   / SelectAction
   / SlotCall
   / Update
-  /  _ "(" _ actions:Actions _ ")" {return  {
+  /  _ "(" _ actions:Actions _ ")" _ 
+  	{return  {
 			type : "Seq",
 			slots : actions
 		};}
@@ -488,12 +490,48 @@ ForAction =
 		return res;
 	}
 	
+MatchAction =
+	"match" _ what:Val _ "do" _ ":" _ "("_ cases:ActionCases elseCase:ElseActionCase? _")"
+	{
+		var ret = {
+			match : what,
+			cases : cases
+		};
+		if(elseCase)
+		{
+			ret.else = elseCase;
+		}
+		return ret;
+	}
+
+ActionCases =
+	head:ActionCase _ tail:( _ "," _ (i:ActionCase) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+ActionCase =
+	vals:Vals _ ":" _ action:Action
+	{
+		return {
+			vals : vals, 
+			action : action
+		};
+	}
+
+ElseActionCase =
+	(",")? _ "_" _ ":" _ action:Action
+	{
+		return action;
+	}
+
+
 MatchTypeAction = 
 	"type" _ id:Var _ "apply" _ ":" _ "(" _ matchCases:TypeActionCases _ ")" 
 	{
 		return {
 			matchType : id,
-			with : matchCases
+			cases : matchCases
 		};
 	}
 		
@@ -851,7 +889,7 @@ MatchType =
 	{
 		return {
 			matchType : id,
-			with : matchCases
+			cases : matchCases
 		};
 	}
 		
