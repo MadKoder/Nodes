@@ -15,6 +15,37 @@ function typeToString(type)
 	return baseType + "<" + _.each(typeParams, typeToString).join(",") + ">";
 }
 
+// function isSubType(checkedType, refType)
+// {
+// 	var classDef = library.nodes[checkedType];
+// 	if(classDef)
+// 	{
+// 		var superClass = classDef.superClass;
+// 		if(superClass)
+// 		{
+// 			if(superClass == refType)
+// 			{
+// 				return true;
+// 			}
+// 			return isSubType(superClass, refType);
+// 		}
+// 	}
+// }
+
+function isStrictSubType(checkedType, refType)
+{
+	var classDef = library.nodes[checkedType];
+	var superClass = classDef.superClass;
+	if(superClass)
+	{
+		if(superClass == refType)
+		{
+			return true;
+		}
+		return isStrictSubType(superClass, refType);
+	}
+}
+
 function isSameOrSubType(checkedType, refType)
 {
 	var checkedBaseType = getBaseType(checkedType);
@@ -24,6 +55,10 @@ function isSameOrSubType(checkedType, refType)
 		if(refBaseType == "float" && checkedBaseType == "int")
 		{
 			return true;
+		}
+		if(checkedType in library.nodes)
+		{
+			return isStrictSubType(checkedType, refType);
 		}
 		return false;
 	}
@@ -48,14 +83,35 @@ function isSameOrSubType(checkedType, refType)
 	return true;
 }
 
-function getMostGenericType(fstType, scdType)
+function findCommonSuperClass(fstType, scdType)
+{
+	var fstBaseType = getBaseType(fstType);
+	var classDef = library.nodes[fstBaseType];
+	if(classDef)
+	{
+		var superClass = classDef.superClass;
+		if(superClass)
+		{
+			if(isSubType(scdType, superClass))
+			{
+				return true;
+			}
+			return findCommonSuperClass(superClass, scdType);
+		}
+	}
+}
+
+function getCommonSuperClass(fstType, scdType)
 {
 	// return the most generic of the two types
 	if(isSameOrSubType(fstType, scdType))
 		return scdType;
 	if(isSameOrSubType(scdType, fstType))
 		return fstType;
-	error("Type ^parameters are not compatible : " + typeToString(fstType) + " and " + typeToString(scdType))
+	var commonAncestor = findCommonSuperClass(fstType, scdType)
+	if(commonAncestor != undefined)
+		return commonAncestor;
+	error("Type parameters are not compatible : " + typeToString(fstType) + " and " + typeToString(scdType))
 	// return undefined;
 }
 
@@ -314,7 +370,7 @@ function maf2(func2)
 		},
 		function(x, y)	// Template guess from input types
 		{
-			return(getMostGenericType(x, y));
+			return(getCommonSuperClass(x, y));
 		}
 	)
 }
@@ -699,8 +755,8 @@ var functions =
 		inOut2("string", "string", "string")
 	),
 	"neg" : mff1(function (x) {return -x;}),
-	"+" : maf2(function(x, y) {return x + y;}),
-	"-" : maf2(function(x, y){return x - y;}),
+	"+" : maf2(function (x, y) {return x + y;}),
+	"-" : maf2(function (x, y){return x - y;}),
     "*" : maf2(function (x, y) {return x * y;}),
     "/" : maf2(function (x, y) {return x / y;}),
 	"<" : mcf2(function (x, y) {return x < y;}),
@@ -1262,7 +1318,7 @@ var nodes =
 			var fstType = params[1].getType();
 			var scdType = params[2].getType();
 			
-			var mostGenericType = getMostGenericType(fstType, scdType);
+			var mostGenericType = getCommonSuperClass(fstType, scdType);
 			if(mostGenericType != undefined)
 				return mostGenericType;
 			error("\"If\" parameters are not of compatible types : " + typeToString(fstType) + " and " + typeToString(scdType))

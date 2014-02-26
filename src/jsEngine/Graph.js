@@ -344,7 +344,14 @@ function makeValStr(lines, i, state)
 			if(currentIndent <= previousIndent && addBraces[deltaIndent])
 				valStr += ",";
 			addBraces[deltaIndent + 1] = /.*:$/.test(trimedLine) || /.*=>$/.test(trimedLine);
-			valStr += " " + trimedLine;
+			if(/.*:$/.test(trimedLine))
+			{
+				valStr += " " + trimedLine.slice(0, -1);	
+			}
+			else
+			{
+				valStr += " " + trimedLine;
+			}
 			previousIndent = currentIndent;
 			previousDeltaIndent = deltaIndent
 		}

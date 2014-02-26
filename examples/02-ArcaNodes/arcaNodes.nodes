@@ -13,30 +13,30 @@ structs:
 		float size
 		Vec2 speedVector
 functions:
-	intToFacing(int v):
+	intToFacing(int v) 
 		match v:
 			0 : "right" 
 			1 : "up" 
 			2 : "left" 
 			_ : "down"
-	facingToInt(string f):
+	facingToInt(string f) 
 		match f:
 			"right" : 0
 			"up" : 1
 			"left" : 2
 			_ : 3
-	facingToDir(string f):
+	facingToDir(string f) 
 		match f:
 			"right" : Vec2(1, 0)
 			"up" : Vec2(0, -1)
 			"left" : Vec2(-1, 0)
 			_ : Vec2(0, 1)
 
-	addVec2(Vec2 v0, Vec2 v1):
+	addVec2(Vec2 v0, Vec2 v1) 
 		Vec2(v0.x + v1.x, v0.y + v1.y)
-	inRect(Vec2 v, Rect r):
+	inRect(Vec2 v, Rect r) 
 		(v.x >= r.pos.x) && (v.y >= r.pos.y) && (v.x < (r.pos.x + r.size.x)) && (v.y < (r.pos.y + r.size.y))
-	occupiedCells(Bounds b, int cellSize):
+	occupiedCells(Bounds b, int cellSize) :
 		top : floor(b.topLeft.y / cellSize)
 		left : floor(b.topLeft.x / cellSize)
 		bottom : floor(b.bottomRight.y / cellSize)
@@ -61,31 +61,31 @@ structs:
 				else self.facing = intToFacing(mod(facingToInt(self.facing) + newDir, 4)) 
 			self.animState = mod(self.animState + 1, maxAnimState) 
 functions:
-	collision(Vec2 pos, Monster m):
+	collision(Vec2 pos, Monster m)
 		abs(pos.x - m.pos.x) < 25 && abs(pos.y - m.pos.y) < 25
-	monsterBounds(Vec2 pos):
+	monsterBounds(Vec2 pos)
 		Bounds(addVec2(pos, Vec2(-16, -16)), addVec2(pos, Vec2(16, 16)))
-	eqVec2(Vec2 v0, Vec2 v1):
+	eqVec2(Vec2 v0, Vec2 v1)
 		v0.x == v1.x && v0.y == v1.y
-	inBounds(Vec2 v, Bounds b):
+	inBounds(Vec2 v, Bounds b)
 		(v.x >= b.topLeft.x) && (v.y >= b.topLeft.y) && (v.x <= b.bottomRight.x) && (v.y <= b.bottomRight.y)
-	opposite(string f):
+	opposite(string f) 
 		match f:
 			"right" : "left"
 			"up" : "down"
 			"left" : "right"
 			_ : "up"
-	boundingRect(Monster m):
+	boundingRect(Monster m)
 		Rect(addVec2(m.pos, Vec2(-16, -16)), Vec2(32, 32))
-	manBounds(Vec2 pos):
+	manBounds(Vec2 pos)
 		Bounds(addVec2(pos, Vec2(-16, -16)), addVec2(pos, Vec2(16, 16)))
-	list<list<T>> transpose<T>(list<list<T>> l):
+	list<list<T>> transpose<T>(list<list<T>> l)
 		if length(head(l)) == 0 then [] else pushFront(transpose(map(tail, l)), map(head, l))
-	posToCell(Vec2 pos, int cellSize):
+	posToCell(Vec2 pos, int cellSize)
 		Vec2(floor(pos.x / cellSize), floor(pos.y / cellSize))
-	makeMonster(Vec2 pos, string facing) :
+	makeMonster(Vec2 pos, string facing)
 		Monster(pos, facing, 0)
-	cellAsciiToInt(char char):
+	cellAsciiToInt(char char)
 		match char:
 			" " : 0
 			"d" : 1
@@ -218,8 +218,8 @@ actions :
 		
 		while length(monsters) < maxMonsters do 
 			monsters = 
-				let 
-					cellIndex = <- Random(length(freeCells)),
+				let :
+					cellIndex = <- Random(length(freeCells))
 					cell = at(freeCells, cellIndex)
 				in pushFront
 					(

@@ -1,13 +1,6 @@
 $(document).ready(function ()
 {
 
-var library =
-{
-	nodes : nodes,
-	functions : functions,
-	actions : actions
-};
-
 function makeViewUpdater(createViewFunc, updateViewFunc, deleteViewFunc)
 {
 	function updateView(model, view)
@@ -37,7 +30,45 @@ function makeViewUpdater(createViewFunc, updateViewFunc, deleteViewFunc)
 
 paper.install(window);
 
-$.get("tree.nodes", function( text ) {
+function mf1(func1, inAndOutTypes)
+{
+	return {
+		params : [["first", inAndOutTypes.inputs[0]]],
+		func : function(params)	{	
+			return func1(params[0]);
+		},
+		type : inAndOutTypes.output
+	}
+}
+
+localFunctions =
+{
+	"hit" : mf1
+	(
+		function(vec)
+		{
+			var hitResult = project.hitTest(new Point(vec.x, vec.y));
+					
+			if (!hitResult)
+				return -1;
+
+			return hitResult.item.data;
+		},
+		inOut1("Vec2", "int")
+	)
+}
+
+_.merge(functions, localFunctions);
+_.merge(nodes, localFunctions, function(node, func){return funcToNodeSpec(func);});
+
+var library =
+{
+	nodes : nodes,
+	functions : functions,
+	actions : actions
+};
+
+$.get("treeEdit.nodes", function( text ) {
 // $.get( "structSlots.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
@@ -65,6 +96,7 @@ $.get("tree.nodes", function( text ) {
 			size: [model.size.x, model.size.y],
 			strokeColor: 'black'
 		});
+		rect.data = model.id;
 		return rect;
 	}
 	
@@ -72,6 +104,7 @@ $.get("tree.nodes", function( text ) {
 	{
 		view.size = new paper.Size(model.size.x, model.size.y);
 		view.position = new Point(model.pos.x + model.size.x * .5, model.pos.y + model.size.y * .5);
+		view.data = model.id;
 	}
 	
 	function createCircle(model)
@@ -86,6 +119,7 @@ $.get("tree.nodes", function( text ) {
 			radius: [circleModel.radius],
 			fillColor: new Color(color.r, color.g, color.b)
 		});
+		circle.data = model.id;
 		return circle;
 	}
 	
@@ -101,6 +135,7 @@ $.get("tree.nodes", function( text ) {
 		view.fillColor.red = color.r; 
 		view.fillColor.green = color.g; 
 		view.fillColor.blue = color.b; 
+		view.data = model.id;
 	}
 	
 	var updateRectView = makeViewUpdater(createRect, updateRect, deleteElement);

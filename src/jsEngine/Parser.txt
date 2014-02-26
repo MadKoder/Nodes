@@ -1,6 +1,6 @@
 start "start" = 
   "functions " _ func:Function {return func;}
-/ "actions " _ id:Var _ params:("(" _ params:ParamsDecl _")" {return params})? _ ":" _ action:Action
+/ "actions " _ id:Var _ params:("(" _ params:ParamsDecl _")" {return params})? _ action:Action
 	{
 		var a = action;
 		a.id = id;
@@ -76,7 +76,7 @@ Connection =
 Affect = ":" / "="
 
 Event =
-	cond:Val _ ":" _ action:Action
+	cond:Val _ action:Action
 	{
 		return {
 			"when" : cond,
@@ -164,8 +164,8 @@ Function =
 	}
 
 FuncBody =
-	":" _ val:Val {return {nodes : [], val : val};}
-	/ ":" _ "(" _ nodes:(nodes:Nodes _ "," {return nodes;})? _ val:Val _ ")"
+	_ val:Val {return {nodes : [], val : val};}
+	/ _  "(" _ nodes:(nodes:Nodes _ "," {return nodes;})? _ val:Val _ ")"
 		{return {nodes : nodes ? nodes : [], val : val};}
 	
 TypeAndId =
@@ -203,9 +203,9 @@ Templates =
 lines = (_ v:Val _ LineTerminatorSequence {return v;})+
 
 Tree =  
-	_ id:Id  _ ":" _ "(" _ fields:(fields:FieldsDef _ "," {return fields;})? _ 
-	"groups" _ ":" _ "(" _ groups:Structs _ ")"  _
-	"," _ "leaves" _ ":" _ "(" _ leaves:Structs _ ")"  _
+	_ id:Id  _ "(" _ fields:(fields:FieldsDef _ "," {return fields;})? _ 
+	"groups" _ "(" _ groups:Structs _ ")"  _
+	"," _ "leaves" _ "(" _ leaves:Structs _ ")"  _
 	")"
 	{
 		var ret = {
@@ -228,7 +228,7 @@ Structs =
 	}
 	
 Struct = 
-	_ id:Id  _ fieldsAndSubs:(":" _ "(" _ fieldsAndSubs:FieldsAndSubs _ ")" {return fieldsAndSubs;})?
+	_ id:Id  _ fieldsAndSubs:("(" _ fieldsAndSubs:FieldsAndSubs _ ")" {return fieldsAndSubs;})?
 	{
 		var ret = {
 			name : id
@@ -242,14 +242,14 @@ Struct =
 	}
 	
 FieldsAndSubs = 
-	fields:FieldsDef _ subs:("," _ "subs" _ ":" _ "(" _ structs:Structs _ ")" {return structs;})?
+	fields:FieldsDef _ subs:("," _ "subs" _ "(" _ structs:Structs _ ")" {return structs;})?
 	{
 		return {
 			fields : fields,
 			subs : subs != null ? subs : []
 		};
 	}
-	/ _ "subs" _ ":" _ "(" _ structs:Structs _ ")"
+	/ _ "subs" _ "(" _ structs:Structs _ ")"
 	{
 		return {
 			fields : [],
@@ -278,7 +278,7 @@ FieldDef =
 	
 	
 SlotDef = 
-	_ "slot" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _ ":" action:Action
+	_ "slot" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _ action:Action
 	{
 		return {
 			slot : id,
@@ -306,7 +306,7 @@ Closure =
 	}
 
 Select =
-	"select " _ id:Var _ path:("along " _ path:Id {return path;})? _ ":" _"(" _ matches:SelectMatches _ ")" _
+	"select " _ id:Var _ path:("along " _ path:Id {return path;})? _ "(" _ matches:SelectMatches _ ")" _
 	{
 		var ret = {
 			select : id,
@@ -460,7 +460,7 @@ Action "Action" =
 			slots : actions
 		};}
   / IfAction 
-  / "while" _ param:Expression  _ "do " _ action:Action _ 
+  / "while" _ param:Expression  _ "do" _ action:Action _ 
 	{
 		return {
 			while:param, 
@@ -491,7 +491,7 @@ ForAction =
 	}
 	
 MatchAction =
-	"match" _ what:Val _ "do" _ ":" _ "("_ cases:ActionCases elseCase:ElseActionCase? _")"
+	"match" _ what:Val _ "do" _ "("_ cases:ActionCases elseCase:ElseActionCase? _")"
 	{
 		var ret = {
 			match : what,
@@ -511,7 +511,7 @@ ActionCases =
 	}
 
 ActionCase =
-	vals:Vals _ ":" _ action:Action
+	vals:Vals _ "=>" _ action:Action
 	{
 		return {
 			vals : vals, 
@@ -520,14 +520,14 @@ ActionCase =
 	}
 
 ElseActionCase =
-	(",")? _ "_" _ ":" _ action:Action
+	(",")? _ "_" _ "=>" _ action:Action
 	{
 		return action;
 	}
 
 
 MatchTypeAction = 
-	"type" _ id:Var _ "apply" _ ":" _ "(" _ matchCases:TypeActionCases _ ")" 
+	"type" _ id:Var _ "do" _ "(" _ matchCases:TypeActionCases _ ")" 
 	{
 		return {
 			matchType : id,
@@ -542,7 +542,7 @@ TypeActionCases =
 	}
 	
 TypeActionCase = 
-	type:Id _ ":" _ action:Action
+	type:Id _ "=>" _ action:Action
 	{
 		return {
 			type : type,
@@ -551,8 +551,8 @@ TypeActionCase =
 	}
 
 Update =
-	"update" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Val _
-	"with " _ val:ValOrCondUpdate _ filter:("filter " _ test:Val {return test})?
+	"update" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ array:Val _
+	"with" _ val:ValOrCondUpdate _ filter:("filter " _ test:Val {return test})?
 	{
 		var res = {
 			"update" : it,
@@ -582,7 +582,7 @@ ValOrCondUpdate =
 	/ val:Val {return {val : val};}
 
 CondUpdate =
-	_ val:Val _ "if " _ cond:Val 
+	_ val:Val _ "if" _ cond:Val 
 	{
 		return {
 			"val" : val,
@@ -591,7 +591,7 @@ CondUpdate =
 	}
 
 SelectAction =
-	_ "select" _ it:Var _ "apply" _ ":" _ "(" _ actions:SelectorActions _ ")"
+	_ "select" _ it:Var _ "apply" _ "(" _ actions:SelectorActions _ ")"
 	{
 		var res =  {
 			"select" : it,
@@ -652,7 +652,7 @@ Var =
 	}
 	
 IfAction =
-	"if" _ param:Expression  _ "then" _ (":")? _ action:Action _ elseAction:("else" _ action:Action {return action;})?
+	"if" _ param:Expression  _ "then" _ action:Action _ elseAction:("else" _ action:Action {return action;})?
 	{
 		var graph =
 		{
@@ -848,7 +848,7 @@ MergePaths =
 	}
 
 Match =
-	"match " _ what:Val _ ":" _ "("_ cases:Cases elseCase:ElseCase _")"
+	"match" _ what:Val _ "("_ cases:Cases elseCase:ElseCase _")"
 	{
 		return {
 			match : what,
@@ -885,7 +885,7 @@ Vals =
 	}
 
 MatchType = 
-	"type" _ id:Id _ ":" _ "(" _ matchCases:TypeCases _ ")" 
+	"type" _ id:Id _ "(" _ matchCases:TypeCases _ ")" 
 	{
 		return {
 			matchType : id,
@@ -908,13 +908,17 @@ TypeCase =
 		}
 	}
 
-Let = "let" _ what:Nodes _ "in" _ val:Val
+Let = "let" _ what:OneOrMoreNode  _ "in" _ val:Val
 {
 	return {
 		let : what,
 		in : val
 	}
 } 
+
+OneOrMoreNode =
+	node:Node {return [node]}
+	/ "(" _ nodes:Nodes _ ")" {return nodes;}
 
 Nodes = 
 	head:Node _ tail:( _ "," _ (i:Node) {return i})* 

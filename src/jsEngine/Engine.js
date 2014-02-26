@@ -1413,7 +1413,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				for(var i = 0; i < this.cases.length - 1; i++)
 				{
 					var match = this.cases[i];
-					if(type == match.type)
+					if((type == match.type) || isStrictSubType(type, match.type))
 					{
 						match.matchStore.set(val);
 						return match.val.get();
@@ -1766,7 +1766,7 @@ function makeAction(actionGraph, nodes, connections)
 				for(var i = 0; i < this.cases.length; i++)
 				{
 					var match = this.cases[i];
-					if(type == match.type)
+					if((type == match.type) || isStrictSubType(type, match.type))
 					{
 						match.matchStore.set(val);
 						match.action.signal(rootAndPath);
@@ -2455,7 +2455,8 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 				});
 			}
 		},
-		subClasses : []
+		subClasses : [],
+		superClass : superClassName
 	}
 	
 	//node.operators.selfStore.signalOperator = node.operators

@@ -31,18 +31,19 @@ trees:
 		groups:
 			Group
 		leaves:
-			Rect : 
+			Leaf:
 				Vec2 pos
-				Vec2 size
-			Circle :
-				Vec2 pos
-				float radius 
+				subs :
+					Rect : 
+						Vec2 size
+					Circle :
+						float radius 
 functions:
-	accumState(dict<string, State> accum, dict<string, State> state):
-		merge(accum, state)
-	getStateSet(Obj obj):
-		obj.stateSet
-	list<T> getTypeAndAccumState<T>(Obj obj): type obj :
+	addVec2(Vec2 v0, Vec2 v1) 		Vec2(v0.x + v1.x, v0.y + v1.y)
+	subVec2(Vec2 v0, Vec2 v1) 		Vec2(v0.x - v1.x, v0.y - v1.y)
+	accumState(dict<string, State> accum, dict<string, State> state) 		merge(accum, state)
+	getStateSet(Obj obj) 		obj.stateSet
+	list<T> getTypeAndAccumState<T>(Obj obj) type obj :
 		T  : [obj]
 		Group : flatMap
 			(
@@ -50,7 +51,7 @@ functions:
 				obj.children
 			)
 		_ : []
-	list<Group> findGroups(Obj obj):  type obj :
+	list<Group> findGroups(Obj obj) type obj :
 		Group : pushFront(flatMap(findGroups, obj.children), obj)
 		_ : []
 nodes:
@@ -100,6 +101,8 @@ nodes:
 		)
 	var buttons = [Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
 	var currentAction : "Add"
+	var selectedId : -1
+	var deltaPos : Vec2(20, 20)
 actions :
 	addRect(int x, int y):
 		root.children = pushFront(root.children, Rect(newId, {}, Vec2(x, y), Vec2(1, 1)))
@@ -109,8 +112,8 @@ actions :
 		newId = newId + 1
 	addFigure(int x, int y):
 		match figureToAdd do :
-			"Circle" : addCircle(x, y)
-			"Rect" : addRect(x, y)
+			"Circle" => addCircle(x, y)
+			"Rect" => addRect(x, y)
 	beginAddFigure(int x, int y):
 		addFigure(x, y)
 		editedFigureInitialPos = Vec2(x, y)
@@ -125,11 +128,23 @@ actions :
 					\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
 					\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
 			if i == editedFigureIndex
-	# selectFigureToMove(int x, int y):
-	# 	loc selectedId = hit(Vec2(x, y))
+	selectFigureToMove(int x, int y):
+		selectedId = hit(Vec2(x, y))
+		for child in root.children do
+			if child.id == selectedId 
+			then type child do :
+				Leaf => deltaPos = subVec2(child.pos, Vec2(x, y))
+	moveSelectedFigure(int x, int y):
+		update child, i in root.children
+			with type child :
+				Rect : child
+					\ pos = addVec2(deltaPos, Vec2(x, y))
+				Circle : child 
+					\ pos = addVec2(deltaPos, Vec2(x, y))
+			if child.id == selectedId
 	mouseDown(int x, int y):
 		if currentAction == "Add" then beginAddFigure(x, y)
-		# if currentAction == "Move" then selectFigureToMove(x, y)
+		if currentAction == "Move" then selectFigureToMove(x, y)
 	mouseDrag(int x, int y):
 		if currentAction == "Add" then resizeEditedFigure(x, y)
-		# if currentAction == 
+		if currentAction == "Move" then moveSelectedFigure(x, y)
