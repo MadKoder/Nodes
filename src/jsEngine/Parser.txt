@@ -23,7 +23,7 @@ start "start" =
 	
 Node =
 	defVarCache:DefVarCache? _ typeAndId:MaybeTypeAndId _ 
-		val:(Affect _ val:Val {return val;})? _
+		val:("=" _ val:Val {return val;})? _
 	{
 		var node;
 		if(val == null)
@@ -73,8 +73,6 @@ Connection =
 		return ret;
 	}
 	
-Affect = ":" / "="
-
 Event =
 	cond:Val _ action:Action
 	{

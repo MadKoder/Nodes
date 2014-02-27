@@ -57,10 +57,10 @@ functions:
 		Group : pushFront(flatMap(findGroups, obj.children), obj)
 		_ : []
 nodes:
-	var defaultState : State(Color(0, 0, 0))
+	var defaultState = State(Color(0, 0, 0))
 	var dict<string, State> defaultStateSet
-	var newId : 1
-	var root : Group
+	var newId = 1
+	var root = Group
 		(
 			[], 
 			0,
@@ -69,12 +69,12 @@ nodes:
 				strokeColor : Color(1, 0, 1)
 			}
 		)
-	def rects : getTypeAndAccumState<Rect>(root)
-	def circles : getTypeAndAccumState<Circle>(root)
-	var figureToAdd : "Circle"
-	var editedFigureIndex : 0
-	var editedFigureInitialPos : Vec2(0, 0)
-	var ui : VGroup
+	def rects = let a = newId in getTypeAndAccumState<Rect>(root)
+	def circles = getTypeAndAccumState<Circle>(root)
+	var figureToAdd = "Circle"
+	var editedFigureIndex = 0
+	var editedFigureInitialPos = Vec2(0, 0)
+	var ui = VGroup
 		(
 			[
 				HGroup
@@ -105,9 +105,9 @@ nodes:
 			]
 		)
 	var buttons = [Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
-	var currentAction : "Add"
-	var selectedId : -1
-	var deltaPos : Vec2(20, 20)
+	var currentAction = "Add"
+	var selectedId = -1
+	var deltaPos = Vec2(20, 20)
 actions :
 	addRect(int x, int y):
 		root.children = pushFront(root.children, Rect(newId, {}, Vec2(x, y), Vec2(1, 1)))

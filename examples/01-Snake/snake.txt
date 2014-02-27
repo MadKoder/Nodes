@@ -14,12 +14,12 @@ functions:
 	modVec2(Vec2 v, Vec2 m)
 		Vec2(mod(v.x, m.x), mod(v.y, m.y))
 nodes:
-	var size : Vec2(10, 10)
-	var direction : Vec2(1, 0)
-	var snake : [Vec2(0, 0)]
-	def headPos : head(snake)
-	var applePos : Vec2(5, 0)
-	var snakeLength : 10
+	var size = Vec2(10, 10)
+	var direction = Vec2(1, 0)
+	var snake = [Vec2(0, 0)]
+	def headPos = head(snake)
+	var applePos = Vec2(5, 0)
+	var snakeLength = 10
 actions :
 	moveSnake : 
 		loc newSnake = pushFront(snake, modVec2(addVec2(headPos, direction), size))

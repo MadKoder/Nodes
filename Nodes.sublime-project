@@ -1,0 +1,17 @@
+{
+	"folders":
+	[
+		{
+			"follow_symlinks": true,
+			"path": "examples"
+		},
+		{
+			"follow_symlinks": true,
+			"path": "src\\jsEngine"
+		},
+		{
+			"follow_symlinks": true,
+			"path": "E:\\GitHub\\libs"
+		}
+	]
+}

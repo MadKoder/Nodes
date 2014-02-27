@@ -810,7 +810,7 @@ function Comprehension(nodeGraph, externNodes)
 	
 	this.getType = function(path)
 	{
-		return makeTemplate("list", [expr.getType()]);
+		return mt("list", [expr.getType()]);
 	}
 	
 	this.addSink = function(sink)
@@ -829,7 +829,7 @@ function Select(nodeGraph, externNodes)
 	if(nodeGraph.path)
 	{
 		// TODO utiliser le type component, car le root n'est pas forcement de ce type
-		pathStore = new SubStore(makeTemplate("list", [rootNode.getType()]));
+		pathStore = new SubStore(mt("list", [rootNode.getType()]));
 	}
 	var matches = _.map(nodeGraph.matches, function(match)
 	{
@@ -892,7 +892,7 @@ function Select(nodeGraph, externNodes)
 	this.getType = function(path)
 	{
 		// TODO check all selectors have same return type
-		return makeTemplate("select", [matches[0].val.getType()]);
+		return mt("select", [matches[0].val.getType()]);
 	}
 	
 	this.addSink = function(sink)
@@ -1039,7 +1039,7 @@ function compileRef(ref, nodes, promiseAllowed)
 		var tupleGraph = ref.destruct;
 		var tuple = _.map(tupleGraph, function(path){return compileRef(path, nodes, promiseAllowed).val;});
 		var templates = _.map(tuple, function(node){return node.getType();})
-		return {val : new Destruct(tuple), type : makeTemplate("tuple", templates)};
+		return {val : new Destruct(tuple), type : mt("tuple", templates)};
 	}
 	else
 	{
@@ -1791,7 +1791,7 @@ function makeAction(actionGraph, nodes, connections)
 			if(nodeGraph.path)
 			{
 				// TODO utiliser le type component, car le root n'est pas forcement de ce type
-				pathStore = new SubStore(makeTemplate("list", [rootNode.getType()]));
+				pathStore = new SubStore(mt("list", [rootNode.getType()]));
 			}
 			
 			var matches = _.map(nodeGraph.apply, function(match)
@@ -2806,7 +2806,7 @@ function FunctionTemplate(classGraph)
 		{
 			if(_.isPlainObject(type))
 			{
-				return makeTemplate(getBaseType(type), _.map(getTemplates(type), function(template){return instantiateTemplates(template, templateNameToInstances);}));
+				return mt(getBaseType(type), _.map(getTemplates(type), function(template){return instantiateTemplates(template, templateNameToInstances);}));
 			}
 			if(type in templateNameToInstances)
 				return templateNameToInstances[type];

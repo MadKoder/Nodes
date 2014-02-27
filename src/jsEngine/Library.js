@@ -140,14 +140,6 @@ function checkSameTypes(firstType, secondType)
 	check(sameTypes(firstType, secondType), "Template types are different : " + typeToString(firstType) + " and " + typeToString(secondType));
 }
 
-function makeTemplate(base, templates)
-{
-	return {
-		base : base,
-		templates : templates
-	};
-}
-
 function mt(base, templates)
 {
 	return {
@@ -485,28 +477,6 @@ function mt3f3(func3, getInAndOutTypes, getTemplatesFunc)
 	}
 }
 
-// function mtf3(func3, getTemplatesFunc)
-// {
-	// return 
-	// {
-		// getTemplates : function(params)
-		// {
-			// return getTemplatesFunc(params[0], params[1], params[2]);
-		// },		
-		// build : function(templates)
-		// {
-			// return {
-				// params : [["list" , makeTemplate("list", makeTemplate("list", [templates[0]]))]],
-				// func : function(params) 
-				// {	
-					// return _.flatten(params[0].get());
-				// },
-				// type : makeTemplate("list", [templates[0]])
-			// }
-		// }
-	// }
-// }	
-
 function makeRandom() 
 {	
 	function Random(fields)
@@ -663,27 +633,6 @@ function getFuncType(funcProto, templateParams)
 
 var functions = 
 {
-	// "map" : function(templates)
-	// {
-		// return {
-			// params : [makeTemplate("function", templates), makeTemplate("list", [templates[0]])],
-			// func : function(params) 
-			// {	
-				// var func = params[0];
-				// var array = params[1].get();
-				// return _.map(array, function(item)
-				// {
-					// return func(item);
-				// });
-				
-				
-			// },
-			// getType : function(params)
-			// {
-				// return makeTemplate("list", [templates[1]]);
-			// }
-		// }
-	// },
 	"head" : mluf1
 	(
 		function(list) // The function
@@ -1278,34 +1227,6 @@ var nodes =
 			};		
 		}
 	},
-	// "map" : 
-	// {
-		// "fields" : [["first", "function"], ["second", "list"]],
-		// "builder" : function(fields) 
-		// {	
-			// var first = fields.first;
-			// var l = fields.second;
-			// // TODO pas beau le Store !!!
-			// var f = first.build(first.getTemplates([new Store(null, getListTypeParam(l.getType()))]));
-			
-			// var funcType = f.type;
-			// var func = f.func;
-			// this.get = function()
-			// {
-				// var array = l.get();
-				// var mapped = _.map(array, function(item)
-				// {
-					// return func([item]);
-				// });
-				// return mapped;
-			// };
-			// this.getType = function()
-			// {
-				// return makeTemplate("list", [funcType]);
-			// }
-		// }
-	// },
-	
 	"Random" : makeRandom(),
 	"RandomList" : makeRandomList(),
     "if" :  
@@ -1554,7 +1475,7 @@ var nodes =
 					};
 					this.getType = function()
 					{
-						return makeTemplate("tuple", templates);
+						return mt("tuple", templates);
 					};
 				},
 				operators : {

@@ -1,0 +1,543 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"pa",
+				"padding-left"
+			],
+			[
+				"bor",
+				"border"
+			],
+			[
+				"mar",
+				"margin-bottom"
+			],
+			[
+				"marg",
+				"margin-top"
+			],
+			[
+				"borde",
+				"border-style"
+			],
+			[
+				"firs",
+				"firstType"
+			],
+			[
+				"most",
+				"mostGenericType"
+			],
+			[
+				"typ",
+				"typeToString"
+			],
+			[
+				"isS",
+				"isSameOrSubType"
+			],
+			[
+				"check",
+				"checkedTypeParams"
+			],
+			[
+				"ref",
+				"refTypeParams"
+			],
+			[
+				"ch",
+				"checkedTypeParams"
+			],
+			[
+				"getT",
+				"getType"
+			],
+			[
+				"inOu",
+				"inOut1"
+			],
+			[
+				"second",
+				"secondType"
+			],
+			[
+				"chec",
+				"checkedBaseType"
+			],
+			[
+				"type",
+				"typeParams"
+			],
+			[
+				"paramSpe",
+				"paramSpec"
+			],
+			[
+				"id",
+				"newId"
+			],
+			[
+				"cons",
+				"console"
+			],
+			[
+				"fields",
+				"fieldsOp"
+			],
+			[
+				"fie",
+				"fieldsOperators"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "/E/WebSite/index.html",
+			"settings":
+			{
+				"buffer_size": 1294,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "/E/WebSite/style.css",
+			"settings":
+			{
+				"buffer_size": 2223,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"contents": "<html>\n\n<head>\n	<script src=\"../../../libs/paper-full.min.js\"></script>\n	<script src=\"../../../libs/jquery-2.0.2.min.js\"></script>\n	<script src=\"../../../libs/lodash.min.js\"></script>\n	<script src=\"../../../libs/Bacon-0.7.2.min.js\"> </script>\n	<script src=\"../../../libs/jquery-ui-1.10.3/ui/jquery.ui.core.min.js\"></script>\n	<script src=\"../../../libs/jquery-ui-1.10.3/ui/jquery.ui.widget.min.js\"></script>\n	<script src=\"../../../libs/jquery-ui-1.10.3/ui/jquery.ui.button.min.js\"></script>\n	<script src=\"../../src/JsEngine/Tools.js\"> </script> \n	<script src=\"../../src/JsEngine/Library.js\"> </script> \n	<script src=\"../../../libs/Parser.js\"> </script> \n	<script src=\"../../src/JsEngine/Graph.js\"> </script> \n	<script src=\"../../src/JsEngine/Engine.js\"> </script> \n	<script src=\"tree.js\"></script>\n	<link rel=\"stylesheet\" type=\"text/css\" href=\"tree.css\">\n</head>\n\n<body>\n\n<div> States : <span id=\"states\">  </span> </div>\n\n<div id = \"ui\" style=\"float: left\"> </div>\n<!-- <div id = \"buttons\" style=\"float: left\"> -->\n\n\n\n<canvas id=\"canvas\" width=\"1600\" height=\"300\"  style=\"float: left\"></canvas>\n\n</body>\n\n</html>\n",
+			"file": "/E/WebSite/nodes/examples/03-Tree/tree.html",
+			"file_size": -1,
+			"file_write_time": -1,
+			"settings":
+			{
+				"buffer_size": 1113,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "/E/WebSite/nodes/examples/03-Tree/treeEdit.html",
+			"settings":
+			{
+				"buffer_size": 1097,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "/E/WebSite/libs/Parser.js",
+			"settings":
+			{
+				"buffer_size": 81725,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/E/WebSite/nodes/examples/03-Tree/langs.model.xml",
+		"/E/GitHub/libs/Parser.js",
+		"/E/GitHub/Nodes/examples/03-Tree/treeEdit.js",
+		"/E/GitHub/Nodes/examples/03-Tree/tree.css",
+		"/E/GitHub/Nodes/examples/02-ArcaNodes/arcaNodes.nodes",
+		"/E/GitHub/Nodes/src/jsEngine/Parser.txt",
+		"/E/GitHub/Nodes/examples/01-Snake/snake.txt",
+		"/C/Documents and Settings/Vinz/Application Data/Sublime Text 3/Packages/User/JavaScript.sublime-settings",
+		"/C/Documents and Settings/Vinz/Application Data/Sublime Text 3/Packages/User/Preferences.sublime-settings",
+		"/E/GitHub/Nodes/examples/03-Tree/testSyntax.nodes",
+		"/E/GitHub/Nodes/examples/03-Tree/tree.nodes",
+		"/E/GitHub/Nodes/examples/03-Tree/tree.html",
+		"/E/GitHub/Nodes/examples/03-Tree/tree.js",
+		"/E/GitHub/Nodes/examples/03-Tree/treeEdit.html",
+		"/E/GitHub/Nodes/examples/03-Tree/Chrome.bat",
+		"/E/GitHub/Nodes/examples/03-Tree/ChromeTreeEdit.bat",
+		"/E/Python/Nodes/HtmlNodes/06-Inheritance/test.js",
+		"/C/Documents and Settings/Vinz/Application Data/Sublime Text 3/Packages/Default/Preferences.sublime-settings"
+	],
+	"find":
+	{
+		"height": 34.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": true,
+		"find_history":
+		[
+			"findCommonSuperClass",
+			"MatchType",
+			"eventsDependencies",
+			"getNodeName",
+			"__events",
+			"makeEvent",
+			"Sink",
+			"makeAddDependencies",
+			"circleModel",
+			"=",
+			"Function",
+			"=",
+			"Node",
+			"IfAction",
+			"Nodes",
+			"matchType",
+			"MatchTypeAction",
+			"Function",
+			"\":\"",
+			"MatchTypeAction",
+			"ForAction",
+			"mf1",
+			"funcToNodeSpec",
+			"getMostGenericType",
+			"subClasses",
+			"mff2",
+			"\"+\" : mtf2\n	(\n		function(x, y) // The function\n		{	\n			return x + y;\n		},\n		function(template) // Input and output types\n		{\n			return inOut2(template, template, template);\n		},\n		function(x, y)	// Template guess from input types\n		{\n			return(getMostGenericType(x, y));\n		}\n	),",
+			"mod",
+			"getMostGenericType",
+			"isSameOrSubType",
+			"mt",
+			"makeFunction1",
+			"makeFunction2",
+			"makeFunction3",
+			"List",
+			"[]",
+			"getTemplates",
+			"cellAsciiToInt",
+			"strToList",
+			"cellAsciiToInt",
+			"mod",
+			"at",
+			"mff1",
+			"rror(\"Parameter \" + val.get() + \" of index \" + paramIndex + \" in ca",
+			"currentAction",
+			"==",
+			"Add",
+			"getType",
+			"Match",
+			"child",
+			"MatchType",
+			"Match",
+			"editedFigureInitialPos",
+			"matches",
+			"\"matchType\"",
+			"with",
+			"matches",
+			"MatchType",
+			"\"match\"",
+			"makeAction",
+			"Vals",
+			"ElseCase",
+			"Cases",
+			"MatchTypeAction",
+			"Action",
+			"previousIndent",
+			"openBraces",
+			">",
+			"Signal",
+			"=>",
+			"buttonId",
+			"FieldDef ",
+			"float",
+			"Struct",
+			"SubStore",
+			"selfStore",
+			"__signals",
+			"fields:FieldsDef? _ subs:(\",\" _ \"subs\" _ \":\" _ \"(\" _ structs:Structs _ \")\" {return structs;})?\n	{\n		return {\n			fields : fields != null ? fields : [],\n			subs : subs != null ? subs : []};\n	}\n",
+			"subs",
+			"Click",
+			"click",
+			"Click",
+			"click",
+			"		merge(accum, state)\n",
+			"Button",
+			"button",
+			"Button"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+			"tree",
+			"getCommonSuperClass"
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "/E/WebSite/index.html",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1294,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								569,
+								569
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/HTML/HTML.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "/E/WebSite/style.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2223,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1448,
+								1448
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 450.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "/E/WebSite/nodes/examples/03-Tree/tree.html",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1113,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								489,
+								243
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/HTML/HTML.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "/E/WebSite/nodes/examples/03-Tree/treeEdit.html",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1097,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								489,
+								489
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/HTML/HTML.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "/E/WebSite/libs/Parser.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 81725,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								81725,
+								81725
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 570383.0,
+						"translation.y": -0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 23.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"project": "Website.sublime-project",
+	"replace":
+	{
+		"height": 62.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 500.0,
+		"selected_items":
+		[
+			[
+				"",
+				"E:\\GitHub\\Nodes\\Nodes.sublime-project"
+			]
+		],
+		"width": 380.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"settings":
+	{
+	},
+	"show_minimap": false,
+	"show_open_files": true,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 150.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

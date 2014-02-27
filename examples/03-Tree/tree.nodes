@@ -55,9 +55,9 @@ functions:
 			Group : pushFront(flatMap(findGroups, obj.children), obj)
 			_ : []
 nodes:
-	var defaultState : State(Color(0, 0, 0))
+	var defaultState = State(Color(0, 0, 0))
 	var dict<string, State> defaultStateSet
-	var root : Group
+	var root = Group
 		(
 			[
 				Rect
@@ -85,18 +85,18 @@ nodes:
 			], 
 			{color : Color(0, 1, 0)}
 		)
-	# def leafStates	: select root along path :
+	# def leafStates	= select root along path :
 		# Rect l : reduce(accumState, map(getState, path), defaultState)
-	def leafStates	: select root along path :
+	def leafStates	= select root along path :
 		Rect : reduce(accumState, map(getStateSet, path), defaultStateSet)
-	def rects : getTypeAndAccumState<Rect>(root)
-	# def circles : select root along path :
+	def rects = getTypeAndAccumState<Rect>(root)
+	# def circles = select root along path :
 		# Circle c : tuple(c, reduce(accumState, map(getStateSet, path), defaultStateSet))
-	def circles : getTypeAndAccumState<Circle>(root)
-	var figureToAdd : "Circle"
-	var editedFigureIndex : 0
-	var editedFigureInitialPos : Vec2(0, 0)
-	var ui : VGroup
+	def circles = getTypeAndAccumState<Circle>(root)
+	var figureToAdd = "Circle"
+	var editedFigureIndex = 0
+	var editedFigureInitialPos = Vec2(0, 0)
+	var ui = VGroup
 		(
 			[
 				HGroup
@@ -127,7 +127,7 @@ nodes:
 			]
 		)
 	var buttons = [Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
-	var currentAction : "Add"
+	var currentAction = "Add"
 actions :
 	Obj.moveAll :
 		type self do:
