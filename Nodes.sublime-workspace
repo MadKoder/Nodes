@@ -84,42 +84,18 @@
 			}
 		},
 		{
-			"file": "examples/02-ArcaNodes/arcaNodes.js",
-			"settings":
-			{
-				"buffer_size": 7510,
-				"line_ending": "Windows"
-			}
-		},
-		{
 			"file": "src/jsEngine/Engine.js",
 			"settings":
 			{
-				"buffer_size": 71739,
+				"buffer_size": 71679,
 				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "examples/01-Snake/snakeNode.js",
-			"settings":
-			{
-				"buffer_size": 1759,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "examples/03-Tree/tree.nodes",
-			"settings":
-			{
-				"buffer_size": 4548,
-				"line_ending": "Windows"
 			}
 		},
 		{
 			"file": "src/jsEngine/Library.js",
 			"settings":
 			{
-				"buffer_size": 36814,
+				"buffer_size": 35055,
 				"line_ending": "Unix"
 			}
 		},
@@ -135,7 +111,31 @@
 			"file": "examples/03-Tree/treeEdit.nodes",
 			"settings":
 			{
-				"buffer_size": 3800,
+				"buffer_size": 3817,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "examples/03-Tree/monads.nodes",
+			"settings":
+			{
+				"buffer_size": 1189,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "/H/autorun.inf",
+			"settings":
+			{
+				"buffer_size": 115,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "examples/02-ArcaNodes/arcaNodes.nodes",
+			"settings":
+			{
+				"buffer_size": 7698,
 				"line_ending": "Windows"
 			}
 		},
@@ -151,7 +151,7 @@
 			"file": "log.txt",
 			"settings":
 			{
-				"buffer_size": 4947,
+				"buffer_size": 4949,
 				"line_ending": "Windows"
 			}
 		},
@@ -159,7 +159,7 @@
 			"file": "src/jsEngine/Parser.txt",
 			"settings":
 			{
-				"buffer_size": 22482,
+				"buffer_size": 22459,
 				"line_ending": "Windows"
 			}
 		},
@@ -167,17 +167,8 @@
 			"file": "/E/GitHub/libs/Parser.js",
 			"settings":
 			{
-				"buffer_size": 359306,
+				"buffer_size": 359008,
 				"line_ending": "Unix"
-			}
-		},
-		{
-			"contents": "actions  resizeEditedFigure(int x, int y):\n( \n	loc editedFigure = at(root.children, editedFigureIndex), \n	match figureToAdd do :\n	( \n		\"Circle\" : \n			editedFigure = editedFigure \\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) \\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y), \n		\"Rect\" : \n			editedFigure = editedFigure \\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) \\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))\n	), \n	update child, i in root.children with editedFigure if i == editedFigureIndex\n)\n\nactions  resizeEditedFigure(int x, int y):\n( \n	loc editedFigure = at(root.children, editedFigureIndex), \n	match figureToAdd do :\n	( \n		\"Circle\" : editedFigure = editedFigure \\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) \\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y), \n		\"Rect\" : editedFigure = editedFigure \\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) \\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))\n	), \n	update child, i in root.children with editedFigure if i == editedFigureIndex\n)\n\nactions  resizeEditedFigure(int x, int y):\n( \n	loc editedFigure = at(root.children, editedFigureIndex), \n	update child, i in root.children \n		with type child :\n		( \n			\"Circle\" : child \\ radius = min(abs(x - child.x), abs(y - child.y)) \\ pos = Vec2(child.x, child.y), \n			\"Rect\" : child \\ size = Vec2(abs(x - child.x), abs(y - child.y)) \\ pos = Vec2(min(child.x, x), min(child.y, y))\n		)\n		if i == editedFigureIndex\n)",
-			"settings":
-			{
-				"buffer_size": 1657,
-				"line_ending": "Windows",
-				"name": "actions  resizeEditedFigure(int x, int y):"
 			}
 		}
 	],
@@ -208,6 +199,13 @@
 	},
 	"file_history":
 	[
+		"/E/WebSite/index.html",
+		"/E/WebSite/style.css",
+		"/I/autorun.inf",
+		"/E/GitHub/Nodes/examples/03-Tree/tree.js",
+		"/E/GitHub/Nodes/examples/03-Tree/tree.nodes",
+		"/E/GitHub/Nodes/examples/02-ArcaNodes/arcaNodes.js",
+		"/E/GitHub/Nodes/examples/01-Snake/snakeNode.js",
 		"/E/GitHub/Nodes/examples/02-ArcaNodes/arcaNodes.nodes",
 		"/E/GitHub/Nodes/src/jsEngine/Parser.txt",
 		"/E/GitHub/Nodes/examples/01-Snake/snake.txt",
@@ -215,10 +213,8 @@
 		"/C/Documents and Settings/Vinz/Application Data/Sublime Text 3/Packages/User/JavaScript.sublime-settings",
 		"/C/Documents and Settings/Vinz/Application Data/Sublime Text 3/Packages/User/Preferences.sublime-settings",
 		"/E/GitHub/Nodes/examples/03-Tree/testSyntax.nodes",
-		"/E/GitHub/Nodes/examples/03-Tree/tree.nodes",
 		"/E/GitHub/Nodes/examples/03-Tree/tree.html",
 		"/E/GitHub/Nodes/examples/03-Tree/tree.css",
-		"/E/GitHub/Nodes/examples/03-Tree/tree.js",
 		"/E/GitHub/Nodes/examples/03-Tree/treeEdit.html",
 		"/E/GitHub/Nodes/examples/03-Tree/Chrome.bat",
 		"/E/GitHub/Nodes/examples/03-Tree/ChromeTreeEdit.bat",
@@ -241,6 +237,10 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			":",
+			"Affect",
+			"Node",
+			"makeTemplate",
 			"findCommonSuperClass",
 			"MatchType",
 			"eventsDependencies",
@@ -332,22 +332,23 @@
 		"highlight": true,
 		"in_selection": false,
 		"preserve_case": false,
-		"regex": false,
+		"regex": true,
 		"replace_history":
 		[
+			"mt",
 			"tree",
 			"getCommonSuperClass"
 		],
 		"reverse": false,
 		"show_context": true,
 		"use_buffer2": true,
-		"whole_word": false,
+		"whole_word": true,
 		"wrap": true
 	},
 	"groups":
 	[
 		{
-			"selected": 5,
+			"selected": 1,
 			"sheets":
 			[
 				{
@@ -373,7 +374,7 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 1205.0,
+						"translation.y": 1506.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 7,
@@ -381,48 +382,19 @@
 				},
 				{
 					"buffer": 1,
-					"file": "examples/02-ArcaNodes/arcaNodes.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 7510,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								5637,
-								5482
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 3128.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 6,
-					"type": "text"
-				},
-				{
-					"buffer": 2,
 					"file": "src/jsEngine/Engine.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 71739,
+						"buffer_size": 71679,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								68176,
-								68176
+								17472,
+								17474
 							]
 						],
 						"settings":
@@ -431,85 +403,27 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 36413.0,
+						"translation.y": 12802.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 3,
 					"type": "text"
 				},
 				{
-					"buffer": 3,
-					"file": "examples/01-Snake/snakeNode.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 1759,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1362,
-								1362
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": -0.0,
-						"translation.y": 630.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 4,
-					"type": "text"
-				},
-				{
-					"buffer": 4,
-					"file": "examples/03-Tree/tree.nodes",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 4548,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								2935,
-								2935
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Python/Python.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 1890.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
-					"buffer": 5,
+					"buffer": 2,
 					"file": "src/jsEngine/Library.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 36814,
+						"buffer_size": 35055,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1722,
-								1742
+								33179,
+								33179
 							]
 						],
 						"settings":
@@ -519,14 +433,14 @@
 							"word_wrap": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 825.0,
+						"translation.y": 22063.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 10,
 					"type": "text"
 				},
 				{
-					"buffer": 6,
+					"buffer": 3,
 					"file": "src/jsEngine/Graph.js",
 					"semi_transient": false,
 					"settings":
@@ -557,24 +471,24 @@
 			]
 		},
 		{
-			"selected": 3,
+			"selected": 1,
 			"sheets":
 			[
 				{
-					"buffer": 7,
+					"buffer": 4,
 					"file": "examples/03-Tree/treeEdit.nodes",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3800,
+						"buffer_size": 3817,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								608,
-								608
+								843,
+								850
 							]
 						],
 						"settings":
@@ -584,10 +498,104 @@
 							"word_wrap": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 480.0,
+						"translation.y": 450.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 8,
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "examples/03-Tree/monads.nodes",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1189,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1173,
+								1173
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 447.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 6,
+					"file": "/H/autorun.inf",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 115,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								115,
+								49
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "examples/02-ArcaNodes/arcaNodes.nodes",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7698,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								752,
+								752
+							],
+							[
+								793,
+								793
+							],
+							[
+								837,
+								837
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 412.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
 					"type": "text"
 				},
 				{
@@ -603,8 +611,28 @@
 						"selection":
 						[
 							[
-								806,
-								806
+								336,
+								336
+							],
+							[
+								366,
+								366
+							],
+							[
+								390,
+								390
+							],
+							[
+								418,
+								418
+							],
+							[
+								446,
+								446
+							],
+							[
+								476,
+								476
 							]
 						],
 						"settings":
@@ -616,7 +644,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 3,
+					"stack_index": 6,
 					"type": "text"
 				},
 				{
@@ -625,15 +653,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 4947,
+						"buffer_size": 4949,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								4947,
-								4947
+								3667,
+								3667
 							]
 						],
 						"settings":
@@ -642,10 +670,10 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 690.0,
+						"translation.y": 300.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 9,
+					"stack_index": 4,
 					"type": "text"
 				},
 				{
@@ -654,15 +682,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 22482,
+						"buffer_size": 22459,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								8783,
-								8798
+								0,
+								22459
 							]
 						],
 						"settings":
@@ -670,11 +698,11 @@
 							"syntax": "Packages/C++/C.tmLanguage",
 							"translate_tabs_to_spaces": false
 						},
-						"translation.x": -0.0,
-						"translation.y": 7658.0,
+						"translation.x": 0.0,
+						"translation.y": 135.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 9,
 					"type": "text"
 				},
 				{
@@ -683,7 +711,7 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 359306,
+						"buffer_size": 359008,
 						"regions":
 						{
 						},
@@ -704,35 +732,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 10,
-					"type": "text"
-				},
-				{
-					"buffer": 12,
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 1657,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1656,
-								1656
-							]
-						],
-						"settings":
-						{
-							"auto_name": "actions  resizeEditedFigure(int x, int y):",
-							"syntax": "Packages/Text/Plain text.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 12,
+					"stack_index": 8,
 					"type": "text"
 				}
 			]
@@ -766,7 +766,7 @@
 		"cols":
 		[
 			0.0,
-			0.49209039548,
+			0.483615819209,
 			1.0
 		],
 		"rows":

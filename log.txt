@@ -78,3 +78,4 @@
 	-> Le type d'une valeur doit a terme etre remmplace par un pointeur vers un objet complet (= tmv)
 	
 26/2 : TODO : surcharge (surtout des operateurs)
+

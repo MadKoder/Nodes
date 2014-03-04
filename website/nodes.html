@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="text/html; charset=windows-1252" http-equiv="content-type">
+    <title>Nodes</title>
+    <link rel="stylesheet" href="nodes.css" />
+</head>
+  <body>
+    <h1>Nodes : A functional reactive language</h1>
+    <div class="container">
+      <p>Nodes is a generalist, multi-paradigm programming language </p>
+      <h2>Major paradigms</h2>
+      <ul>
+        <li>Functional</li>
+        <li>Reactive</li>
+        <li>Visual</li>
+        <li>Actors</li>
+      </ul>
+      <h2>Secondary axis</h2>
+      <ul>
+        <li>Massive parallelism</li>
+        <li>Multi-syntax</li>
+        <li>Multi-view</li>
+      </ul>
+
+      <h2>Overview</h2>
+      <p>
+        A program in Nodes is made of ... nodes, and a node is, in the most generic form, like this:
+      </p>
+      <div class="imgContainer"> <img title="Node" alt="A node" src="svg/Node.png"> </div>
+      <p>Inputs and Outputs are of two types :</p>
+      <ul>
+        <li>Values/Behaviors/Properties/Data/Signal/Vars/Cells</li>
+        <li>Events/Signals/Messages/Event streams</li>
+      </ul>
+      <p>
+        This distinction follows the basic principles of functional <a href="http://en.wikipedia.org/wiki/Functional_reactive_programming">reactive programming</a>, which as already be described in <a href="http://conal.net/papers/icfp97/">many</a> <a href="http://www.reactivemanifesto.org/">articles</a>, and is used by <a href="https://github.com/baconjs/bacon.js/tree/master">many libraries</a> (look also at <a href="http://scalareactive.org/index">this</a> or <a href="http://rx.codeplex.com/">this</a>), and even has <a href="functional">languages</a> designed with this principle.
+        A property cannot be plugged into an message input, and an message cannot be plugged into a property input.
+        Property inputs and outputs of a node are simply called inputs and outputs, while message inputs and outputs are called slots and signal (this is the same naming as in the widely used library <a href="http://qt.digia.com/">Qt</a>).
+      </p>
+      <h3>Hello, world</h3>
+      <p>This is the classic "Hello, world" program:</p>
+      <div class="imgContainer"> <img src="svg/HelloWorld.png" alt="Hello, world"> </div>
+      <h3>Properties</h3>
+      <p>Properties are persistent, continues data. They can change over time. Properties are drawn with plain lines.
+      An input property of a node must be linked to one and only one output property of another node.
+      There can't be direct nor indirect circular dependencies between nodes with properties, except in the case of reccursive functions.
+      <div class="imgContainer"> <img title="CyclicDependency" alt="Cyclic dependency" src="svg/CyclicDependency.png"> </div>
+      </p>
+      <h3>Messages</h3>
+      <p>
+      Messages are stream of discrete data, channels in which messages are send from a node to other nodes.
+      An message slot can be connected to 0+ messages signals (output).
+      Messages are drawn with dashed lines. 
+      An message may be <em>synchronous</em> or <em>asynchronous</em>. When a node sends a synchronous message, it waits for all the receiving nodes for completion.
+      When they have finished, it may continue its work, eventually completing its own job.
+      When sending an asynchronous event, it <em>may not</em> wait for the completion of receiving nodes. This behaviour depends on the implementation, that can support more or less parallelism.
+      In case of a simple mono-task program, all events will be treated as synchronous.
+      </p>
+      <h3>
+      Properties and messages paradigms
+      </h3>
+      <table style="width: 100%;" border="1">
+        <tbody>
+          <tr>
+            <td><br>
+            </td>
+            <td>Properties</td>
+            <td>Event streams</td>
+          </tr>
+          <tr>
+            <td>Type of data</td>
+            <td>Continues</td>
+            <td>Discrete</td>
+          </tr>
+          <tr>
+            <td>Programming style</td>
+            <td>Functional</td>
+            <td>Imperative</td>
+          </tr>
+          <tr>
+            <td>Mathematical aspect</td>
+            <td>Integral</td>
+            <td>Derivative</td>
+          </tr>
+          <tr>
+            <td>Data transmission
+            </td>
+            <td>Pull
+            </td>
+            <td>Push
+            </td>
+          </tr>
+          <tr>
+            <td><br>
+            </td>
+            <td><br>
+            </td>
+            <td><br>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p><br>
+      </p>
+      <h2 class="fundamentalClasses">Fundamental classes</h2>
+      <p>
+        <h3>Store</h3>
+        <div class="imgContainer"> <img alt="Store class" src="svg/Store.png"> </div>
+        <p> A store node convert events to values. It has an initial value, and when it receives an event, change its own value to the value of the message. 
+        Mathematically, it could be viewed as a kind of integral. In fact, it's easy to define an integration function with this operator.</p>
+      </p>
+      <p>
+        <h3>Change</h3>
+        <div class="imgContainer"> <img alt="Change class" src="svg/Change.png"> </div>
+        <p>The inverse of <em>Store</em>, a <em>Change</em> sends signal each time its input
+          propertie's value change. Mathematically, it can ve viewed as a derivation.
+        </p>
+      </p>
+      <p>
+        <h3>Sample</h3>
+        <div class="imgContainer"> <img alt="Sample class" src="svg/Sample.png"> </div>
+        <p>A sample takes a property and an message as inputs, and sends an event with the value of the property each time it receives an event.</p>
+      </p>
+      <p>
+        <h3>Event dispatch</h3>
+        <div class="imgContainer"> <img alt="If event class" src="svg/IfEvent.png"> </div>
+        <p>The <code>event dispatch</code> class takes a boolan message as inputs, and when receiving an event,
+         sends an event to the <em>then</em> or <em>else </em>event
+          stream, depending on the value of the received event.
+        </p>
+      </p>
+      <p>
+        <h3>While</h3>
+        <div class="imgContainer"> <img alt="While class" src="svg/While.png"> </div>
+        <p>
+          A <code>while</code> node sends events continuously upon receiving a start event, while its condition is true.
+          <p><strong>Warning : the output event must be synchronous, or else the <code>while</code> node may take all processing power sending events without stopping.</strong></p>
+        </p>
+      </p>
+      <p>
+        <h3>For each</h3>
+        <div class="imgContainer"> <img alt="For each class" src="svg/ForEach.png"> </div>
+        <p>
+          When a <code>For each</code> node receives an event with a Sequence as value, it sends an event for each of the sequence's element. 
+          The value of each sent event is the value of its corresponding element.
+        </p>
+      </p>
+      <h2>Main types of nodes</h2>
+      <p>Here are described the main categories of nodes.</p>
+      <p>
+        <h3>Functions</h3>
+        <div class="imgContainer"> <img title="Function" alt="Function class" src="svg/Function.png"> </div>
+        <p>
+          A function node has 1+ input value(s) and has exactly 1 output value. It doesn't
+          have any side effect, i.e. for the same inputs, the exact same output is given.
+        </p>
+      </p>
+      <p>
+        <h3>Actions</h3>
+        <div class="imgContainer"> <img alt="Action" src="svg/Action.png"> </div>
+        <p>
+          An action node has 1 slot, 0+ inputs, an 1+ signals. When receiving a message, it can send message to other nodes, potentially using value of inputs.
+        </p>
+      </p>
+      <p>
+        <h3>External properties</h3>
+        <div class="imgContainer"> <img alt="External property" src="svg/ExternalProperty.png"> </div>
+        <p>
+          External properties enable the node program to communicate with the outside.
+          Examples of input external properties are the mouse position, windowd size, or the program arguments.
+          Examples of output external properties are a GUI or a scene graph.
+        </p>
+      </p>
+      <p>
+        <h3>External messages</h3>
+        <div class="imgContainer"> <img alt="External message" src="svg/ExternalMessage.png"> </div>
+        <p>
+          Like the external properties, external messages enable IO operations.
+          Examples of input external messages are keyboard key events or mouse events.
+          Examples of output external messages are console print or file write.
+        </p>
+      </p>
+      <h2>Value types</h2>
+      <p>
+        Properties and message have values, that are typed. Here are the types defined for these values.
+      </p>
+      <h3>Int</h3>
+      <h3>Float</h3>
+      <h3>String</h3>
+      <h3>Bool</h3>
+      <h3>List</h3>
+      <h3>Unit</h3>
+      <p>This type can only be used with messages. It can have only one value, so has no real information.
+      It's the equivalent of "void" in many language.</p>
+      <h3>Structs</h3>
+      <p>
+        Structs are the main method to construct new types. A struct type defines a list of named fields with types.
+        A struct can also have slots, signals and functions. A slot may be defined as mutator, in which case it can change the struct value.
+        By default a slot is const (i.e. non mutator), it can only send messages through struct's signals.
+        Slots and functions can be virtual. In this case, sub-classes must add the keyword <em>override</em> to override declarations.
+        Virtual slots and functions can be declared without body. They are abstract. If a class has at least one abstract function, it is itself an abstract class.
+        An abstract class cannot be instantiated.
+      </p>
+      <h4>Structural inheritance</h4>
+      <p>
+        Struct type can be defined in a hierarchy. A Struct type can have sub-classes, that have the same fields than their super-class.
+        A struct instance can be used as input anywhere any of its super-classes are required.
+        Examples :
+        <p>
+          Vec2 :
+          <ul>
+            <li>Float x</li>
+            <li>Float y</li>
+            <li>subs : 
+              <ul>
+                <li>Vec3 :
+                <ul>
+                  <li>Float z</li>
+                </ul>
+                </li>
+            </ul>
+            </li>
+          </ul>
+        </p>
+        <p>
+          Here a Vec3 has 3 float fields : x, y and z. A Vec3 can be used as parameter in a function that requires a Vec2.
+        </p>
+        <p>
+          Shape :
+          <ul>
+            <li>Vec2 position</li>
+            <li>subs : 
+              <ul>
+                <li>Square :
+                <ul>
+                  <li>Vec2 size</li>
+                </ul>
+                </li>
+            </ul>
+            <ul>
+                <li>Circle :
+                <ul>
+                  <li>Float radius</li>
+                </ul>
+                </li>
+            </ul>
+            </li>
+          </ul>
+          <p>
+            Square and circles have both a field position, and any square or circle can be used wherever a Shape is required. 
+          </p>
+        </p>
+        Structural inheritance can be used in type match expression, enabling easy dispatch of data or message.
+      </p>
+      <h2>Syntax</h2>
+      A program is divided in multiple sections:
+      <ul>
+        <li>Functions</li>
+        <li>Structs</li>
+        <li>Nodes</li>
+        <li>Actions</li>
+        <li>Events</li>
+      </ul>
+      <div>
+        <h3>Functions</h3>
+        This section declare new functions. Functions are special classes, in the sense that they are the only classes can break the non-cyclic constraint.
+        A function takes 1 or more parameters as input, and has one output parameter. A function can be generic, i.e. parameterized by types.
+      </div>
+      <h3>Structs</h3>
+      See above
+      <h3>Nodes</h3>
+      They are the data of the program. A node is prefixed by a <code>def</code> or <code>var</code> declaration. The difference is very important.
+      <p>
+        A <code>def</code> node is a function, it will update its value according to its input values. This value cannot be change by mean of actions. 
+        No mutator message can be sent to <code>def</code> nodes. No update method can be applied on them.
+      </p>
+      <p>
+        A <code>var</code> node is a variable, a storage whose initial value is computed at the program initialisation. Afterward, its value can be changed by actions.
+        Its value won't be automatically updated.
+      </p>
+      <div>
+        <h3>Actions</h3>
+        <p>
+          An action is defined by a slot type (which can be Unit), and a list of slots, its sub-actions.
+          When receiving a message, it will send sequentially messages to some or all of its slots. It can also send messages to itself.
+        </p>
+      </div>
+      <div>
+        <h3>Events</h3>
+        <p>
+          Like actions, an event has a list of sub-actions, but doesn't have an explicit slot. Instead it observes one or more properties and receives message
+          when their value change. It is a reaction to property changes, and are the base of the reactive part of the language.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

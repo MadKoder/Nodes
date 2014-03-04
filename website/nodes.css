@@ -1,0 +1,68 @@
+/* Color scheme : http://colorschemedesigner.com/#2f32goDsHaZFZ */
+/*New color scheme  : http://colorschemedesigner.com/#2C21Uhhscw0NK  */
+body {
+	margin: 0px auto 0 auto;
+	font-family: Arial, Helvetica, sans-serif;
+	letter-spacing: 0.15em;	
+	background-color: white;
+	text-align : left;
+	font-size : 12px;
+	font-family: Tahoma, Geneva, sans-serif;
+}
+h1
+{
+	text-align: center;
+}
+h2
+{
+	background-color: #88C65B;
+	border: 2;
+	border-color : #47811E;
+	border-bottom-style: solid;
+}
+h3
+{
+	background-color: #EFF6EA;
+	border: 2;
+	border-color : #88C65B;
+	border-bottom-style: solid;
+	margin: 10px 20 0px auto;
+	/*display : inline;*/
+	
+}
+code,
+pre {
+  padding: 0 3px 2px;
+  font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
+  font-size: 12px;
+  color: #333333;
+  -webkit-border-radius: 3px;
+     -moz-border-radius: 3px;
+          
+  border-radius: 3px;
+}
+
+code {
+  padding: 2px 4px;
+  color: #d14;
+  background-color: #f7f7f9;
+  border: 1px solid #e1e1e8;
+}
+ul
+{
+	margin-left: auto;
+}
+li
+{
+	text-align: left;
+}
+.container
+{
+	width : 1000px;
+	margin-right: auto;
+	margin-left: auto;
+}
+.imgContainer
+{
+	text-align: center;
+}

@@ -1,0 +1,106 @@
+
+log(expr) =>
+	print(expr)
+
+computeAndLog:
+	loc x = a + b
+	log(x)
+	loc y = x * 2
+	log(y)
+	...
+
+computations:
+	log(expr) =>
+		print(expr)
+		return expr
+
+	computeAndLog =>
+		loc x = log(a+b)
+		loc y = log(x*2)
+		...
+
+function tryDec(x, n) = 
+  if x > n then Some (x - n) else None
+
+maybeCompute =>
+	tmp = tryDec(a, 2)
+	type tmp do :
+		None => 
+			return None
+		Just => 
+			tmp2 = tryDec(tmp.val, 3)
+			type tmp2 do :
+				None =>
+					return None
+				Just =>
+					...
+
+maybeTryDec(Int n, Maybe<Int> x) =
+	type x do :
+		None : None
+		Just : if x > n then Some (x - n) else None
+
+maybeTryDiv(Maybe<Int> x, Int d)
+	type x do :
+		None : None
+		Just : if d != 0 then x / d else None	
+
+maybe(func, x)
+	type x do :
+		None : None
+		Just : func(x.val)
+
+tryDiv(Int x, Int d)
+	Just : if d != 0 then x / 0 else None	
+
+maybeTryDiv = maybe(tryDiv)
+
+compute = 
+	maybeTryDec
+	(
+		maybeTryDec
+		(
+			Just(a),
+			2
+		),
+		3
+	)
+
+maybeCmp(expr, cmp)
+	type expr do :
+		None => 
+			return None
+		Just => 
+			return cmp(expr)
+
+computation tryDec(n, x) = 
+  if x > n 
+  	then return Some (x - n) 
+  	else return None
+
+maybeCmp
+(
+	Just(a), 
+	tryDec(2)
+)
+
+maybeCmp
+(
+	Just(a), 
+	maybeCmp
+	(
+		tryDec(a)
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
