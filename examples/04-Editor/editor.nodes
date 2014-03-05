@@ -1,0 +1,69 @@
+structs:
+	Vec2 :
+		float x
+		float y
+	Vec3 :
+		float x
+		float y
+		float z
+	Color :
+		float r
+		float g
+		float b
+	State : 
+		Color color
+	Ui : 
+		subs :
+			Group:
+				list<Ui> children
+				subs :
+					HGroup
+					VGroup
+			Button :
+				string desc
+				signal click(string what)
+				slot onClick(string what):
+					self.click(what)
+			TextInput :
+				string desc
+				signal set(string text)
+				slot onChange(string text):
+					self.set(text)
+	ParamDecl :
+		string	name
+		string	type
+	Function :
+		string	id
+		list<ParamDecl>	paramsDecl
+	Program :
+		list<Function>	functions
+functions:
+	addVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x + v1.x, v0.y + v1.y)
+	subVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x - v1.x, v0.y - v1.y)
+	funcToUi(Function function)
+		VGroup
+		(
+			[
+				TextInput(function.id),
+				VGroup
+				(
+					[TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in function.paramsDecl]
+				)
+			]
+		)
+nodes:
+	var a = 1
+	var program = Program
+		(
+			[]
+		)
+	def ui = VGroup
+		(
+			[funcToUi(function) for function in program.functions]
+		)
+	def uiView = UiView(ui)
+actions :
+	# tick :
+	# 	program = program \ functions = pushFront(program.functions, Function("fun2"))

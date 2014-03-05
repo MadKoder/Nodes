@@ -1,0 +1,155 @@
+structs:
+	Vec2 :
+		float x
+		float y
+	Vec3 :
+		float x
+		float y
+		float z
+	Color :
+		float r
+		float g
+		float b
+	State : 
+		Color color
+	Ui : 
+		subs :
+			Group:
+				list<Ui> children
+				subs :
+					HGroup
+					VGroup
+			Button :
+				string desc
+				signal click(string what)
+				slot onClick(string what):
+					self.click(what)
+trees:
+	Obj :
+		int id
+		dict<string, State> stateSet
+		groups:
+			Group
+		leaves:
+			Leaf:
+				Vec2 pos
+				subs :
+					Rect : 
+						Vec2 size
+					Circle :
+						float radius 
+functions:
+	addVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x + v1.x, v0.y + v1.y)
+	subVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x - v1.x, v0.y - v1.y)
+	accumState(dict<string, State> accum, dict<string, State> state) 		merge(accum, state)
+	getStateSet(Obj obj) 		obj.stateSet
+	list<T> getTypeAndAccumState<T>(Obj obj) type obj :
+		T  : [obj]
+		Group : flatMap
+			(
+				Obj child -> getTypeAndAccumState<T>(child \ stateSet = merge(obj.stateSet, child.stateSet)),
+				obj.children
+			)
+		_ : []
+	list<Group> findGroups(Obj obj) type obj :
+		Group : pushFront(flatMap(findGroups, obj.children), obj)
+		_ : []
+nodes:
+	var defaultState = State(Color(0, 0, 0))
+	var dict<string, State> defaultStateSet
+	var newId = 1
+	var root = Group
+		(
+			[], 
+			0,
+			{
+				color : Color(0, 1, 0),
+				strokeColor : Color(1, 0, 1)
+			}
+		)
+	def rects = let a = newId in getTypeAndAccumState<Rect>(root)
+	def circles = getTypeAndAccumState<Circle>(root)
+	var figureToAdd = "Circle"
+	var editedFigureIndex = 0
+	var editedFigureInitialPos = Vec2(0, 0)
+	var ui = VGroup
+		(
+			[
+				HGroup
+				(
+					[
+						Button
+						(
+							"Add circle",
+							click => 
+								currentAction = "Add"
+								figureToAdd = "Circle"
+						),
+						Button
+						(
+							"Add rectangle", 
+							click => 
+								currentAction = "Add"
+								figureToAdd = "Rect"
+						)
+					]
+				),
+				HGroup
+				(
+					[
+						Button("Move", click => currentAction = "Move")
+					]
+				)
+			]
+		)
+	var buttons = [Button(fig, click => figureToAdd = what) for fig in ["Circle", "Rect"]]
+	var currentAction = "Add"
+	var selectedId = -1
+	var deltaPos = Vec2(20, 20)
+actions :
+	addRect(int x, int y):
+		root.children = pushFront(root.children, Rect(newId, {}, Vec2(x, y), Vec2(1, 1)))
+		newId = newId + 1
+	addCircle(int x, int y):
+		root.children = pushFront(root.children, Circle(newId, {}, Vec2(x, y), 1))	
+		newId = newId + 1
+	addFigure(int x, int y):
+		match figureToAdd do :
+			"Circle" => addCircle(x, y)
+			"Rect" => addRect(x, y)
+	beginAddFigure(int x, int y):
+		addFigure(x, y)
+		editedFigureInitialPos = Vec2(x, y)
+		editedFigureIndex = 0
+	resizeEditedFigure(int x, int y):
+		update child, i in root.children
+			with type child :
+				Rect : child
+					\ size = Vec2(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y))
+					\ pos = Vec2(min(editedFigureInitialPos.x, x), min(editedFigureInitialPos.y, y))
+				Circle : child 
+					\ radius = min(abs(x - editedFigureInitialPos.x), abs(y - editedFigureInitialPos.y)) 
+					\ pos = Vec2(editedFigureInitialPos.x, editedFigureInitialPos.y)
+			if i == editedFigureIndex
+	selectFigureToMove(int x, int y):
+		selectedId = hit(Vec2(x, y))
+		for child in root.children do
+			if child.id == selectedId 
+			then type child do :
+				Leaf => deltaPos = subVec2(child.pos, Vec2(x, y))
+	moveSelectedFigure(int x, int y):
+		update child, i in root.children
+			with type child :
+				Rect : child
+					\ pos = addVec2(deltaPos, Vec2(x, y))
+				Circle : child 
+					\ pos = addVec2(deltaPos, Vec2(x, y))
+			if child.id == selectedId
+	mouseDown(int x, int y):
+		if currentAction == "Add" then beginAddFigure(x, y)
+		if currentAction == "Move" then selectFigureToMove(x, y)
+	mouseDrag(int x, int y):
+		if currentAction == "Add" then resizeEditedFigure(x, y)
+		if currentAction == "Move" then moveSelectedFigure(x, y)

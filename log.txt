@@ -79,3 +79,5 @@
 	
 26/2 : TODO : surcharge (surtout des operateurs)
 
+4/3 : Doc commencée.
+

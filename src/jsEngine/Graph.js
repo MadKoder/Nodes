@@ -470,7 +470,7 @@ function codeToGraph(code, library, parser)
 	}
 	
 	return {
-		functions: functions,
+		//functions: functions,
 		"constants": [],
 		"nodes": nodes,
 		"actions" : actions,
