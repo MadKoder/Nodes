@@ -669,7 +669,8 @@ function Comprehension(nodeGraph, externNodes)
 	
 	var expr = makeExpr(nodeGraph["comp"], mergedNodes);
 
-	var hasConnections = false;
+	// TODO only if connection in the expression, or function takes a ref
+	var hasConnections = true;
 	if(connections.length > beforeConnectionsLength)
 	{
 		hasConnections = true;
@@ -799,60 +800,10 @@ function Comprehension(nodeGraph, externNodes)
 							});
 					}
 				}
-				var ret = expr.get();
+				var ret = expr.get(true);
 				if(hasConnections)
+				// if(false)
 				{
-					function cloneAndLink(obj, nodes)
-					{
-						if(_.isFunction(obj))
-						{
-							return obj;
-						} 
-						if(_.isArray(obj))
-						{
-							return _.map(obj, function(elem)
-							{
-								return cloneAndLink(elem, nodes);
-							});
-						} 
-						
-						if(_.isObject(obj))
-						{
-							return _.mapValues(obj, function(val, key, obj)
-							{
-								if(key == "slots")
-								{
-									return _.map(val, function(slot, i)
-									{
-										if("__promise" in slot)
-										{
-											var promise = slot.__promise;
-											var node = nodes[promise[0]];
-											if(promise.length == 1)
-											{
-												return node;
-											}
-											
-											var subPath = promise.slice(1);
-											return new StructAccess(node, subPath);
-										}
-										return slot;
-									});
-								} 
-								
-								if(key == "param")
-								{
-									return val;
-								}
-								
-								return cloneAndLink(val, nodes);
-								
-							});
-						}
-
-						return obj;
-					}
-					
 					var nodes = {};
 					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
 					{
@@ -2832,7 +2783,7 @@ function FunctionInstance(classGraph)
 			this.inputNodes[i].push(param);
 		}, this);
 		
-		var result = this.expr.get();
+		var result = this.expr.get(true);
 		
 		_.each(params, function(param, i)
 		{

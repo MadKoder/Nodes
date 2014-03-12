@@ -29,11 +29,16 @@ structs:
 functions:
 	TextInput	test(ParamDecl paramDecl)
 		TextInput(paramDecl.name, set => paramDecl.name = text)
-	# TextInput	test2(ParamDecl paramDecl)
-	# 	test(paramDecl)
+	TextInput	test2(ParamDecl paramDecl)
+		test(paramDecl)
+	Ui funcToUi(Function func)
+		VGroup
+		(
+			[TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
+		)
 nodes:
-	# var p = ParamDecl("name", "type")
-	# var p2 = ParamDecl("name2", "type2")
+	var p3 = ParamDecl("name", "type")
+	var p2 = ParamDecl("name2", "type2")
 	# var indir = Indir(ParamDecl("name3", "type3"))
 	var func = Function("func", 
 		[
@@ -41,17 +46,19 @@ nodes:
 			ParamDecl("name5", "type5")
 		])
 	# def ui = TextInput(p.name, set => p.name = text)
-	# def ui = test(p)
-	# def ui2 = test2(indir.p)
-	def ui3 = VGroup
-		(
-			[test(paramDecl) for paramDecl in func.paramsDecl]
-			# [TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
-		)
+	def ui = test2(p2)
+	def ui2 = test(p3)
+	# def ui3 = VGroup
+	# 	(
+	# 		# [test2(paramDecl) for paramDecl in func.paramsDecl]
+	# 		[TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
+	# 	)
+	def ui3 = funcToUi(func)
 	# def uiView = UiView(ui)
-	# def uiView2 = UiView(ui2)
-	def uiView3 = UiView(ui3)
-	def uiView4 = UiView(ui3)
+	# def uiView2 = UiView(ui)
+	# def uiView3 = UiView(ui2)
+	# def uiView4 = UiView(ui3)
+	def uiView5 = UiView(ui3)
 actions :
 	# tick :
 	# 	program = program \ functions = pushFront(program.functions, Function("fun2"))

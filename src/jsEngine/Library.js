@@ -1135,44 +1135,55 @@ var functions =
 	}
 };
 
-function link(obj, fields)
+function cloneAndLink(obj, nodes)
 {
+	if(_.isFunction(obj))
+	{
+		return obj;
+	} 
 	if(_.isArray(obj))
 	{
-		_.each(obj, function(elem)
+		return _.map(obj, function(elem)
 		{
-			link(elem, fields);
+			return cloneAndLink(elem, nodes);
 		});
-	} else if(_.isObject(obj))
+	} 
+	
+	if(_.isObject(obj))
 	{
-		_.forOwn(obj, function(val, key, obj)
+		return _.mapValues(obj, function(val, key, obj)
 		{
 			if(key == "slots")
 			{
-				_.each(val, function(slot, i)
+				return _.map(val, function(slot, i)
 				{
 					if("__promise" in slot)
 					{
 						var promise = slot.__promise;
-						var node = fields[promise[0]];
+						var node = nodes[promise[0]];
 						if(promise.length == 1)
 						{
-							obj[key][i] = node;
+							return node;
 						}
-						else
-						{
-							var subPath = promise.slice(1);
-							obj[key][i] = new StructAccess(node, subPath);
-						}
+						
+						var subPath = promise.slice(1);
+						return new StructAccess(node, subPath);
 					}
+					return slot;
 				});
 			} 
-			else 
+			
+			if(key == "param")
 			{
-				link(val, fields);
+				return val;
 			}
-		}, this);
-	} 
+			
+			return cloneAndLink(val, nodes);
+			
+		});
+	}
+
+	return obj;
 }
 
 function FunctionNode(func)
@@ -1195,13 +1206,14 @@ function FunctionNode(func)
 				field.setTemplateParams(func.templates);
 			}
 		}, this);
-		this.get = function()
+		this.get = function(dontLink)
 		{
 			var ret = func.func(params.map(function(param){return param.get();}));
 			
-			if(func.hasConnections)
+			// if(func.hasConnections && (dontLink == undefined))
+			if(dontLink == undefined)
 			{
-				link(ret, fields);
+				return cloneAndLink(ret, fields);
 			}
 			return ret;
 		};

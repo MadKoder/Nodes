@@ -74,6 +74,7 @@ function buildUi(model, parentView, parentType, path, rootUi)
 	}
 }
 
+var mainUiIndex = 0;
 localNodes =
 {
 	"UiView" : 
@@ -82,13 +83,14 @@ localNodes =
 		"builder" : function(fields) 
 		{	
 			var ui = fields.ui;
-			var $ui = $("#ui");	
+			var $ui = $("#ui" + mainUiIndex);
+			mainUiIndex++;	
 
 			ui.addSink(this);			
 			
 			this.dirty = function()
 			{
-				// $ui.empty();
+				$ui.empty();
 				buildUi(ui.get(), $ui, "", [], ui);
 			}
 
