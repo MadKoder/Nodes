@@ -1,0 +1,57 @@
+structs:
+	Ui : 
+		subs :
+			Group:
+				list<Ui> children
+				subs :
+					HGroup
+					VGroup
+			Button :
+				string desc
+				signal click(string what)
+				slot onClick(string what):
+					self.click(what)
+			TextInput :
+				string desc
+				signal set(string text)
+				slot onChange(string text):
+					self.set(text)
+	ParamDecl :
+		string	name
+		string	type
+	Function :
+		string	id
+		list<ParamDecl>	paramsDecl
+	Indir :
+		ParamDecl	p
+	Program :
+		list<Function>	functions
+functions:
+	TextInput	test(ParamDecl paramDecl)
+		TextInput(paramDecl.name, set => paramDecl.name = text)
+	# TextInput	test2(ParamDecl paramDecl)
+	# 	test(paramDecl)
+nodes:
+	# var p = ParamDecl("name", "type")
+	# var p2 = ParamDecl("name2", "type2")
+	# var indir = Indir(ParamDecl("name3", "type3"))
+	var func = Function("func", 
+		[
+			ParamDecl("name4", "type4"),
+			ParamDecl("name5", "type5")
+		])
+	# def ui = TextInput(p.name, set => p.name = text)
+	# def ui = test(p)
+	# def ui2 = test2(indir.p)
+	def ui3 = VGroup
+		(
+			[test(paramDecl) for paramDecl in func.paramsDecl]
+			# [TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
+		)
+	# def uiView = UiView(ui)
+	# def uiView2 = UiView(ui2)
+	def uiView3 = UiView(ui3)
+	def uiView4 = UiView(ui3)
+actions :
+	# tick :
+	# 	program = program \ functions = pushFront(program.functions, Function("fun2"))

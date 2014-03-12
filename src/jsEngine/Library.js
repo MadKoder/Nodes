@@ -1135,6 +1135,46 @@ var functions =
 	}
 };
 
+function link(obj, fields)
+{
+	if(_.isArray(obj))
+	{
+		_.each(obj, function(elem)
+		{
+			link(elem, fields);
+		});
+	} else if(_.isObject(obj))
+	{
+		_.forOwn(obj, function(val, key, obj)
+		{
+			if(key == "slots")
+			{
+				_.each(val, function(slot, i)
+				{
+					if("__promise" in slot)
+					{
+						var promise = slot.__promise;
+						var node = fields[promise[0]];
+						if(promise.length == 1)
+						{
+							obj[key][i] = node;
+						}
+						else
+						{
+							var subPath = promise.slice(1);
+							obj[key][i] = new StructAccess(node, subPath);
+						}
+					}
+				});
+			} 
+			else 
+			{
+				link(val, fields);
+			}
+		}, this);
+	} 
+}
+
 function FunctionNode(func)
 {
 	this.fields = func.params;
@@ -1142,8 +1182,8 @@ function FunctionNode(func)
 	var fieldsSpec = this.fields;
 	this.builder = function(f) 
 	{	
-		var params = Array(paramsSpec.length)
-		var fields = f
+		var params = Array(paramsSpec.length);
+		var fields = f;
 
 		_.each(fields, function(field, key)
 		{
@@ -1157,7 +1197,13 @@ function FunctionNode(func)
 		}, this);
 		this.get = function()
 		{
-			return func.func(params.map(function(param){return param.get();}));
+			var ret = func.func(params.map(function(param){return param.get();}));
+			
+			if(func.hasConnections)
+			{
+				link(ret, fields);
+			}
+			return ret;
 		};
 		this.getType = function()
 		{
@@ -1175,7 +1221,14 @@ function FunctionNode(func)
 			{
 				field.addSink(sink);
 			});
-		};		
+		};
+		this.signal = function(sig, val, path)
+		{
+			var struct = this.get();
+			var nodeClass = library.nodes[struct.__type];
+			nodeClass.operators.signal(struct, sig, val, path);
+			// val.__signals[sig], val, path);
+		}
 	}
 }
 
@@ -1514,6 +1567,8 @@ var nodes =
 
 nodes = _.merge(nodes, functions, function(node, func){return funcToNodeSpec(func);});
 
+var nodeId = 0;
+
 function Print(slots, param) {
 	var text = param;
     this.signal = function()
@@ -1526,6 +1581,8 @@ function Print(slots, param) {
 function Send(slots, param) {
     this.slots = slots;
     this.param = param;
+    this.id = nodeId;
+    nodeId++;
 	this.signal = function(rootAndPath)
     {
 		var val = this.param.get();

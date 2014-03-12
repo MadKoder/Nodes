@@ -225,6 +225,9 @@ function Store(v, type)
 	}
 }
 
+var subStores = [];
+var subStoreId = 0;
+
 function SubStore(type) 
 {
 	this.val = null;
@@ -233,6 +236,11 @@ function SubStore(type)
 	// DEBUG
 	this.id = storeId;
 	storeId++;
+
+	this.subId = subStoreId;
+	subStoreId++;
+
+	subStores.push(this);
 	
 	if(type != null)
 	{
@@ -267,6 +275,11 @@ function SubStore(type)
 	{
 		return this.type;
 	}
+
+	// this.dirty = function(path)
+	// {
+		
+	// }
 }
 
 function FuncInput(type) 
@@ -652,7 +665,30 @@ function Comprehension(nodeGraph, externNodes)
 	
 	// TODO  connections ?
 	// TODO param nodes = union(this.nodes, externNodes)
+	var beforeConnectionsLength = connections.length;
+	
 	var expr = makeExpr(nodeGraph["comp"], mergedNodes);
+
+	var hasConnections = false;
+	if(connections.length > beforeConnectionsLength)
+	{
+		hasConnections = true;
+		var newConnections = _.tail(connections, beforeConnectionsLength);
+		_.each(newConnections, function(nodeConnection)
+		{
+			var signals = nodeConnection.signals;
+			var type = nodeConnection.type;
+			var slots = library.nodes[type].operators.slots;
+			_.each(nodeConnection.connections, function(connection)
+			{
+				var mergedNodes = _.clone(nodes);
+				_.merge(mergedNodes, slots[connection.signal].localNodes);
+				signals[connection.signal].push(makeAction(connection.action, mergedNodes));
+			});
+		});
+		connections = _.head(connections, beforeConnectionsLength);
+	}
+
 	this.outputList = [];
 	this.get = function(path)
 	{
@@ -719,13 +755,14 @@ function Comprehension(nodeGraph, externNodes)
 				
 				if(when.get())
 				{
-					this.outputList.push(expr.get());
+					var ret = expr.get();
+					this.outputList.push(ret);
 				}
 			}, this);
 		}
 		else
 		{
-			this.outputList = indicesArray.map(function(indices, i) 
+			this.outputList = _.map(indicesArray, function(indices, i) 
 			{
 			// if(index != undefined)
 			// {
@@ -762,8 +799,77 @@ function Comprehension(nodeGraph, externNodes)
 							});
 					}
 				}
-				return expr.get();
-			});
+				var ret = expr.get();
+				if(hasConnections)
+				{
+					function cloneAndLink(obj, nodes)
+					{
+						if(_.isFunction(obj))
+						{
+							return obj;
+						} 
+						if(_.isArray(obj))
+						{
+							return _.map(obj, function(elem)
+							{
+								return cloneAndLink(elem, nodes);
+							});
+						} 
+						
+						if(_.isObject(obj))
+						{
+							return _.mapValues(obj, function(val, key, obj)
+							{
+								if(key == "slots")
+								{
+									return _.map(val, function(slot, i)
+									{
+										if("__promise" in slot)
+										{
+											var promise = slot.__promise;
+											var node = nodes[promise[0]];
+											if(promise.length == 1)
+											{
+												return node;
+											}
+											
+											var subPath = promise.slice(1);
+											return new StructAccess(node, subPath);
+										}
+										return slot;
+									});
+								} 
+								
+								if(key == "param")
+								{
+									return val;
+								}
+								
+								return cloneAndLink(val, nodes);
+								
+							});
+						}
+
+						return obj;
+					}
+					
+					var nodes = {};
+					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					{
+						var inputGraph = iterators[arrayIndex]["for"];
+						if(_.isString(inputGraph))
+						{
+							nodes[inputGraph] = new ArrayAccess(this.arrays[arrayIndex], indices[arrayIndex]);
+						} else // destruct
+						{
+							// TODO
+						}
+						
+					}
+					ret = cloneAndLink(ret, nodes);
+				}
+				return ret;
+			}, this);
 		}
 		return this.outputList;
 	};
@@ -1017,6 +1123,47 @@ function StructAccess(node, path) {
 		return this.type;
 	}
 	
+	this.addSink = function(sink)
+	{
+		this.node.addSink(sink);
+	};
+}
+
+function ArrayAccess(node, index) {
+    this.node = node;
+    this.index = index;
+	var nodeType = node.getType();
+	var baseType = getBaseType(nodeType);
+	var templates = getTemplates(nodeType);
+	check(baseType in library.nodes, "Node type " + baseType + " not found in library");
+	var elemType = library.nodes[templates[0]];
+	var operators = elemType.operators;
+	this.getPathOperator = operators.getPath;
+	this.setPathOperator = operators.setPath;
+	
+	this.signal = function(signal, params, rootAndPath)
+	{
+		currentPath = currentPath.concat(this.index);
+		operators.signal(this.node.get()[this.index], signal, params, {root : rootAndPath.root, path : rootAndPath.path.concat([this.index])});
+		// this.node.dirty();
+		currentPath = currentPath.slice(0, -1);
+	};
+
+	this.get = function()
+	{
+		return this.node.get()[this.index];
+	}
+	
+	this.dirty = function(path)
+	{
+		this.node.dirty([this.index].concat(path));
+	}
+	
+	this.getType = function()
+	{
+		return  templates[0];
+	}
+
 	this.addSink = function(sink)
 	{
 		this.node.addSink(sink);
@@ -1310,7 +1457,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 						error("Parameter of index " + paramIndex + " in call of " + 
 							expr.type + " is of type " + typeToString(val.getType()) + ", required type " + typeToString(paramSpec[1]));
 					}
-					fields[paramSpec[0]] = makeExpr(paramsGraph[paramIndex], nodes);
+					fields[paramSpec[0]] = val;
 				}
 			}
 			node = new nodeSpec.builder(fields, typeParams);
@@ -1318,7 +1465,8 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		
 		if("connections" in expr)
 		{
-			var signals = node.get().__signals;
+			//var signals = node.get().__signals;
+			var signals = node.fields.__signals;
 			var type = node.getType();
 			connections.push({
 				signals : signals,
@@ -2359,7 +2507,8 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 					{
 						this.fields.__signals = {};
 					}
-					this.fields.__signals[signalGraph.signal] = []
+					this.signals[signalGraph.signal] = [];
+					this.fields.__signals[signalGraph.signal] = [];
 				}
 			};
 			this.get = function()
@@ -2376,11 +2525,17 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			};
 			this.addSink = function(sink)
 			{
-				_.each(this.fields, function(field, key){if(key != "__type")field.addSink(sink);});				
+				_.each(this.fields, function(field, key)
+				{
+					if((key != "__type") && (key != "__signals"))
+					{
+						field.addSink(sink);
+					}
+				});				
 			};
-			this.signal = function(id, params)
+			this.signal = function(id, params, path)
 			{
-				this.operators.signal(this.get(), id, params, [], null);
+				this.operators.signal(this.get(), id, params, path, null);
 			}
 		}
 
@@ -2501,7 +2656,8 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 						var slots = this.selfStore.get().__signals[this.id];
 						for(var i = 0; i < slots.length; i++)
 						{
-							slots[i].signal(rootAndPath);
+							// slots[i].signal(rootAndPath);
+							slots[i].signal(null);
 						}
 					};
 				}
@@ -2937,6 +3093,8 @@ function compileGraph(graph, lib, previousNodes)
 						
 					}
 					
+					var beforeConnectionsLength = connections.length;
+					
 					var nodesGraph = funcGraph["nodes"];
 					_.each(nodesGraph, function(node)
 					{
@@ -2957,6 +3115,25 @@ function compileGraph(graph, lib, previousNodes)
 						{
 							func.type = func.expr.getType();
 						}
+					}
+
+					if(connections.length > beforeConnectionsLength)
+					{
+						func.hasConnections = true;
+						var newConnections = _.tail(connections, beforeConnectionsLength);
+						_.each(newConnections, function(nodeConnection)
+						{
+							var signals = nodeConnection.signals;
+							var type = nodeConnection.type;
+							var slots = library.nodes[type].operators.slots;
+							_.each(nodeConnection.connections, function(connection)
+							{
+								var mergedNodes = _.clone(nodes);
+								_.merge(mergedNodes, slots[connection.signal].localNodes);
+								signals[connection.signal].push(makeAction(connection.action, mergedNodes));
+							});
+						});
+						connections = _.head(connections, beforeConnectionsLength);
 					}
 				}
 			}
@@ -3122,12 +3299,12 @@ function compileGraph(graph, lib, previousNodes)
 		}
     }
 	
-	_.each(connections, function(connection)
+	_.each(connections, function(nodeConnection)
 	{
-		var signals = connection.signals;
-		var type = connection.type;
+		var signals = nodeConnection.signals;
+		var type = nodeConnection.type;
 		var slots = library.nodes[type].operators.slots;
-		_.each(connection.connections, function(connection)
+		_.each(nodeConnection.connections, function(connection)
 		{
 			var mergedNodes = _.clone(nodes);
 			_.merge(mergedNodes, slots[connection.signal].localNodes);

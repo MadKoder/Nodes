@@ -50,6 +50,7 @@ functions:
 				VGroup
 				(
 					[TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in function.paramsDecl]
+					[TextInput(paramDecl.name) for paramDecl in function.paramsDecl]
 				)
 			]
 		)

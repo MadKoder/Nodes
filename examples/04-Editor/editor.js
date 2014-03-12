@@ -26,6 +26,7 @@ function enclose(str, parentType)
 	}
 }
 
+var code;
 var uiIndex = 0;
 function buildUi(model, parentView, parentType, path, rootUi)
 {
@@ -37,9 +38,11 @@ function buildUi(model, parentView, parentType, path, rootUi)
 			var uiId = type + uiIndex.toString();
 			var buttonIndex = uiIndex;
 			parentView.append(enclose("<input type = \"text\" id=" + uiId + " value = \"" + model.desc + "\"></input>", parentType));
-			$("#" + uiId).change(function() 
+			$("#" + uiId).change(function(event) 
 			{
-				rootUi.set("toto");
+				// rootUi.set("toto");
+				rootUi.signal("onChange",  [new Store($(this).val())], path);
+				// code.p.dirty([]);
 			});
 			uiIndex++;
 			break;
@@ -85,7 +88,7 @@ localNodes =
 			
 			this.dirty = function()
 			{
-				$ui.empty();
+				// $ui.empty();
 				buildUi(ui.get(), $ui, "", [], ui);
 			}
 
@@ -105,13 +108,13 @@ var library =
 
 
 
-$.get("editor.nodes", function( text ) {
+$.get("testSignal.nodes", function( text ) {
 // $.get( "structSlots.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
 
 	var codeGraph = codeToGraph(text, library, parser);
-	var code = compileGraph(codeGraph, library);
+	code = compileGraph(codeGraph, library);
 
 	function build(type, params)
 	{
@@ -133,6 +136,8 @@ $.get("editor.nodes", function( text ) {
 	var prog = code.program;
 	$.get("test.json", function(graph)
 	{
+		// TODO enable
+		return;
 		_.each(graph.structsAndFuncs, function(structOrfunc)
 		{
 			if("struct" in structOrfunc)
