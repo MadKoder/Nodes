@@ -27,11 +27,11 @@ structs:
 	Program :
 		list<Function>	functions
 functions:
-	TextInput	test(ParamDecl paramDecl)
+	ref TextInput	test(ParamDecl paramDecl)
 		TextInput(paramDecl.name, set => paramDecl.name = text)
-	TextInput	test2(ParamDecl paramDecl)
+	ref TextInput	test2(ParamDecl paramDecl)
 		test(paramDecl)
-	Ui funcToUi(Function func)
+	ref Ui funcToUi(Function func)
 		VGroup
 		(
 			[TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
@@ -54,10 +54,10 @@ nodes:
 	# 		[TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
 	# 	)
 	def ui3 = funcToUi(func)
-	# def uiView = UiView(ui)
-	# def uiView2 = UiView(ui)
-	# def uiView3 = UiView(ui2)
-	# def uiView4 = UiView(ui3)
+	def uiView = UiView(ui)
+	def uiView2 = UiView(ui)
+	def uiView3 = UiView(ui2)
+	def uiView4 = UiView(ui3)
 	def uiView5 = UiView(ui3)
 actions :
 	# tick :

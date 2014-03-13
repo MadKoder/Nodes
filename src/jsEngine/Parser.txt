@@ -134,7 +134,7 @@ DefVarCache =
   / "cache"
 
 Function =
-	typeAndId:MaybeTypeAndId _ templates:("<" _ t:Templates _ ">" _ {return t;})? _
+	ref:("ref")? _ typeAndId:MaybeTypeAndId _ templates:("<" _ t:Templates _ ">" _ {return t;})? _
 	"(" params:ParamsDecl ")" 
 	_ body:FuncBody?
 	{
@@ -157,6 +157,10 @@ Function =
 		if("type" in typeAndId)
 		{
 			func.type = typeAndId.type;
+		}
+		if(ref != null)
+		{
+			func.ref = true;
 		}
 		return func;
 	}

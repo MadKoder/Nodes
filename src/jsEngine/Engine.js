@@ -285,6 +285,7 @@ function SubStore(type)
 function FuncInput(type) 
 {
 	this.stack = [];
+	this.refStack = [];
 	this.type = type;
 	this.lastIndex = -1;
 	
@@ -311,13 +312,32 @@ function FuncInput(type)
 		return this.stack[this.lastIndex];
 	};
 
-	this.push = function(val)
+	this.getRef = function()
+	{
+		return this.refStack[this.lastIndex];
+	}
+
+	this.push = function(node)
+	{
+		this.refStack.push(node);
+		this.stack.push(node.get());
+		this.lastIndex++;
+	};
+	
+	this.pop = function()
+	{
+		this.refStack.pop();
+		this.stack.pop();
+		this.lastIndex--;
+	}
+
+	this.pushVal = function(val)
 	{
 		this.stack.push(val);
 		this.lastIndex++;
 	};
 	
-	this.pop = function()
+	this.popVal = function()
 	{
 		this.stack.pop();
 		this.lastIndex--;
@@ -667,13 +687,48 @@ function Comprehension(nodeGraph, externNodes)
 	// TODO param nodes = union(this.nodes, externNodes)
 	var beforeConnectionsLength = connections.length;
 	
+	
 	var expr = makeExpr(nodeGraph["comp"], mergedNodes);
 
 	// TODO only if connection in the expression, or function takes a ref
-	var hasConnections = true;
+	var hasConnections = false;
+
+	function hasRef(node)
+	{
+		if(_.isFunction(node))
+		{
+			return false;
+		} 
+		if(_.isArray(node))
+		{
+			return _.any(node, function(elem)
+			{
+				return hasRef(elem);
+			});
+		} 
+		
+		if(_.isObject(node))
+		{
+			return _.any(node, function(val, key)
+			{
+				if(key == "getRef")
+				{
+					return true;
+				}
+				
+				return hasRef(val);
+				
+			});
+		}
+
+		return false;
+	}
+
+	var needResolveRef = false;
 	if(connections.length > beforeConnectionsLength)
 	{
-		hasConnections = true;
+		
+		needResolveRef = _.any(externNodes, hasRef);
 		var newConnections = _.tail(connections, beforeConnectionsLength);
 		_.each(newConnections, function(nodeConnection)
 		{
@@ -682,9 +737,18 @@ function Comprehension(nodeGraph, externNodes)
 			var slots = library.nodes[type].operators.slots;
 			_.each(nodeConnection.connections, function(connection)
 			{
-				var mergedNodes = _.clone(nodes);
+				var mergedNodes = _.clone(externNodes);
 				_.merge(mergedNodes, slots[connection.signal].localNodes);
-				signals[connection.signal].push(makeAction(connection.action, mergedNodes));
+				
+				var beforePromiseCounter = promiseCounter;
+
+				var action = makeAction(connection.action, mergedNodes);
+				signals[connection.signal].push(action);
+
+				if(promiseCounter > beforePromiseCounter)
+				{
+					hasConnections = true;
+				}
 			});
 		});
 		connections = _.head(connections, beforeConnectionsLength);
@@ -816,6 +880,45 @@ function Comprehension(nodeGraph, externNodes)
 							// TODO
 						}
 						
+					}
+
+					function cloneAndResolveRef(node)
+					{
+						if(_.isFunction(node))
+						{
+							return node;
+						} 
+						if(_.isArray(node))
+						{
+							return _.map(node, function(elem)
+							{
+								return cloneAndLink(elem);
+							});
+						} 
+						
+						if(_.isObject(node))
+						{
+							return _.mapValues(node, function(val, key, obj)
+							{
+								if(key == "node")
+								{
+									if("getRef" in val)
+									{
+										return val.getRef();
+									}
+								}
+								
+								return cloneAndResolveRef(val);
+								
+							});
+						}
+
+						return node;
+					}
+
+					if(needResolveRef)
+					{
+						nodes = _.mapValues(nodes, cloneAndResolveRef);
 					}
 					ret = cloneAndLink(ret, nodes);
 				}
@@ -965,6 +1068,7 @@ function getNode(name, nodes)
 	{
 		throw "Node " + name + " not found!";
 	}
+
 	return node;
 }
 
@@ -1087,11 +1191,10 @@ function ArrayAccess(node, index) {
 	var baseType = getBaseType(nodeType);
 	var templates = getTemplates(nodeType);
 	check(baseType in library.nodes, "Node type " + baseType + " not found in library");
-	var elemType = library.nodes[templates[0]];
+	// TODO generic management
+	var elemType = library.nodes[getBaseType(templates[0])];
 	var operators = elemType.operators;
-	this.getPathOperator = operators.getPath;
-	this.setPathOperator = operators.setPath;
-	
+
 	this.signal = function(signal, params, rootAndPath)
 	{
 		currentPath = currentPath.concat(this.index);
@@ -1129,6 +1232,8 @@ function Destruct(t)
 		_.each(val, function(subVal, index){tuple[index].set(subVal);})
 	}
 }
+
+var promiseCounter = 0;
 
 function compileRef(ref, nodes, promiseAllowed)
 {
@@ -1174,6 +1279,7 @@ function compileRef(ref, nodes, promiseAllowed)
 		
 		if(promiseAllowed && !(sourceNode in nodes))
 		{
+			promiseCounter++;
 			return {val : {__promise : ref}};
 		}
 		var node = getNode(sourceNode, nodes);
@@ -2776,16 +2882,33 @@ function FunctionInstance(classGraph)
 	// {
 		// return [];
 	// });
-	this.func = function(params) 
+	this.func = function(paramNodes) 
 	{	
-		_.each(params, function(param, i)
+		_.each(paramNodes, function(node, i)
 		{
-			this.inputNodes[i].push(param);
+			this.inputNodes[i].pushVal(node);
 		}, this);
 		
 		var result = this.expr.get(true);
 		
-		_.each(params, function(param, i)
+		_.each(paramNodes, function(node, i)
+		{
+			this.inputNodes[i].popVal();
+		}, this);
+		
+		return result;
+	};
+
+	this.funcRef = function(paramNodes) 
+	{	
+		_.each(paramNodes, function(node, i)
+		{
+			this.inputNodes[i].push(node);
+		}, this);
+		
+		var result = this.expr.get(true);
+		
+		_.each(paramNodes, function(node, i)
 		{
 			this.inputNodes[i].pop();
 		}, this);
@@ -2897,6 +3020,12 @@ function FunctionTemplate(classGraph)
 			return this.cache[key];
 		
 		var instance = new FunctionInstance(classGraph);
+		// TODO : specifier dans code
+		if("ref" in classGraph)
+		{
+			instance.hasRef = true;
+		}
+
 		// instance.params = _.map(classGraph["in"], function(paramAndType){return paramAndType[1];});
 		// instance.expr = null;
 		// instance.func = function(params) 
@@ -3026,6 +3155,12 @@ function compileGraph(graph, lib, previousNodes)
 						library.functions[funcGraph.id] = func;
 						library.nodes[funcGraph.id] = funcToNodeSpec(func);
 
+						// TODO : specifier dans code
+						if("ref" in funcGraph)
+						{
+							func.hasRef = true;
+						}
+
 						if("type" in funcGraph && funcGraph.type != null)
 						{
 							func.type = funcGraph.type;
@@ -3038,6 +3173,7 @@ function compileGraph(graph, lib, previousNodes)
 						{
 							var type = paramAndType[1];
 							var node = new FuncInput(type);
+							node.func = funcGraph.id;
 							func.inputNodes.push(node);
 							func.internalNodes[paramAndType[0]] = node;
 						});

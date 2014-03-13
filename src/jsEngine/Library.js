@@ -1161,6 +1161,10 @@ function cloneAndLink(obj, nodes)
 					{
 						var promise = slot.__promise;
 						var node = nodes[promise[0]];
+						if("getRef" in node)
+						{
+							node = node.getRef();
+						}
 						if(promise.length == 1)
 						{
 							return node;
@@ -1177,9 +1181,8 @@ function cloneAndLink(obj, nodes)
 			{
 				return val;
 			}
-			
+
 			return cloneAndLink(val, nodes);
-			
 		});
 	}
 
@@ -1208,13 +1211,20 @@ function FunctionNode(func)
 		}, this);
 		this.get = function(dontLink)
 		{
-			var ret = func.func(params.map(function(param){return param.get();}));
-			
-			// if(func.hasConnections && (dontLink == undefined))
-			if(dontLink == undefined)
+			if("hasRef" in func)
 			{
-				return cloneAndLink(ret, fields);
+				var ret = func.funcRef(params);	
+				// if(func.hasConnections && (dontLink == undefined))
+				if(dontLink == undefined)
+				{
+					return cloneAndLink(ret, fields);
+				}
 			}
+			else
+			{
+				var ret = func.func(params.map(function(param){return param.get();}));
+			}
+			
 			return ret;
 		};
 		this.getType = function()
@@ -1265,6 +1275,46 @@ var currentPath = [];
 
 var nodes = 
 {
+	"string" :
+	{
+		operators :
+		{
+			signal : function()
+			{
+				// TODO
+			}
+		}
+	},
+	"int" :
+	{
+		operators :
+		{
+			signal : function()
+			{
+				// TODO
+			}
+		}
+	},
+	"char" :
+	{
+		operators :
+		{
+			signal : function()
+			{
+				// TODO
+			}
+		}
+	},
+	"bool" :
+	{
+		operators :
+		{
+			signal : function()
+			{
+				// TODO
+			}
+		}
+	},
 	"contains" : 
 	{
 		"fields" : [["first", "float"], ["second", "float"], ["third", "float"]],
