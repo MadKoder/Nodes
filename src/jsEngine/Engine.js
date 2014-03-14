@@ -267,6 +267,16 @@ function SubStore(type, source)
 	{
 		this.val = val;
 	};
+
+	this.push = function(node)
+	{
+		this.node = node;
+		this.val = node.get();
+	};
+
+	this.pop = function()
+	{
+	};
 	
 	this.signal = function(signal, params, path, rootAndPath)
 	{
@@ -285,7 +295,7 @@ function SubStore(type, source)
 
 	// this.dirty = function(path)
 	// {
-		
+	// 	this.node.dirty(path);
 	// }
 }
 
@@ -335,6 +345,18 @@ function FuncInput(type)
 	{
 		this.refStack.pop();
 		this.stack.pop();
+		this.lastIndex--;
+	}
+
+	this.pushRef = function(node)
+	{
+		this.refStack.push(node);
+		this.lastIndex++;
+	};
+	
+	this.popRef = function()
+	{
+		this.refStack.pop();
 		this.lastIndex--;
 	}
 
@@ -650,6 +672,8 @@ function Comprehension(nodeGraph, externNodes)
 	var destructInputs = new Array(iterators.length);
 	var comprehensionIndices = new Array(iterators.length);
 
+	// TODO replace SubStores by FuncInput (for reccursion)
+	// And cleanup SubStores of push, pop, dirty ...
 	_.forEach(iterators, function(iterator, index)
 	{
 		exprAndType = makeExprAndType(iterator["in"], externNodes);
@@ -704,57 +728,27 @@ function Comprehension(nodeGraph, externNodes)
 
 	// TODO only if connection in the expression, or function takes a ref
 	var hasConnections = false;
-
-	function hasRef(node)
-	{
-		if(_.isFunction(node))
-		{
-			return false;
-		} 
-		if(_.isArray(node))
-		{
-			return _.any(node, function(elem)
-			{
-				return hasRef(elem);
-			});
-		} 
-		
-		if(_.isObject(node))
-		{
-			return _.any(node, function(val, key)
-			{
-				if(key == "getRef")
-				{
-					return true;
-				}
-				
-				return hasRef(val);
-				
-			});
-		}
-
-		return false;
-	}
-
-	var needResolveRef = false;
+	var funcRef = false;
+	var signalsList = [];
 	if(connections.length > beforeConnectionsLength)
 	{
-		
-		needResolveRef = _.any(externNodes, hasRef);
+		hasConnections = true;
 		var newConnections = _.tail(connections, beforeConnectionsLength);
+		this.__refs = [];
+		// signals.__referencedNodes = [];
+		var refNodes = {};
+		_.each(inputs, function(node, i)
+		{
+			var nodeRef = new FuncInput(node.getType());
+			this.__refs.push(nodeRef);
+			refNodes[iterators[i]["for"]] = nodeRef;
+		}, this)
 		_.each(newConnections, function(nodeConnection)
 		{
 			var signals = nodeConnection.signals;
+			signalsList.push(signals);
 			var type = nodeConnection.type;
 			var slots = library.nodes[type].operators.slots;
-			var refNodes = {};
-			signals.__refs = [];
-			_.each(inputs, function(node, i)
-			{
-				var nodeRef = new FuncInput(node.getType());
-				signals.__refs.push(nodeRef);
-				refNodes[iterators[i]["for"]] = nodeRef;
-			})
 			_.each(nodeConnection.connections, function(connection)
 			{
 				var signals = nodeConnection.signals;
@@ -763,23 +757,15 @@ function Comprehension(nodeGraph, externNodes)
 				_.merge(mergedNodes, slots[connection.signal].localNodes);
 				_.merge(mergedNodes, refNodes);
 
-				var beforePromiseCounter = promiseCounter;
-
 				var action = makeAction(connection.action, mergedNodes);
 				signals[connection.signal].push(action);
-
-				if(promiseCounter > beforePromiseCounter)
-				{
-					hasConnections = true;
-				}
 			});
 		});
 		connections = _.head(connections, beforeConnectionsLength);
 	}
 	else if("func" in expr && "hasRef" in expr.func)
 	{
-		hasConnections = true;
-		needResolveRef = true;
+		funcRef = true;
 	}
 
 
@@ -897,80 +883,40 @@ function Comprehension(nodeGraph, externNodes)
 				if(hasConnections)
 				{
 					ret.__referencedNodes = [];
+					// _.each(signalsList, function(signals)
+					// {
+					// 	signals.__referencedNodes = [];
+					// })
 					_.each(this.arrays, function(array)
 					{
-						ret.__referencedNodes.push(new ArrayAccess(array, i));
+						var aa = new ArrayAccess(array, i);
+						ret.__referencedNodes.push(aa);
+						ret.__refs = this.__refs;
+						// _.each(signalsList, function(signals)
+						// {
+						// 	signals.__referencedNodes.push(aa);
+						// })
 					}, this);
-				}
 
-				// _.each(ret.__referencedNodes, function(referencedNode, refIndex)
-				// {
-				// 	_.each(inputs, function(input)
-				// 	{
-				// 		if(referencedNode.id == input.id)
-				// 		{
-				// 			ret.__referencedNodes[refIndex] = new ArrayAccess(this.arrays[0], i);
-				// 		}
-				// 	}, this);
-					
-				// }, this)
-				if(hasConnections)
-				// if(false)
+				} else if(funcRef)
 				{
-					var nodes = {};
-					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					ret.__refs = inputs.concat(ret.__refs);
+					ret.__referencedNodes = _.map(inputs, function(input, i)
 					{
-						var inputGraph = iterators[arrayIndex]["for"];
-						if(_.isString(inputGraph))
-						{
-							nodes[inputGraph] = new ArrayAccess(this.arrays[arrayIndex], indices[arrayIndex]);
-						} else // destruct
-						{
-							// TODO
-						}
-						
-					}
-
-					function cloneAndResolveRef(node)
-					{
-						if(_.isFunction(node))
-						{
-							return node;
-						} 
-						if(_.isArray(node))
-						{
-							return _.map(node, function(elem)
-							{
-								return cloneAndLink(elem);
-							});
-						} 
-						
-						if(_.isObject(node))
-						{
-							return _.mapValues(node, function(val, key, obj)
-							{
-								if(key == "node")
-								{
-									if("getRef" in val)
-									{
-										return val.getRef();
-									}
-								}
-								
-								return cloneAndResolveRef(val);
-								
-							});
-						}
-
-						return node;
-					}
-
-					// if(needResolveRef)
+						return new ArrayAccess(this.arrays[0], i);
+					}, this).concat(ret.__referencedNodes);
+					// _.each(ret.__referencedNodes, function(referencedNode, refIndex)
 					// {
-					// 	nodes = _.mapValues(nodes, cloneAndResolveRef);
-					// }
-					// ret = cloneAndLink(ret, nodes);
+					// 	_.each(inputs, function(input)
+					// 	{
+					// 		if(referencedNode.id == input.id)
+					// 		{
+					// 			ret.__referencedNodes[refIndex] = new ArrayAccess(this.arrays[0], i);
+					// 		}
+					// 	}, this);
+					// }, this)
 				}
+
 				return ret;
 			}, this);
 		}
@@ -1255,7 +1201,8 @@ function ArrayAccess(node, index) {
 
 	this.get = function()
 	{
-		return this.node.get()[this.index];
+		var array = this.node.get();
+		return array[this.index];
 	}
 	
 	this.dirty = function(path)
@@ -2685,6 +2632,16 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			slots : {},
 			signal : function(struct, id, params, path, rootAndPath)
 			{
+				if("__refs" in struct)
+				{
+					_.each(struct.__refs, function(ref, i)
+					{
+						// ref.pushVal(node.__referencedNodes[i].get());
+						//ref.push(node.__referencedNodes[i]);
+						ref.push(struct.__referencedNodes[i]);
+					});
+				}
+
 				if(!path || path.length == 0)
 				{
 					this.selfStore.set(struct);
@@ -2701,11 +2658,23 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 				}
 				else
 				{
+					
+
 					var subPath = path.slice(0);
 					var key = subPath.shift();
 					// Dynamic dispatch
 					var fieldsOp = library.nodes[struct.__type].fieldsOp;
 					fieldsOp[key].signal(struct[key], id, params, subPath, rootAndPath);
+				}
+
+				if("__refs" in struct)
+				{
+					_.each(struct.__refs, function(ref, i)
+					{
+						// ref.pushVal(node.__referencedNodes[i].get());
+						//ref.push(node.__referencedNodes[i]);
+						ref.pop();
+					});
 				}
 			},
 			clone : function(struct)
@@ -2763,21 +2732,22 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 					{
 						var node = this.selfStore.get();
 						var slots = node.__signals[this.id];
-						_.each(node.__signals.__refs, function(ref, i)
-						{
-							// ref.pushVal(node.__referencedNodes[i].get());
-							ref.push(node.__referencedNodes[i]);
-						})
+						// _.each(node.__signals.__refs, function(ref, i)
+						// {
+						// 	// ref.pushVal(node.__referencedNodes[i].get());
+						// 	//ref.push(node.__referencedNodes[i]);
+						// 	ref.push(node.__signals.__referencedNodes[i]);
+						// })
 						for(var i = 0; i < slots.length; i++)
 						{
 							// slots[i].signal(rootAndPath);
 							slots[i].signal(null);
 						}
-						_.each(node.__signals.__refs, function(ref, i)
-						{
-							// ref.popVal();
-							ref.pop();
-						})
+						// _.each(node.__signals.__refs, function(ref, i)
+						// {
+						// 	// ref.popVal();
+						// 	ref.pop();
+						// })
 					};
 				}
 				var signalGraph = field;
@@ -2970,11 +2940,15 @@ function FunctionInstance(classGraph)
 		
 		var result = this.expr.get(true);
 		
-		result.__referencedNodes = [];
-		_.each(paramNodes, function(node, i)
+		if(!("__referencedNodes" in result))
 		{
-			result.__referencedNodes.push(node);
-		}, this);
+			result.__referencedNodes = paramNodes.slice(0);
+			result.__refs = this.__refs.slice(0);
+		} else
+		{
+			result.__referencedNodes = result.__referencedNodes.concat(paramNodes);
+			result.__refs = result.__refs.concat(this.__refs);
+		}
 
 		_.each(paramNodes, function(node, i)
 		{
@@ -3274,24 +3248,29 @@ function compileGraph(graph, lib, previousNodes)
 						}
 					}
 
-					if(connections.length > beforeConnectionsLength)
+					// if(connections.length > beforeConnectionsLength)
+					if(func.hasRef)
 					{
 						func.hasConnections = true;
+						func.signalsList = [];
 						var newConnections = _.tail(connections, beforeConnectionsLength);
+						var refNodes = {};
+						func.__refs = [];
+						var inputGraph = funcGraph["in"];
+						_.each(func.inputNodes, function(node, i)
+						{
+							// var nodeRef = new FuncInput(node.getType());
+							var nodeRef = node;
+							func.__refs.push(nodeRef);
+							refNodes[inputGraph[i][0]] = nodeRef;
+						})
 						_.each(newConnections, function(nodeConnection)
 						{
 							var signals = nodeConnection.signals;
+							signals.__refs = func.__refs;
+							func.signalsList.push(signals);
 							var type = nodeConnection.type;
 							var slots = library.nodes[type].operators.slots;
-							var refNodes = {};
-							signals.__refs = [];
-							var inputGraph = funcGraph["in"];
-							_.each(func.inputNodes, function(node, i)
-							{
-								var nodeRef = new FuncInput(node.getType());
-								signals.__refs.push(nodeRef);
-								refNodes[inputGraph[i][0]] = nodeRef;
-							})
 							_.each(nodeConnection.connections, function(connection)
 							{
 								var mergedNodes = _.clone(nodes);
