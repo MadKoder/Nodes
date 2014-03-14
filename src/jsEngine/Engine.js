@@ -228,7 +228,7 @@ function Store(v, type)
 var subStores = [];
 var subStoreId = 0;
 
-function SubStore(type) 
+function SubStore(type, source) 
 {
 	this.val = null;
 	this.type = type;
@@ -241,6 +241,8 @@ function SubStore(type)
 	subStoreId++;
 
 	subStores.push(this);
+
+	this.source = source;
 	
 	if(type != null)
 	{
@@ -274,6 +276,11 @@ function SubStore(type)
 	this.getType = function()
 	{
 		return this.type;
+	}
+
+	this.addSink = function(sink)
+	{
+		this.source.addSink(sink);
 	}
 
 	// this.dirty = function(path)
@@ -351,6 +358,11 @@ function FuncInput(type)
 	this.getType = function()
 	{
 		return this.type;
+	}
+
+	this.dirty = function(path)
+	{
+		this.refStack[this.lastIndex].dirty(path);
 	}
 }
 
@@ -652,7 +664,7 @@ function Comprehension(nodeGraph, externNodes)
 		var inputGraph = iterator["for"];
 		if(_.isString(inputGraph))
 		{
-			inputs[index] = new SubStore(inputTemplateType);
+			inputs[index] = new SubStore(inputTemplateType, exprAndType.val);
 			this.nodes[iterator["for"]] = inputs[index];
 		} else // destruct
 		{
@@ -660,7 +672,7 @@ function Comprehension(nodeGraph, externNodes)
 			var destructTypes = getTemplates(inputTemplateType);
 			destructInputs[index] = _.map(destructTypes, function(type)
 			{
-				return new SubStore(type)
+				return new SubStore(type, exprAndType.val)
 			});
 			this.nodes = _(destructGraph)
 				.zipObject(destructInputs[index])
@@ -670,7 +682,7 @@ function Comprehension(nodeGraph, externNodes)
 		{
 			// TODO  Path ?
 			// TODO param nodes = union(this.nodes, externNodes)
-			comprehensionIndices[index] = new SubStore("int");
+			comprehensionIndices[index] = new SubStore("int", exprAndType.val);
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
 		};
 	}, this);
@@ -735,11 +747,22 @@ function Comprehension(nodeGraph, externNodes)
 			var signals = nodeConnection.signals;
 			var type = nodeConnection.type;
 			var slots = library.nodes[type].operators.slots;
+			var refNodes = {};
+			signals.__refs = [];
+			_.each(inputs, function(node, i)
+			{
+				var nodeRef = new FuncInput(node.getType());
+				signals.__refs.push(nodeRef);
+				refNodes[iterators[i]["for"]] = nodeRef;
+			})
 			_.each(nodeConnection.connections, function(connection)
 			{
+				var signals = nodeConnection.signals;
+				
 				var mergedNodes = _.clone(externNodes);
 				_.merge(mergedNodes, slots[connection.signal].localNodes);
-				
+				_.merge(mergedNodes, refNodes);
+
 				var beforePromiseCounter = promiseCounter;
 
 				var action = makeAction(connection.action, mergedNodes);
@@ -753,6 +776,12 @@ function Comprehension(nodeGraph, externNodes)
 		});
 		connections = _.head(connections, beforeConnectionsLength);
 	}
+	else if("func" in expr && "hasRef" in expr.func)
+	{
+		hasConnections = true;
+		needResolveRef = true;
+	}
+
 
 	this.outputList = [];
 	this.get = function(path)
@@ -866,6 +895,26 @@ function Comprehension(nodeGraph, externNodes)
 				}
 				var ret = expr.get(true);
 				if(hasConnections)
+				{
+					ret.__referencedNodes = [];
+					_.each(this.arrays, function(array)
+					{
+						ret.__referencedNodes.push(new ArrayAccess(array, i));
+					}, this);
+				}
+
+				// _.each(ret.__referencedNodes, function(referencedNode, refIndex)
+				// {
+				// 	_.each(inputs, function(input)
+				// 	{
+				// 		if(referencedNode.id == input.id)
+				// 		{
+				// 			ret.__referencedNodes[refIndex] = new ArrayAccess(this.arrays[0], i);
+				// 		}
+				// 	}, this);
+					
+				// }, this)
+				if(hasConnections)
 				// if(false)
 				{
 					var nodes = {};
@@ -916,11 +965,11 @@ function Comprehension(nodeGraph, externNodes)
 						return node;
 					}
 
-					if(needResolveRef)
-					{
-						nodes = _.mapValues(nodes, cloneAndResolveRef);
-					}
-					ret = cloneAndLink(ret, nodes);
+					// if(needResolveRef)
+					// {
+					// 	nodes = _.mapValues(nodes, cloneAndResolveRef);
+					// }
+					// ret = cloneAndLink(ret, nodes);
 				}
 				return ret;
 			}, this);
@@ -975,7 +1024,8 @@ function Comprehension(nodeGraph, externNodes)
 	
 	this.addSink = function(sink)
 	{
-		_.each(this.arrays, function(array){array.addSink(sink);});
+		// _.each(this.arrays, function(array){array.addSink(sink);});
+		expr.addSink(sink);
 	};
 }
 
@@ -1234,6 +1284,7 @@ function Destruct(t)
 }
 
 var promiseCounter = 0;
+var nodeRefs = {};
 
 function compileRef(ref, nodes, promiseAllowed)
 {
@@ -2710,12 +2761,23 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 					this.selfStore = node.operators.selfStore;
 					this.signal = function(rootAndPath)
 					{
-						var slots = this.selfStore.get().__signals[this.id];
+						var node = this.selfStore.get();
+						var slots = node.__signals[this.id];
+						_.each(node.__signals.__refs, function(ref, i)
+						{
+							// ref.pushVal(node.__referencedNodes[i].get());
+							ref.push(node.__referencedNodes[i]);
+						})
 						for(var i = 0; i < slots.length; i++)
 						{
 							// slots[i].signal(rootAndPath);
 							slots[i].signal(null);
 						}
+						_.each(node.__signals.__refs, function(ref, i)
+						{
+							// ref.popVal();
+							ref.pop();
+						})
 					};
 				}
 				var signalGraph = field;
@@ -2908,6 +2970,12 @@ function FunctionInstance(classGraph)
 		
 		var result = this.expr.get(true);
 		
+		result.__referencedNodes = [];
+		_.each(paramNodes, function(node, i)
+		{
+			result.__referencedNodes.push(node);
+		}, this);
+
 		_.each(paramNodes, function(node, i)
 		{
 			this.inputNodes[i].pop();
@@ -3147,13 +3215,15 @@ function compileGraph(graph, lib, previousNodes)
 					if(funcGraph.id in library.functions)
 					{
 						var func = library.functions[funcGraph.id];
+						var funcNode = library.nodes[funcGraph.id];
 					}
 					else
 					{
 						// Else create a new function instance object
 						var func = new FunctionInstance(funcGraph);
 						library.functions[funcGraph.id] = func;
-						library.nodes[funcGraph.id] = funcToNodeSpec(func);
+						var funcNode = funcToNodeSpec(func);
+						library.nodes[funcGraph.id] = funcNode;
 
 						// TODO : specifier dans code
 						if("ref" in funcGraph)
@@ -3213,10 +3283,20 @@ function compileGraph(graph, lib, previousNodes)
 							var signals = nodeConnection.signals;
 							var type = nodeConnection.type;
 							var slots = library.nodes[type].operators.slots;
+							var refNodes = {};
+							signals.__refs = [];
+							var inputGraph = funcGraph["in"];
+							_.each(func.inputNodes, function(node, i)
+							{
+								var nodeRef = new FuncInput(node.getType());
+								signals.__refs.push(nodeRef);
+								refNodes[inputGraph[i][0]] = nodeRef;
+							})
 							_.each(nodeConnection.connections, function(connection)
 							{
 								var mergedNodes = _.clone(nodes);
 								_.merge(mergedNodes, slots[connection.signal].localNodes);
+								_.merge(mergedNodes, refNodes);
 								signals[connection.signal].push(makeAction(connection.action, mergedNodes));
 							});
 						});

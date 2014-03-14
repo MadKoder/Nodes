@@ -29,16 +29,30 @@ structs:
 functions:
 	ref TextInput	test(ParamDecl paramDecl)
 		TextInput(paramDecl.name, set => paramDecl.name = text)
-	ref TextInput	test2(ParamDecl paramDecl)
-		test(paramDecl)
-	ref Ui funcToUi(Function func)
-		VGroup
-		(
-			[TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
-		)
+	# ref TextInput	test2(ParamDecl paramDecl)
+	# 	test(paramDecl)
+	# ref Ui funcToUi(Function func)
+	# 	VGroup
+	# 	(
+	# 		[
+	# 			HGroup
+	# 			(
+	# 				[
+	# 					TextInput(paramDecl.type, set => paramDecl.type = text)
+	# 					# ,TextInput(paramDecl.name, set => paramDecl.name = text)
+	# 				]
+	# 			)
+	# 			for paramDecl in func.paramsDecl
+	# 		]
+	# 	)
+	# ref Ui programToUi(Program prog)
+	# 	VGroup
+	# 	(
+	# 		[funcToUi(func) for func in prog.functions]
+	# 	)
 nodes:
-	var p3 = ParamDecl("name", "type")
-	var p2 = ParamDecl("name2", "type2")
+	var p = ParamDecl("name", "type")
+	# var p2 = ParamDecl("name2", "type2")
 	# var indir = Indir(ParamDecl("name3", "type3"))
 	var func = Function("func", 
 		[
@@ -46,19 +60,34 @@ nodes:
 			ParamDecl("name5", "type5")
 		])
 	# def ui = TextInput(p.name, set => p.name = text)
-	def ui = test2(p2)
-	def ui2 = test(p3)
-	# def ui3 = VGroup
-	# 	(
-	# 		# [test2(paramDecl) for paramDecl in func.paramsDecl]
-	# 		[TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
-	# 	)
-	def ui3 = funcToUi(func)
-	def uiView = UiView(ui)
-	def uiView2 = UiView(ui)
-	def uiView3 = UiView(ui2)
+	# def ui = test2(p)
+	# def ui2 = test2(p)
+	def ui3 = VGroup
+		(
+			[test(paramDecl) for paramDecl in func.paramsDecl]
+			# [TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
+		)
+	# def ui3 = funcToUi(func)
+	# def uiView = UiView(ui)
+	# def uiView2 = UiView(ui2)
+	def uiView3 = UiView(ui3)
 	def uiView4 = UiView(ui3)
-	def uiView5 = UiView(ui3)
+	# def uiView5 = UiView(ui3)
+	var prog = Program
+		(
+			[
+				Function
+				(
+					"add",
+					[
+						ParamDecl("x", "float"),
+						ParamDecl("y", "float")
+					]
+				)
+			]
+		)
+	# def progView = UiView(programToUi(prog))
+	# def progView2 = UiView(programToUi(prog))
 actions :
 	# tick :
 	# 	program = program \ functions = pushFront(program.functions, Function("fun2"))

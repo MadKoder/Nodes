@@ -1192,6 +1192,7 @@ function cloneAndLink(obj, nodes)
 function FunctionNode(func)
 {
 	this.fields = func.params;
+
 	var paramsSpec = func.params;
 	var fieldsSpec = this.fields;
 	this.builder = function(f) 
@@ -1199,6 +1200,7 @@ function FunctionNode(func)
 		var params = Array(paramsSpec.length);
 		var fields = f;
 
+		this.func = func;
 		_.each(fields, function(field, key)
 		{
 			var index = _.findIndex(fieldsSpec, function(fieldSpec){return fieldSpec[0] == key;});
@@ -1215,7 +1217,8 @@ function FunctionNode(func)
 			{
 				var ret = func.funcRef(params);	
 				// if(func.hasConnections && (dontLink == undefined))
-				if(dontLink == undefined)
+				// if(dontLink == undefined)
+				if(false)
 				{
 					return cloneAndLink(ret, fields);
 				}
