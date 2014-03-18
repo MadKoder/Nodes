@@ -32,27 +32,50 @@ structs:
 	ParamDecl :
 		string	name
 		string	type
-	Function :
+	Expr :
+		subs :
+			Func :
+				string			type
+				list<string>	params
+	FuncDef :
 		string	id
-		list<ParamDecl>	paramsDecl
+		list<ParamDecl>	inputs
+		Expr	output
 	Program :
-		list<Function>	functions
+		list<FuncDef>	functions
 functions:
 	addVec2(Vec2 v0, Vec2 v1)
 		Vec2(v0.x + v1.x, v0.y + v1.y)
 	subVec2(Vec2 v0, Vec2 v1)
 		Vec2(v0.x - v1.x, v0.y - v1.y)
-	funcToUi(Function function)
-		VGroup
+	ref Ui exprToUi(Expr expr)
+		type expr :
+			Func : TextInput(expr.type, set => expr.type = text)
+			_ : TextInput("")
+	ref Ui funcToUi(FuncDef func)
+		HGroup
 		(
 			[
-				TextInput(function.id),
 				VGroup
 				(
-					[TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in function.paramsDecl]
-					[TextInput(paramDecl.name) for paramDecl in function.paramsDecl]
+					[
+						HGroup
+						(
+							[
+								TextInput(paramDecl.type, set => paramDecl.type = text),
+								TextInput(paramDecl.name, set => paramDecl.name = text)
+							]
+						)
+						for paramDecl in func.inputs
+					]
 				)
+				,exprToUi(func.output)
 			]
+		)
+	ref Ui progToUi(Program prog)
+		VGroup
+		(
+			[funcToUi(func) for func in prog.functions]
 		)
 nodes:
 	var a = 1
@@ -60,11 +83,8 @@ nodes:
 		(
 			[]
 		)
-	def ui = VGroup
-		(
-			[funcToUi(function) for function in program.functions]
-		)
-	def uiView = UiView(ui)
+	def uiView = UiView(progToUi(program))
+	def uiView2 = UiView(progToUi(program))
 actions :
 	# tick :
-	# 	program = program \ functions = pushFront(program.functions, Function("fun2"))
+	# 	program = program \ functions = pushFront(program.functions, FuncDef("fun2"))

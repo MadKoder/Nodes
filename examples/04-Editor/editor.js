@@ -110,7 +110,7 @@ var library =
 
 
 
-$.get("testSignal.nodes", function( text ) {
+$.get("editor.nodes", function( text ) {
 // $.get( "structSlots.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
@@ -139,7 +139,7 @@ $.get("testSignal.nodes", function( text ) {
 	$.get("test.json", function(graph)
 	{
 		// TODO enable
-		return;
+		// return;
 		_.each(graph.structsAndFuncs, function(structOrfunc)
 		{
 			if("struct" in structOrfunc)
@@ -152,14 +152,15 @@ $.get("testSignal.nodes", function( text ) {
 				// {
 				// 	id : new Store(func.id)
 				// }).get());
-				prog.get().functions.push(build("Function",
+				prog.get().functions.push(build("FuncDef",
 				[
 					func.id,
 					_.map(func.in, function(paramDecl)
 						{
 							var p = build("ParamDecl", [paramDecl[0], paramDecl[1]]);
 							return p;
-						})
+						}),
+					build("Func", [func.out.val.type, []])
 				]));
 				prog.dirty([]);
 			}

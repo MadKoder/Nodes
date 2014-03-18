@@ -75,18 +75,23 @@ nodes:
 			,ParamDecl("name5", "type5")
 		])
 	# def ui = TextInput(p.name, set => p.name = text)
-	def ui = test2(p)
+	def ui = test(p)
 	def ui2 = test2(p)
-	# def ui3 = VGroup
-	# 	(
-	# 		[test(paramDecl) for paramDecl in func.paramsDecl]
-	# 		# [TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
-	# 	)
-	def ui3 = funcToUi(func)
-	def uiView = UiView(ui)
-	def uiView2 = UiView(ui2)
+	def ui3 = VGroup
+		(
+			[test(paramDecl) for paramDecl in func.paramsDecl]
+			# [TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
+		)
+	def ui4 = VGroup
+		(
+			[test(paramDecl) for paramDecl in func.paramsDecl]
+			# [TextInput(paramDecl.name, set => paramDecl.name = text) for paramDecl in func.paramsDecl]
+		)
+	# def ui3 = funcToUi(func)
+	# def uiView = UiView(ui)
+	# def uiView2 = UiView(ui2)
 	def uiView3 = UiView(ui3)
-	def uiView4 = UiView(funcToUi(func))
+	def uiView4 = UiView(ui4)
 	# def uiView5 = UiView(ui3)
 	var prog = Program
 		(
@@ -101,8 +106,8 @@ nodes:
 				)
 			]
 		)
-	def progView = UiView(programToUi(prog))
-	def progView2 = UiView(programToUi(prog))
+	# def progView = UiView(programToUi(prog))
+	# def progView2 = UiView(programToUi(prog))
 actions :
 	# tick :
 	# 	program = program \ functions = pushFront(program.functions, Function("fun2"))
