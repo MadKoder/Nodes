@@ -36,7 +36,9 @@ structs:
 		subs :
 			Func :
 				string			type
-				list<string>	params
+				list<Expr>		params
+			Ref :
+				list<string>	path
 	FuncDef :
 		string	id
 		list<ParamDecl>	inputs
@@ -48,10 +50,29 @@ functions:
 		Vec2(v0.x + v1.x, v0.y + v1.y)
 	subVec2(Vec2 v0, Vec2 v1)
 		Vec2(v0.x - v1.x, v0.y - v1.y)
+	ref txtIn(string txtNode)
+		TextInput(txtNode, set => txtNode = text)
 	ref Ui exprToUi(Expr expr)
 		type expr :
-			Func : TextInput(expr.type, set => expr.type = text)
+			Func : HGroup
+				([
+					txtIn(expr.type),
+					VGroup
+					([
+						exprToUi(param)
+						for param in expr.params
+					])
+				])
+			Ref : HGroup
+				([
+					txtIn(elem)
+					for elem in expr.path
+				])
 			_ : TextInput("")
+	# ref Ui exprToUi(Expr expr)
+	# 	type expr :
+	# 		Func :  HGroup([TextInput(expr.type, set => expr.type = text)])
+	# 		_ : TextInput("")
 	ref Ui funcToUi(FuncDef func)
 		HGroup
 		(
@@ -62,8 +83,8 @@ functions:
 						HGroup
 						(
 							[
-								TextInput(paramDecl.type, set => paramDecl.type = text),
-								TextInput(paramDecl.name, set => paramDecl.name = text)
+								txtIn(paramDecl.type),
+								txtIn(paramDecl.name)
 							]
 						)
 						for paramDecl in func.inputs
@@ -76,6 +97,7 @@ functions:
 		VGroup
 		(
 			[funcToUi(func) for func in prog.functions]
+			# [exprToUi(func.output) for func in prog.functions]
 		)
 nodes:
 	var a = 1

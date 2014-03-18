@@ -128,6 +128,7 @@ var storeId = 0;
 
 var connections = null;
 var connectionSet = false;
+var connectionsAllowed = false;
 
 function Store(v, type) 
 {
@@ -312,6 +313,7 @@ function FuncInput(type, source)
 	storeId++;
 
 	this.source = source;
+	this.dirtyCounter = -1;
 	
 	if(type != null)
 	{
@@ -387,12 +389,22 @@ function FuncInput(type, source)
 
 	this.dirty = function(path)
 	{
-		this.refStack[this.lastIndex].dirty(path);
+		// Dirty counter is used with recursive calls
+		// If a FuncInput is pushed more than once in a recursive call
+		// Dirty message will go back through it multiple times, but must go to higher node each time
+		this.dirtyCounter++;
+		this.refStack[this.lastIndex - this.dirtyCounter].dirty(path);
+		this.dirtyCounter--;
 	}
 
 	this.addSink = function(sink)
 	{
 		this.source.addSink(sink);
+	}
+
+	this.set = function(val, rootAndPath)
+	{
+		this.refStack[this.lastIndex].set(val, rootAndPath);
 	}
 }
 
@@ -714,7 +726,7 @@ function Comprehension(nodeGraph, externNodes)
 		{
 			// TODO  Path ?
 			// TODO param nodes = union(this.nodes, externNodes)
-			comprehensionIndices[index] = new SubStore("int", exprAndType.val);
+			comprehensionIndices[index] = new FuncInput("int", exprAndType.val);
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
 		};
 	}, this);
@@ -776,12 +788,13 @@ function Comprehension(nodeGraph, externNodes)
 	// 	funcRef = true;
 	// }
 
+	if("func" in expr && "hasRef" in expr.func)
+	{
+		funcRef = true;
+	} else
 	if(connectionSet)
 	{
 		hasConnections = true;
-	} else if("func" in expr && "hasRef" in expr.func)
-	{
-		funcRef = true;
 	}
 
 	this.outputList = [];
@@ -834,11 +847,11 @@ function Comprehension(nodeGraph, externNodes)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].set(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
 					}
 					if(inputs[arrayIndex] != undefined)
 					{
-						inputs[arrayIndex].set(tuple[arrayIndex]);
+						inputs[arrayIndex].pushVal(tuple[arrayIndex]);
 					} else
 					{
 						_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
@@ -853,6 +866,24 @@ function Comprehension(nodeGraph, externNodes)
 					var ret = expr.get();
 					this.outputList.push(ret);
 				}
+
+				for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+				{
+					if(comprehensionIndices[arrayIndex] != undefined)
+					{
+						comprehensionIndices[arrayIndex].popVal();
+					}
+					if(inputs[arrayIndex] != undefined)
+					{
+						inputs[arrayIndex].popVal();
+					} else
+					{
+						// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+						// 	{
+						// 		input.set(tuple[arrayIndex][tupleIndex]);
+						// 	});
+					}
+				}
 			}, this);
 		}
 		else
@@ -865,7 +896,7 @@ function Comprehension(nodeGraph, externNodes)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].set(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
 					}
 					if(inputs[arrayIndex] != undefined)
 					{
@@ -930,17 +961,17 @@ function Comprehension(nodeGraph, externNodes)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].set(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].popVal();
 					}
 					if(inputs[arrayIndex] != undefined)
 					{
 						inputs[arrayIndex].popVal();
 					} else
 					{
-						_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-							{
-								input.set(tuple[arrayIndex][tupleIndex]);
-							});
+						// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+						// 	{
+						// 		input.set(tuple[arrayIndex][tupleIndex]);
+						// 	});
 					}
 				}
 				return ret;
@@ -1152,7 +1183,7 @@ function StructAccess(node, path) {
 		return this.getPathOperator(val, this.path);
 	};
 	
-	this.set = function(val, rootAndPath)
+	this.set = function(val, rootAndPath, subPath)
 	{
 		var struct = this.node.get();
 		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
@@ -1217,6 +1248,9 @@ function ArrayAccess(node, index) {
 	var elemType = library.nodes[getBaseType(templates[0])];
 	var operators = elemType.operators;
 
+	this.id = storeId;
+	storeId++;
+
 	this.signal = function(signal, params, rootAndPath)
 	{
 		currentPath = currentPath.concat(this.index);
@@ -1245,6 +1279,13 @@ function ArrayAccess(node, index) {
 	{
 		this.node.addSink(sink);
 	};
+
+	this.set = function(val, rootAndPath)
+	{
+		var array = this.node.get();
+		array[this.index] = val;
+		this.node.dirty([this.index]);
+	}
 }
 
 function Destruct(t)
@@ -1543,30 +1584,41 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			}
 			node = new nodeSpec.builder(fields, typeParams);
 		}
+
+		if("func" in node && "hasRef" in node.func)
+		{
+			connectionSet = true;
+		}
 		
 		if("connections" in expr)
 		{
-			//var signals = node.get().__signals;
-			// var signals = node.fields.__signals;
-			// var type = node.getType();
-			// connections.push({
-			// 	signals : signals,
-			// 	type : type,
-			// 	connections : expr.connections
-			// });
-
-			var signals = node.fields.__signals;
-			var type =  node.getType();
-			var slots = library.nodes[type].operators.slots;
-
-			_.each(expr.connections, function(connection)
+			if(connectionsAllowed)
 			{
-				var mergedNodes = _.clone(nodes);
-				_.merge(mergedNodes, slots[connection.signal].localNodes);
-				var action = makeAction(connection.action, mergedNodes);
-				signals[connection.signal].push(action);
-			});
-			connectionSet = true;
+				var signals = node.get().__signals;
+				var signals = node.fields.__signals;
+				var type = node.getType();
+				connections.push({
+					signals : signals,
+					type : type,
+					connections : expr.connections
+				});
+			}
+			else
+			{
+				var signals = node.fields.__signals;
+				var type =  node.getType();
+				var slots = library.nodes[type].operators.slots;
+
+				_.each(expr.connections, function(connection)
+				{
+					var mergedNodes = _.clone(nodes);
+					_.merge(mergedNodes, slots[connection.signal].localNodes);
+					var action = makeAction(connection.action, mergedNodes);
+					signals[connection.signal].push(action);
+				});
+				connectionSet = true;
+			}
+
 		}
 		// TODO type ?
 		// return {val : node, type : node.getType()};
@@ -1644,12 +1696,12 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 	
 				var hasConnections = false;
 				var funcRef = false;
-				if(connectionSet)
-				{
-					hasConnections = true;
-				} else if("func" in expr && "hasRef" in expr.func)
+				if("func" in val && "hasRef" in val.func)
 				{
 					funcRef = true;
+				} else if(connectionSet)
+				{
+					hasConnections = true;
 				}
 
 				return {
@@ -1689,8 +1741,24 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				}
 				// else case
 				var match = this.cases[i];
-				match.matchStore.set(val);
-				return match.val.get();
+				match.matchStore.pushVal(val);
+
+				var ret = match.val.get();
+
+				if(match.hasConnections)
+				{
+					ret.__referencedNodes = [this.what];
+					ret.__refs = [match.matchStore];
+				} 
+				else  if(match.funcRef)
+				{
+					ret.__refs = [match.matchStore].concat(ret.__refs);
+					ret.__referencedNodes = [this.what].concat(ret.__referencedNodes);
+				} 
+		
+				match.matchStore.popVal();
+		
+				return ret;
 				// TODO Error				
 			}
 			
@@ -3011,8 +3079,8 @@ function FunctionInstance(classGraph)
 			result.__refs = this.__refs.slice(0);
 		} else
 		{
-			result.__referencedNodes = result.__referencedNodes.concat(paramNodes);
-			result.__refs = result.__refs.concat(this.__refs);
+			result.__referencedNodes = paramNodes.concat(result.__referencedNodes);
+			result.__refs = this.__refs.concat(result.__refs);
 		}
 
 		_.each(paramNodes, function(node, i)
@@ -3232,6 +3300,7 @@ function compileGraph(graph, lib, previousNodes)
 	msgIndex = 0;
 	library = lib;
 	connections = [];
+	connectionsAllowed = false;
 	//return;
 	
 	if("structsAndFuncs" in graph)
@@ -3364,38 +3433,9 @@ function compileGraph(graph, lib, previousNodes)
 		}
 	}
 	
-	var graphNodes = graph.nodes;
-    var connectionsGraph = graph.connections;
-    for(var i = 0; i < graphNodes.length; i++)
-	{
-		var nodeRow = graphNodes[i];
-		for(var j = 0; j < nodeRow.length; j++)
-		{
-			var nodeGraph = nodeRow[j];
-			var id = getId(nodeGraph);
-			//try
-			{
-				connectionSet = false;
-				nodes[id] = makeNode(nodeGraph, nodes, connectionsGraph);
-			}
-			// catch(err) // For release version only
-			// {
-				// console.log(err);
-				// error("Cannot build node " + id);
-			// }
-			// if("connections" in nodeGraph)
-			// {
-				
-				// connectionsGraph.push({
-					// source : nodes[id],
-					// actions : 
-				// })
-			// }
-		}
-    }
+	connectionsAllowed = true;
 	
 	var actionsGraph = graph.actions;
-	var actions = [];
     for(var i = 0; i < actionsGraph.length; i++)
 	{
 		var actionGraph = actionsGraph[i];
@@ -3438,21 +3478,14 @@ function compileGraph(graph, lib, previousNodes)
 			addSlotToSubClasses(slot, node);
 		} else // global action
 		{
-			var localNodes = _.clone(nodes);
 			var inputs = [];
 			if(actionGraph.inParams)
 			{
-				_.each(actionGraph.inParams, function(param)
+				inputs = _.map(actionGraph.inParams, function(param)
 				{
-					var node = new SubStore(param[1]);
-					localNodes[param[0]] = node;
-					inputs.push(node);
+					return new SubStore(param[1]);
 				});
 			}
-			
-			id = id[0];
-			nodes[id] = {};
-			var action = makeAction(actionGraph, localNodes);
 			
 			function ActionParams(action, inputs)
 			{
@@ -3469,15 +3502,54 @@ function compileGraph(graph, lib, previousNodes)
 				}
 			}
 			
-			action = new ActionParams(action, inputs);
-			_.merge(nodes[id], action);
-			actions.push(action);
-			
-			/*id = id[0];
-			nodes[id] = {};
-			var action = makeAction(actionGraph, nodes, connectionsGraph);
-			_.merge(nodes[id], action);
-			actions.push(action);*/
+			nodes[id[0]] = new ActionParams(null, inputs);
+		}
+    }
+
+	var graphNodes = graph.nodes;
+    var connectionsGraph = graph.connections;
+    for(var i = 0; i < graphNodes.length; i++)
+	{
+		var nodeRow = graphNodes[i];
+		for(var j = 0; j < nodeRow.length; j++)
+		{
+			var nodeGraph = nodeRow[j];
+			var id = getId(nodeGraph);
+			//try
+			{
+				connectionSet = false;
+				nodes[id] = makeNode(nodeGraph, nodes, connectionsGraph);
+			}
+			// catch(err) // For release version only
+			// {
+				// console.log(err);
+				// error("Cannot build node " + id);
+			// }
+			// if("connections" in nodeGraph)
+			// {
+				
+				// connectionsGraph.push({
+					// source : nodes[id],
+					// actions : 
+				// })
+			// }
+		}
+    }
+	
+	for(var i = 0; i < actionsGraph.length; i++)
+	{
+		var actionGraph = actionsGraph[i];
+		var id = getId(actionGraph);
+		if(id.length == 1)
+		{
+			var localNodes = _.clone(nodes);
+			var inputs = nodes[id[0]].inputs;
+			_.each(inputs, function(input, i)
+			{
+				localNodes[actionGraph.inParams[i][0]] = input;
+			});
+
+			nodes[id[0]].action = makeAction(actionGraph, localNodes);
 		}
     }
 	

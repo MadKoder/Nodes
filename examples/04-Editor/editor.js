@@ -37,7 +37,7 @@ function buildUi(model, parentView, parentType, path, rootUi)
 		case "TextInput" :
 			var uiId = type + uiIndex.toString();
 			var buttonIndex = uiIndex;
-			parentView.append(enclose("<input type = \"text\" id=" + uiId + " value = \"" + model.desc + "\"></input>", parentType));
+			parentView.append(enclose("<input size=\"8\" type = \"text\" id=" + uiId + " value = \"" + model.desc + "\"></input>", parentType));
 			$("#" + uiId).change(function(event) 
 			{
 				// rootUi.set("toto");
@@ -134,9 +134,31 @@ $.get("editor.nodes", function( text ) {
 		).get();
 	}
 
+	function buildExpr(expr)
+	{
+		if(_.isArray(expr))
+		{
+			return	build("Ref", [_.map(expr, function(elem)
+			{
+				return elem;
+			})]);
+		}
+		else
+		{
+			return	build("Func", 
+				[
+					expr.type, 
+					_.map(expr.params, function(param)
+					{
+						return buildExpr(param);
+					})
+				])
+		}
+	}
+
 	//var txt = JSON.stringify(codeGraph, undefined, 4);
 	var prog = code.program;
-	$.get("test.json", function(graph)
+	$.get("test2.json", function(graph)
 	{
 		// TODO enable
 		// return;
@@ -160,7 +182,7 @@ $.get("editor.nodes", function( text ) {
 							var p = build("ParamDecl", [paramDecl[0], paramDecl[1]]);
 							return p;
 						}),
-					build("Func", [func.out.val.type, []])
+					buildExpr(func.out.val)
 				]));
 				prog.dirty([]);
 			}
