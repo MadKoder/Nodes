@@ -29,6 +29,8 @@ structs:
 				signal set(string text)
 				slot onChange(string text):
 					self.set(text)
+			Text :
+				string txt
 	ParamDecl :
 		string	name
 		string	type
@@ -74,38 +76,49 @@ functions:
 	# 		Func :  HGroup([TextInput(expr.type, set => expr.type = text)])
 	# 		_ : TextInput("")
 	ref Ui funcToUi(FuncDef func)
-		HGroup
-		(
-			[
-				VGroup
+		VGroup
+		([
+			txtIn(func.id),
+			HGroup
+			([
+				VGroup(concat
 				(
-					[
-						HGroup
-						(
-							[
-								txtIn(paramDecl.type),
-								txtIn(paramDecl.name)
-							]
-						)
-						for paramDecl in func.inputs
-					]
-				)
-				,exprToUi(func.output)
-			]
-		)
+					concat
+					(
+						[Text("params")],
+						[
+							HGroup
+							([
+									txtIn(paramDecl.type),
+									txtIn(paramDecl.name)
+							])
+							for paramDecl in func.inputs
+						]
+					),
+					[Button
+					(
+						"Add input",
+						click => 
+							func.inputs = pushBack(func.inputs, ParamDecl("name", "type"))
+					)]
+				)),
+				exprToUi(func.output)
+			])
+		])
 	ref Ui progToUi(Program prog)
 		VGroup
-		(
-			[funcToUi(func) for func in prog.functions]
-			# [exprToUi(func.output) for func in prog.functions]
-		)
+		([
+			funcToUi(func) for func in prog.functions
+			#exprToUi(func.output) for func in prog.functions
+		])
 nodes:
 	var a = 1
 	var program = Program
 		(
 			[]
 		)
-	def uiView = UiView(progToUi(program))
+	cache ui = progToUi(program)
+	def uiView = UiView(ui)
 	def uiView2 = UiView(progToUi(program))
 actions :
 	# tick :

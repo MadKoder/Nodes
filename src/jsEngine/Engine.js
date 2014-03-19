@@ -479,6 +479,18 @@ function Cache(node)
 	this.node.addSink(this);
 	this.isDirty = false;
 
+	var type = node.getType();
+	var baseType = getBaseType(type);
+	var templates = getTemplates(type);
+	var typeObj = (templates.length > 0) ? 
+		library.nodes[baseType].getInstance(templates) :
+		library.nodes[type];
+	if(typeObj != undefined && "operators" in typeObj)
+	{
+		var operators = typeObj.operators;
+		//this.signalOperator = operators.signal;
+	}
+
 	if(this.type != null)
 	{
 		var baseType = getBaseType(this.type);
@@ -516,6 +528,11 @@ function Cache(node)
 	this.getType = function()
 	{
 		return this.type;
+	}
+
+	this.signal = function(signal, params, path, rootAndPath)
+	{
+		operators.signal(this.get(), signal, params, path, rootAndPath);
 	}
 }
 

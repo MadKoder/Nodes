@@ -18,9 +18,9 @@ function enclose(str, parentType)
 	switch(parentType)
 	{
 		case "VGroup" :
-			return "<div>" + str + "</div>";
+			return "<div class=\"vGroupElem\">" + str + "</div>";
 		case "HGroup" :
-			return "<div class=\"hgroup\">" + str + "</div>";
+			return "<div class=\"hGroupElem\">" + str + "</div>";
 		case "" :
 			return str;
 	}
@@ -46,6 +46,12 @@ function buildUi(model, parentView, parentType, path, rootUi)
 			});
 			uiIndex++;
 			break;
+		case "Text" :
+			var uiId = type + uiIndex.toString();
+			var buttonIndex = uiIndex;
+			parentView.append(enclose("<div class=\"text\" id=" + uiId  + "\">" + model.txt+ "</div>", parentType));
+			uiIndex++;
+			break;
 		case "Button" :
 			var uiId = type + uiIndex.toString();
 			var buttonIndex = uiIndex;
@@ -60,9 +66,10 @@ function buildUi(model, parentView, parentType, path, rootUi)
 		case "VGroup" :
 			var uiId = type + uiIndex.toString();
 			// parentView.append(enclose("<div id=" + uiId + "></div>", parentType));
+			var uiClass = type == "HGroup" ? "hGroup" : "vGroup";
 			parentView.append((parentType == "HGroup") ? 
-				"<div class=\"hgroup\" id=" + uiId + "></div>" :
-				"<div id=" + uiId + "></div>"
+				"<div class=\"hGroupElem " + uiClass + "\" id=" + uiId + "></div>" :
+				"<div class=\"vGroupElem " + uiClass + "\" id=" + uiId + "></div>"
 			);
 			var $ui = $("#" + uiId);
 			uiIndex++;

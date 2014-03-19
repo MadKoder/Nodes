@@ -94,7 +94,7 @@ function findCommonSuperClass(fstType, scdType)
 		{
 			if(isStrictSubType(scdType, superClass))
 			{
-				return true;
+				return superClass;
 			}
 			return findCommonSuperClass(superClass, scdType);
 		}
@@ -791,8 +791,8 @@ var functions =
 		{
 			var firstTemplate = getListTypeParam(firstType);
 			var secondTemplate = getListTypeParam(secondType);
-			checkSameTypes(firstTemplate, secondTemplate);
-			return firstTemplate;
+			var mostGenericType = getCommonSuperClass(firstTemplate, secondTemplate);
+			return mostGenericType;
 		}
 	),
 	"pushFront" :  mtf2
@@ -802,6 +802,27 @@ var functions =
 			// TODO optim
 			var newA = _.cloneDeep(a);
 			newA.unshift(v);
+			return newA;
+		},
+		function(template) // Input and output types
+		{
+			return inOut2(listTemp(template), template, listTemp(template));
+		},
+		function(listType, itemType)	// Template guess from input types
+		{
+			var template = getListTypeParam(listType);
+			// TODO checkSubType
+			//checkSameTypes(template, itemType);
+			return itemType;
+		}
+	),
+	"pushBack" :  mtf2
+	(
+		function(a, v) // The function
+		{	
+			// TODO optim
+			var newA = _.cloneDeep(a);
+			newA.push(v);
 			return newA;
 		},
 		function(template) // Input and output types

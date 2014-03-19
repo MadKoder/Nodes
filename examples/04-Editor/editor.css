@@ -8,13 +8,61 @@ button {
   height: 25px;
   /* background-color: #eeeeee; */
 }
-
 div
 {
 	overflow: hidden;
 }
-.hgroup {
- 
-  float : left;
-  /* background-color: #eeeeee; */
+input
+{
+	margin : auto;
+	display : block;
+	vertical-align: middle;
+}
+.hGroup, .vGroup
+{
+	margin : 1px;
+}
+.vGroup
+{
+	/*border-style: solid;*/
+	/*border-width: 1px;*/
+	background-color: lightgreen;
+	border-style: none;
+	/*border-left: solid;
+	border-right: solid;*/
+	border-width: 1px;
+	margin : 0px;
+/*	margin-top : 1px;
+	margin-bottom:  1px;*/
+}
+.hGroupElem
+ {
+	/*float : left;*/
+	/*display: flex;*/
+	vertical-align: middle;
+	border-left: solid;
+	border-right: solid;
+	border-width: 1px;
+}
+.vGroupElem
+{
+	margin : auto;
+}
+.hGroup {
+	display: flex;
+	flex-direction: row;
+	align-items : center;
+	background-color: lightblue;
+	border-style: none;
+	/*border-bottom: solid;
+	border-top : solid;*/
+	border-width: 1px;
+	margin : 0px;
+	margin-top : 0px;
+	margin-bottom:  0px;
+	/* background-color: #eeeeee; */
+}
+.text
+{
+	text-align: center;
 }
