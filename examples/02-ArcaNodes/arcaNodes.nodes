@@ -85,7 +85,7 @@ functions:
 		Vec2(floor(pos.x / cellSize), floor(pos.y / cellSize))
 	makeMonster(Vec2 pos, string facing)
 		Monster(pos, facing, 0)
-	cellAsciiToInt(char char)
+	cellAsciiToInt(string char)
 		match char:
 			" " : 0
 			"d" : 1

@@ -48,6 +48,28 @@ structs:
 	Program :
 		list<FuncDef>	functions
 functions:
+	join(list<string> strs, string sep)
+		reduce
+		(
+			string accum, string elem -> strCat(strCat(accum, sep), elem),
+			strs
+		)
+	split(string str, string sep)
+		fold
+		(
+			list<string> accum, string elem -> 
+				if elem == sep 
+				then pushBack(accum, "")
+				else 
+				[
+					if i == (length(accum) - 1) 
+					then strCat(subStr, elem)
+					else subStr
+					for subStr, i in accum
+				],
+			strToList(str),
+			[""]
+		)
 	addVec2(Vec2 v0, Vec2 v1)
 		Vec2(v0.x + v1.x, v0.y + v1.y)
 	subVec2(Vec2 v0, Vec2 v1)
@@ -65,11 +87,16 @@ functions:
 						for param in expr.params
 					])
 				])
-			Ref : HGroup
-				([
-					txtIn(elem)
-					for elem in expr.path
-				])
+			Ref : TextInput
+				(
+					join(expr.path, "."),
+					set => expr.path = split(text, ".")
+				)
+				# HGroup
+				# ([
+				# 	txtIn(elem)
+				# 	for elem in expr.path
+				# ])
 			_ : TextInput("")
 	# ref Ui exprToUi(Expr expr)
 	# 	type expr :

@@ -976,13 +976,22 @@ var functions =
 			return [firstTemplate, secondTemplate, thirdTemplate];
 		}
 	),
+	strCat : mf2
+	(
+		function (fst, scd) 
+		{
+			return fst + scd;
+		},
+		inOut2("string", "string", "string")
+	),
 	strToList : mf1
 	(
 		function (str) 
 		{
-			return str; //.split("");
+			var ret = str.split("");
+			return ret;
 		},
-		inOut1("string", listTemp("char"))
+		inOut1("string", listTemp("string"))
 	),
 	"map" : {
 		getTemplates : function(params)
@@ -1059,7 +1068,34 @@ var functions =
 			}
 		}
 	},
-	"reduce" : {
+	"reduce" : { // Use first element of list as starting accumulator
+		getTemplates : function(params)
+		{
+			var list = params[1];
+			var temp0 = getListTypeParam(list.getType());
+			var funcType = getFuncType(params[0], [temp0]);
+			return [temp0, funcType.output];
+		},		
+		build : function(templates)
+		{
+			return {
+				params : [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , listTemp(templates[0])]],
+				func : function(params) 
+				{	
+					var funcInstance = params[0];
+					return _.reduce(params[1], function(accum, val)
+					{
+						// Il faut appeler funcInstance.func pour conserver le "this",
+						// et non pas cacher la methode func puis l'appeler seule
+						return funcInstance.func([accum, val]);
+					});
+				},
+				type : templates[1],
+				templates : templates
+			}
+		}
+	},
+	"fold" : { // need starting accumulator
 		getTemplates : function(params)
 		{
 			var list = params[1];
@@ -1081,7 +1117,7 @@ var functions =
 						// Il faut appeler funcInstance.func pour conserver le "this",
 						// et non pas cacher la methode func puis l'appeler seule
 						return funcInstance.func([accum, val]);
-					});
+					}, params[2]);
 				},
 				type : templates[1],
 				templates : templates

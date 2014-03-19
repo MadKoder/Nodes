@@ -324,7 +324,8 @@ function FuncInput(type, source)
 			library.nodes[type];
 		if(typeObj != undefined && "operators" in typeObj)
 		{
-			var operators = typeObj.operators;
+			this.operatorStack = [typeObj.operators];
+			this.lastOperatorIndex = 0;
 			//this.signalOperator = operators.signal;
 		}
 	}
@@ -376,10 +377,22 @@ function FuncInput(type, source)
 		this.stack.pop();
 		this.lastIndex--;
 	}
+
+	this.pushOperators = function(operators)
+	{
+		this.operatorStack.push(operators);
+		this.lastOperatorIndex++;
+	}
+	
+	this.popOperators = function()
+	{
+		this.operatorStack.pop();
+		this.lastOperatorIndex--;
+	}
 	
 	this.signal = function(signal, params, path, rootAndPath)
 	{
-		operators.signal(this.val, signal, params, path, rootAndPath);
+		this.operatorStack[this.lastOperatorIndex].signal(this.get(), signal, params, path, rootAndPath);
 	};
 	
 	this.getType = function()
@@ -394,6 +407,7 @@ function FuncInput(type, source)
 		// Dirty message will go back through it multiple times, but must go to higher node each time
 		this.dirtyCounter++;
 		this.refStack[this.lastIndex - this.dirtyCounter].dirty(path);
+		// this.refStack[0].dirty(path);
 		this.dirtyCounter--;
 	}
 
@@ -2782,8 +2796,15 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			slots : {},
 			signal : function(struct, id, params, path, rootAndPath)
 			{
-				if("__refs" in struct)
+				// if("__refs" in struct && !(struct.__pushed))
+				// In case of a call from a slot, a push has already been made, we must not push anymore
+				// else dirty won't work.
+				// We must push only in the case of descending into a hierarchy.
+				// for this, test rootAndPath
+				// TODO : transform rootAndPath in dontPush
+				if("__refs" in struct && (rootAndPath == undefined))
 				{
+					// struct.__pushed = true;
 					_.each(struct.__refs, function(ref, i)
 					{
 						// ref.pushVal(node.__referencedNodes[i].get());
@@ -2794,9 +2815,9 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 
 				if(!path || path.length == 0)
 				{
-					this.selfStore.set(struct);
+					this.selfStore.pushVal(struct);
 					// Need this because selfStore is shared between the entire class hierarchy
-					this.selfStore.operators = this;
+					this.selfStore.pushOperators(this);
 					// Dynamic dispatch
 					var slots = library.nodes[struct.__type].operators.slots;
 					var slot = slots[id];
@@ -2805,6 +2826,8 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 						slot.inputs[i].set(param.get());
 					});
 					slot.action.signal(rootAndPath);
+					this.selfStore.popOperators();
+					this.selfStore.popVal();
 				}
 				else
 				{
@@ -2817,7 +2840,8 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 					fieldsOp[key].signal(struct[key], id, params, subPath, rootAndPath);
 				}
 
-				if("__refs" in struct)
+				// if("__refs" in struct && (struct.__pushed))
+				if("__refs" in struct && (rootAndPath == undefined))
 				{
 					_.each(struct.__refs, function(ref, i)
 					{
@@ -2825,6 +2849,7 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 						//ref.push(node.__referencedNodes[i]);
 						ref.pop();
 					});
+					// struct.__pushed = false;
 				}
 			},
 			clone : function(struct)
@@ -2846,7 +2871,7 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 	
 	// Why do we need to use the same store.
 	// Problem with this code is the type, because operators are only those of the root type
-	node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new SubStore(name);
+	node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new FuncInput(name);
 	// node.operators.selfStore = new SubStore(name);
 	
 	if(superClassName)

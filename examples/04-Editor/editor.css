@@ -32,6 +32,8 @@ input
 	border-right: solid;*/
 	border-width: 1px;
 	margin : 0px;
+	display: flex;
+	flex-direction: column;
 /*	margin-top : 1px;
 	margin-bottom:  1px;*/
 }
