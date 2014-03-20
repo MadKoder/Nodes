@@ -76,6 +76,20 @@ functions:
 		Vec2(v0.x - v1.x, v0.y - v1.y)
 	ref txtIn(string txtNode)
 		TextInput(txtNode, set => txtNode = text)
+	matchFuncStr(string str)
+		findAllMatches(re("(\D(?:\w*))\(([^)]*)\)"), str)
+	strToExpr(string str)
+		let
+			funcMatch = matchFuncStr(str)
+		in 
+			if length(funcMatch) == 1 then
+				let :
+					regmatch = at(funcMatch, 0)
+					params = split(group2(regmatch), ",")
+				in
+					Func(group1(at(funcMatch, 0)), [Ref([param]) for param in params])
+			else
+				 Ref(["toto"])
 	ref Ui exprToUi(Expr expr)
 		type expr :
 			Func : HGroup
@@ -90,7 +104,13 @@ functions:
 			Ref : TextInput
 				(
 					join(expr.path, "."),
-					set => expr.path = split(text, ".")
+					set => expr = strToExpr(text)
+						# expr.path = ["a"]
+						# expr.path = concat(expr.path, ["b"])
+						# expr = Func("toto", [Ref(split(text, "."))])
+						# expr.path = split(text, ".")
+					# set => expr = Ref(split(text, "."))
+					# set => expr.path = split(text, ".")
 				)
 				# HGroup
 				# ([

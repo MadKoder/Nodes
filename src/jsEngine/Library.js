@@ -695,14 +695,6 @@ var functions =
 		},
 		inOut2("int", "int", mt("list", ["int"]))
 	),
-	strcat :  mf2
-	(
-		function (first, second) 
-		{
-			return first + second;
-		},
-		inOut2("string", "string", "string")
-	),
 	"neg" : mff1(function (x) {return -x;}),
 	"+" : maf2(function (x, y) {return x + y;}),
 	"-" : maf2(function (x, y){return x - y;}),
@@ -992,6 +984,45 @@ var functions =
 			return ret;
 		},
 		inOut1("string", listTemp("string"))
+	),
+	re : mf1
+	(
+		function (str) 
+		{
+			return new RegExp(str);
+		},
+		inOut1("string", "regex")
+	),
+	findAllMatches : mf2
+	(
+		function (re, str) 
+		{
+			if(re.test(str))
+			{
+				// TODO improve
+				var ret = [[RegExp.$1, RegExp.$2, RegExp.$3, RegExp.$4]];
+				return ret;
+			}
+			return [];
+
+		},
+		inOut2("regex", "string", listTemp("regmatch"))
+	),
+	group1 : mf1
+	(
+		function (match) 
+		{
+			return match[0];
+		},
+		inOut1("regmatch", "string")
+	),
+	group2 : mf1
+	(
+		function (match) 
+		{
+			return match[1];
+		},
+		inOut1("regmatch", "string")
 	),
 	"map" : {
 		getTemplates : function(params)

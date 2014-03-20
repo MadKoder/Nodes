@@ -418,7 +418,9 @@ function FuncInput(type, source)
 
 	this.set = function(val, rootAndPath)
 	{
+		this.dirtyCounter++;
 		this.refStack[this.lastIndex].set(val, rootAndPath);
+		this.dirtyCounter--;
 	}
 }
 
@@ -2796,12 +2798,12 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			slots : {},
 			signal : function(struct, id, params, path, rootAndPath)
 			{
-				// if("__refs" in struct && !(struct.__pushed))
 				// In case of a call from a slot, a push has already been made, we must not push anymore
 				// else dirty won't work.
 				// We must push only in the case of descending into a hierarchy.
 				// for this, test rootAndPath
 				// TODO : transform rootAndPath in dontPush
+				// if("__refs" in struct && !(struct.__pushed))
 				if("__refs" in struct && (rootAndPath == undefined))
 				{
 					// struct.__pushed = true;
