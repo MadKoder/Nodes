@@ -14,7 +14,7 @@ structs:
 		Color color
 	Ui : 
 		subs :
-			Group:
+			UiGroup:
 				list<Ui> children
 				subs :
 					HGroup
@@ -24,13 +24,12 @@ structs:
 				signal click(string what)
 				slot onClick(string what):
 					self.click(what)
-trees:
 	Obj :
 		int id
 		dict<string, State> stateSet
-		groups:
-			Group
-		leaves:
+		subs:
+			Group :
+				list<Obj>	children
 			Leaf:
 				Vec2 pos
 				subs :
@@ -62,12 +61,12 @@ nodes:
 	var newId = 1
 	var root = Group
 		(
-			[], 
 			0,
 			{
 				color : Color(0, 1, 0),
 				strokeColor : Color(1, 0, 1)
-			}
+			},
+			[]
 		)
 	def rects = let a = newId in getTypeAndAccumState<Rect>(root)
 	def circles = getTypeAndAccumState<Circle>(root)

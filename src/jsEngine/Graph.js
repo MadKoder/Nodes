@@ -44,10 +44,10 @@ function typeToString(type)
 		return type;
 	}
 	var str = type.base + "<";
-	for(var i = 0; i < type.templates.length; i++)
+	for(var i = 0; i < type.params.length; i++)
 	{
-		str += typeToString(type.templates[i]);
-		if(i < type.templates.length - 1)
+		str += typeToString(type.params[i]);
+		if(i < type.params.length - 1)
 		{
 			str += ", "
 		}

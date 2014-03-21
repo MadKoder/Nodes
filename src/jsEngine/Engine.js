@@ -3495,7 +3495,7 @@ function compileGraph(graph, lib, previousNodes)
 								{
 									var subStructGraph = subs[i];
 									makeStruct(subStructGraph, inheritedFields, superClassName, isGroup);
-									makeSubs(subStructGraph.subs, subStructGraph.fields, subStructGraph.name, false);
+									makeSubs(subStructGraph.subs, inheritedFields.concat(subStructGraph.fields), subStructGraph.name, false);
 								}
 							}
 						}

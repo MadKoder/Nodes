@@ -784,7 +784,7 @@ FuncCall =
 	}
 	
 String = 
-	"\"" text:[^"]* "\"" 
+	"\"" text:([^"\\] / dq:('\\' c:. {return c;}))* "\"" 
 	{
 		return {
 			string : text.join("")};

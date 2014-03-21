@@ -1,0 +1,12 @@
+nodes:
+	a =	
+		let :
+			funcMatch = maybeAt(matchFuncStr(str), 0)
+			intMatch = maybeAt(findAllMatches(re("/^\d.*$/"), str), 0)
+		in 
+			type funcMatch :
+				Just<regmatch> : Func(group1(funcMatch.x), [Ref([param]) for param in split(group2(funcMatch.x), ",")])
+				_ :  type intMatch :
+					Just<regMatch> : IntExpr(strToInt(group1(intMatch.x)))
+					_ : Ref(["toto"])
+	

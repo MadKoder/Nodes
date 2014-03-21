@@ -132,7 +132,7 @@ function sameTypes(firstType, secondType)
 		if(!sameTypes(types[0], types[1]))
 			return false;
 	});
-	return true;
+	return firstType.base == secondType.base;
 }
 
 function checkSameTypes(firstType, secondType)
@@ -912,11 +912,12 @@ var functions =
 		{	
 			if(index < array.length && index >= 0)
 			{
-				var builder = nodes.Just.getInstance(["regmatch"]).builder;
-				return (new builder({val: new Store(array[index], "regmatch")})).get(); // TODO
+				var builder = nodes.Just.getInstance(["regmatch"]).builder; // TODO : real type param
+				return (new builder({x: new Store(array[index], "regmatch")})).get(); 
 			}
 			// TODO version generique (ici seulement pour list de bool)
-			return nodes.None.getInstance(["int"]).build();
+			var builder = nodes.None.getInstance(["regmatch"]).builder;
+			return (new builder()).get();
 		},
 		function(template) // Input and output types
 		{
@@ -1006,6 +1007,22 @@ var functions =
 			return ret;
 		},
 		inOut1("string", mListType("string"))
+	),
+	strToInt : mf1
+	(
+		function (str) 
+		{
+			return parseInt(str);
+		},
+		inOut1("string", "int")
+	),
+	intToStr : mf1
+	(
+		function (x) 
+		{
+			return x.toString();
+		},
+		inOut1("int", "string")
 	),
 	re : mf1
 	(
