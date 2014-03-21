@@ -7,7 +7,7 @@ function check(test, str)
 function typeToString(type)
 {
 	var baseType = getBaseType(type);
-	var typeParams = getTemplates(type);
+	var typeParams = getTypeParams(type);
 	if(typeParams.length == 0)
 	{
 		return baseType;
@@ -62,8 +62,8 @@ function isSameOrSubType(checkedType, refType)
 		}
 		return false;
 	}
-	var checkedTypeParams = getTemplates(checkedType);
-	var refTypeParams = getTemplates(refType);
+	var checkedTypeParams = getTypeParams(checkedType);
+	var refTypeParams = getTypeParams(refType);
 	if(checkedTypeParams.length != refTypeParams.length)
 	{
 		return false;
@@ -123,8 +123,8 @@ function sameTypes(firstType, secondType)
 	}
 	if(_.isString(secondType))
 		return false;
-	var firstTemplates = getTemplates(firstType);
-	var secondTemplates = getTemplates(secondType);
+	var firstTemplates = getTypeParams(firstType);
+	var secondTemplates = getTypeParams(secondType);
 	if(firstTemplates.length != secondTemplates.length)
 		return false;
 	_(firstTemplates).zip(secondTemplates).each(function(types)
@@ -140,11 +140,11 @@ function checkSameTypes(firstType, secondType)
 	check(sameTypes(firstType, secondType), "Template types are different : " + typeToString(firstType) + " and " + typeToString(secondType));
 }
 
-function mt(base, templates)
+function mt(base, params)
 {
 	return {
 		base : base,
-		templates : templates
+		params : params
 	};
 }
 
@@ -197,7 +197,7 @@ function mff1(func1)
 function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 {
 	return {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			return [getTemplateFunc(params[0].getType())];
 		},		
@@ -220,12 +220,12 @@ function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 	}
 }
 
-function mt2f1(func1, getInAndOutTypes, getTemplatesFunc)
+function mt2f1(func1, getInAndOutTypes, guessTypeParamsFunc)
 {
 	return {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
-			return getTemplatesFunc(params[0].getType());
+			return guessTypeParamsFunc(params[0].getType());
 		},		
 		build : function(templates)
 		{
@@ -253,7 +253,7 @@ function mluf1(func1, getOutType)
 		},
 		function(template) // Input and output types
 		{
-			return inOut1(listTemp(template), getOutType(template));
+			return inOut1(mListType(template), getOutType(template));
 		},
 		function(type)	// Template guess from input types
 		{
@@ -273,7 +273,7 @@ function mllf1(func1)
 		},
 		function(template) // Input and output types
 		{
-			return inOut1(listTemp(template), listTemp(template));
+			return inOut1(mListType(template), mListType(template));
 		},
 		function(type)	// Template guess from input types
 		{
@@ -330,7 +330,7 @@ function mbf2(func2)
 function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 {
 	return {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			return [getTemplateFunc(params[0].getType(), params[1].getType())];
 		},		
@@ -370,7 +370,7 @@ function maf2(func2)
 function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 {
 	return {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			return [getTemplateFunc(params[0].getType(), params[1].getType())];
 		},		
@@ -389,12 +389,12 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 	}
 }
 
-function mt2f2(func2, getInAndOutTypes, getTemplatesFunc)
+function mt2f2(func2, getInAndOutTypes, guessTypeParamsFunc)
 {
 	return {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
-			return getTemplatesFunc(params[0].getType(), params[1].getType());
+			return guessTypeParamsFunc(params[0].getType(), params[1].getType());
 		},		
 		build : function(templates)
 		{
@@ -436,7 +436,7 @@ function mff3(func3)
 function mtf3(func3, getInAndOutTypes, getTemplateFunc)
 {
 	return {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			return [getTemplateFunc(params[0].getType(), params[1].getType(), params[2].getType())];
 		},		
@@ -455,12 +455,12 @@ function mtf3(func3, getInAndOutTypes, getTemplateFunc)
 	}
 }
 
-function mt3f3(func3, getInAndOutTypes, getTemplatesFunc)
+function mt3f3(func3, getInAndOutTypes, guessTypeParamsFunc)
 {
 	return {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
-			return getTemplatesFunc(params[0].getType(), params[1].getType(), params[2].getType());
+			return guessTypeParamsFunc(params[0].getType(), params[1].getType(), params[2].getType());
 		},		
 		build : function(templates)
 		{
@@ -527,7 +527,7 @@ function makeRandomList()
 		};
 		this.getType = function()
 		{
-			return {base : "list", templates : ["int"]};
+			return mListType("int");
 		}
 	}
 
@@ -576,7 +576,7 @@ function Range(sources, fields)
 	}
 }
 
-function listTemp(temp)
+function mListType(temp)
 {
 	return mt("list", [temp]);
 }
@@ -604,13 +604,13 @@ function checkFuncType(type)
 function getListTypeParam(type)
 {
 	checkList(type);
-	return getTemplates(type)[0];
+	return getTypeParams(type)[0];
 }
 
 function getDictTypeParams(type)
 {
 	checkDictType(type);
-	return getTemplates(type)[0];
+	return getTypeParams(type)[0];
 }
 
 function getOutType(type)
@@ -777,7 +777,7 @@ var functions =
 		},
 		function(template) // Input and output types
 		{
-			return inOut2(listTemp(template), listTemp(template), listTemp(template));
+			return inOut2(mListType(template), mListType(template), mListType(template));
 		},
 		function(firstType, secondType)	// Template guess from input types
 		{
@@ -798,7 +798,7 @@ var functions =
 		},
 		function(template) // Input and output types
 		{
-			return inOut2(listTemp(template), template, listTemp(template));
+			return inOut2(mListType(template), template, mListType(template));
 		},
 		function(listType, itemType)	// Template guess from input types
 		{
@@ -819,7 +819,7 @@ var functions =
 		},
 		function(template) // Input and output types
 		{
-			return inOut2(listTemp(template), template, listTemp(template));
+			return inOut2(mListType(template), template, mListType(template));
 		},
 		function(listType, itemType)	// Template guess from input types
 		{
@@ -840,10 +840,10 @@ var functions =
 			{
 				return inOut3
 				(
-					listTemp(template), 
+					mListType(template), 
 					"int",
 					"int",
-					listTemp(template)
+					mListType(template)
 				);
 			},
 			function(listType, startType, stopType)	// Template guess from input types
@@ -898,7 +898,29 @@ var functions =
 		},
 		function(template) // Input and output types
 		{
-			return inOut2(listTemp(template), "int", template);
+			return inOut2(mListType(template), "int", template);
+		},
+		function(listType, indexType)	// Template guess from input types
+		{
+			var template = getListTypeParam(listType);
+			return template;
+		}
+	),
+	"maybeAt": mtf2
+	(
+		function(array, index) // The function
+		{	
+			if(index < array.length && index >= 0)
+			{
+				var builder = nodes.Just.getInstance(["regmatch"]).builder;
+				return (new builder({val: new Store(array[index], "regmatch")})).get(); // TODO
+			}
+			// TODO version generique (ici seulement pour list de bool)
+			return nodes.None.getInstance(["int"]).build();
+		},
+		function(template) // Input and output types
+		{
+			return inOut2(mListType(template), "int", mt("Maybe", [template]));
 		},
 		function(listType, indexType)	// Template guess from input types
 		{
@@ -914,7 +936,7 @@ var functions =
 		},
 		function(firstTemplate, secondTemplate) // Input and output types
 		{
-			return inOut2(listTemp(firstTemplate), listTemp(secondTemplate), mt("list", [mt("tuple", [firstTemplate, secondTemplate])]));
+			return inOut2(mListType(firstTemplate), mListType(secondTemplate), mt("list", [mt("tuple", [firstTemplate, secondTemplate])]));
 		},
 		function(firstList, secondList)	// Template guess from input types
 		{
@@ -933,13 +955,13 @@ var functions =
 		},
 		function(firstTemplate, secondTemplate) // Input and output types
 		{
-			return inOut1(mt("list", mt("tuple", [firstTemplate, secondTemplate])), mt("tuple", [listTemp(firstTemplate), listTemp(secondTemplate)]));
+			return inOut1(mt("list", mt("tuple", [firstTemplate, secondTemplate])), mt("tuple", [mListType(firstTemplate), mListType(secondTemplate)]));
 		},
 		function(listType)	// Template guess from input types
 		{
 			var listTemplate = getListTypeParam(listType);
 			check(getBaseType(listTemplate) == "tuple", "List template is not a tuple : " + getBaseType(listTemplate));
-			var tupleTemplates = getTemplates(listTemplate);
+			var tupleTemplates = getTypeParams(listTemplate);
 			check(tupleTemplates.length == 2, "Tuple doesn't have 2 templates : " + tupleTemplates.length);
 			return tupleTemplates;
 		}
@@ -954,9 +976,9 @@ var functions =
 		{
 			return inOut3
 			(
-				listTemp(firstTemplate), 
-				listTemp(secondTemplate), 
-				listTemp(thirdTemplate), 
+				mListType(firstTemplate), 
+				mListType(secondTemplate), 
+				mListType(thirdTemplate), 
 				mt("list", [mt("tuple", [firstTemplate, secondTemplate, thirdTemplate])])
 			);
 		},
@@ -983,7 +1005,7 @@ var functions =
 			var ret = str.split("");
 			return ret;
 		},
-		inOut1("string", listTemp("string"))
+		inOut1("string", mListType("string"))
 	),
 	re : mf1
 	(
@@ -1006,7 +1028,7 @@ var functions =
 			return [];
 
 		},
-		inOut2("regex", "string", listTemp("regmatch"))
+		inOut2("regex", "string", mListType("regmatch"))
 	),
 	group1 : mf1
 	(
@@ -1025,14 +1047,14 @@ var functions =
 		inOut1("regmatch", "string")
 	),
 	"map" : {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			var list = params[1];
 			var temp0 = getListTypeParam(list.getType());	
 			if(params[0].template)
 			{
 				var tmp = new Store(null, temp0);
-				var funcTemplates = params[0].template.getTemplates([tmp]);
+				var funcTemplates = params[0].template.guessTypeParams([tmp]);
 				// var funcType = getFuncType(params[0], [temp0]);
 				var funcType = getFuncType(params[0], funcTemplates);
 			}
@@ -1045,7 +1067,7 @@ var functions =
 		build : function(templates)
 		{
 			return {
-				params : [["function" , inOut1(templates[0], templates[1])], ["list" , listTemp(templates[0])]],
+				params : [["function" , inOut1(templates[0], templates[1])], ["list" , mListType(templates[0])]],
 				func : function(params) 
 				{	
 					var funcInstance = params[0];
@@ -1056,20 +1078,20 @@ var functions =
 						return funcInstance.func([val]);
 					});
 				},
-				type : listTemp(templates[1]),
+				type : mListType(templates[1]),
 				templates : templates
 			}
 		}
 	},
 	"flatMap" : {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			var list = params[1];
 			var temp0 = getListTypeParam(list.getType());	
 			if(params[0].template)
 			{
 				var tmp = new Store(null, temp0);
-				var funcTemplates = params[0].template.getTemplates([tmp]);
+				var funcTemplates = params[0].template.guessTypeParams([tmp]);
 				// var funcType = getFuncType(params[0], [temp0]);
 				var funcType = getFuncType(params[0], funcTemplates);
 			}
@@ -1082,7 +1104,7 @@ var functions =
 		build : function(templates)
 		{
 			return {
-				params : [["function" , inOut1(templates[0], listTemp(templates[1]))], ["list" , listTemp(templates[0])]],
+				params : [["function" , inOut1(templates[0], mListType(templates[1]))], ["list" , mListType(templates[0])]],
 				func : function(params) 
 				{	
 					var funcInstance = params[0];
@@ -1094,13 +1116,13 @@ var functions =
 					})
 					.flatten(true).value();
 				},
-				type : listTemp(templates[1]),
+				type : mListType(templates[1]),
 				templates : templates
 			}
 		}
 	},
 	"reduce" : { // Use first element of list as starting accumulator
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			var list = params[1];
 			var temp0 = getListTypeParam(list.getType());
@@ -1110,7 +1132,7 @@ var functions =
 		build : function(templates)
 		{
 			return {
-				params : [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , listTemp(templates[0])]],
+				params : [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , mListType(templates[0])]],
 				func : function(params) 
 				{	
 					var funcInstance = params[0];
@@ -1127,7 +1149,7 @@ var functions =
 		}
 	},
 	"fold" : { // need starting accumulator
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			var list = params[1];
 			var temp0 = getListTypeParam(list.getType());
@@ -1139,7 +1161,7 @@ var functions =
 		build : function(templates)
 		{
 			return {
-				params : [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , listTemp(templates[0])], ["accum", templates[1]]],
+				params : [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , mListType(templates[0])], ["accum", templates[1]]],
 				func : function(params) 
 				{	
 					var funcInstance = params[0];
@@ -1156,7 +1178,7 @@ var functions =
 		}
 	},
 	"contains" : {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			var list = params[0];
 			var item = params[1];
@@ -1170,7 +1192,7 @@ var functions =
 		build : function(templates)
 		{
 			return {
-				params : [["list" , listTemp(templates[0])], ["item" , templates[0]], ["function" , inOut2(templates[0], templates[0], "bool")]],
+				params : [["list" , mListType(templates[0])], ["item" , templates[0]], ["function" , inOut2(templates[0], templates[0], "bool")]],
 				func : function(params) 
 				{	
 					var array = params[0];
@@ -1192,7 +1214,7 @@ var functions =
 	},
 	"merge" :
 	{
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			var dst = params[0];
 			var src = params[1];
@@ -1352,10 +1374,10 @@ function funcToNodeSpec(funcProto)
 		return new FunctionNode(funcProto.build(templates));
 	}
 	
-	if(funcProto.getTemplates != undefined)
+	if(funcProto.guessTypeParams != undefined)
 	{
 		return {
-			getTemplates : funcProto.getTemplates,
+			guessTypeParams : funcProto.guessTypeParams,
 			getInstance : instantiateTemplate
 		}
 	}
@@ -1414,7 +1436,7 @@ var nodes =
 			var a = fields.first;
 			var v = fields.second;
 			var third = fields.third;
-			//var f = third.build(third.getTemplates(v));
+			//var f = third.build(third.guessTypeParams(v));
 
 			// TODO version template
 			var funcType = third.type;
@@ -1437,7 +1459,7 @@ var nodes =
 	"RandomList" : makeRandomList(),
     "if" :  
 	{
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			var condType = params[0].getType();
 			checkSameTypes(condType, "bool");
@@ -1485,14 +1507,14 @@ var nodes =
 	},
 	"list" :
 	{
-		getTemplates : undefined, // TODO
+		guessTypeParams : undefined, // TODO
 		getInstance : function(templates)
 		{
 			var subType = templates[0];
 			var subBaseType = getBaseType(subType);
 			if(subBaseType in library.nodes)
 			{
-				var subTypeTemplates = getTemplates(subType);
+				var subTypeTemplates = getTypeParams(subType);
 				var typeObj = (subTypeTemplates.length > 0) ? 
 					library.nodes[subBaseType].getInstance(subTypeTemplates) :
 					library.nodes[subBaseType];
@@ -1514,9 +1536,7 @@ var nodes =
 					};
 					this.getType = function()
 					{
-						return {
-							base : "list",
-							templates : temp};
+						return mListType(temp[0]);
 					}
 				},
 				operators : {
@@ -1582,14 +1602,14 @@ var nodes =
 	},
 	"dict" :
 	{
-		getTemplates : undefined, // TODO
+		guessTypeParams : undefined, // TODO
 		getInstance : function(templates)
 		{
 			// var subType = templates[0];
 			// var subBaseType = getBaseType(subType);
 			// if(subBaseType in library.nodes)
 			// {
-				// var subTypeTemplates = getTemplates(subType);
+				// var subTypeTemplates = guessTypeParams(subType);
 				// var typeObj = (subTypeTemplates.length > 0) ? 
 					// library.nodes[subBaseType].getInstance(subTypeTemplates) :
 					// library.nodes[subBaseType];
@@ -1653,7 +1673,7 @@ var nodes =
 		}
 	},
 	"tuple" : {
-		getTemplates : function(params)
+		guessTypeParams : function(params)
 		{
 			return _.map(params, function(param){return param.getType();});
 		},

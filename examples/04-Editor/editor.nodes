@@ -12,6 +12,11 @@ structs:
 		float b
 	State : 
 		Color color
+	Maybe<T> :
+		subs :
+			Just :
+				T val
+			None
 	Ui : 
 		subs :
 			Group:
@@ -79,17 +84,23 @@ functions:
 	matchFuncStr(string str)
 		findAllMatches(re("(\D(?:\w*))\(([^)]*)\)"), str)
 	strToExpr(string str)
+		# let
+		# 	funcMatch = matchFuncStr(str)
+		# in 
+		# 	if length(funcMatch) == 1 then
+		# 		let :
+		# 			regmatch = at(funcMatch, 0)
+		# 			params = split(group2(regmatch), ",")
+		# 		in
+		# 			Func(group1(at(funcMatch, 0)), [Ref([param]) for param in params])
+		# 	else
+		# 		 Ref(["toto"])
 		let
-			funcMatch = matchFuncStr(str)
+			funcMatch = maybeAt(matchFuncStr(str), 0)
 		in 
-			if length(funcMatch) == 1 then
-				let :
-					regmatch = at(funcMatch, 0)
-					params = split(group2(regmatch), ",")
-				in
-					Func(group1(at(funcMatch, 0)), [Ref([param]) for param in params])
-			else
-				 Ref(["toto"])
+			type funcMatch :
+				Just<regmatch> : Func(group1(funcMatch.val), [Ref([param]) for param in split(group2(funcMatch.val), ",")])
+				_ :  Ref(["toto"])
 	ref Ui exprToUi(Expr expr)
 		type expr :
 			Func : HGroup
@@ -159,6 +170,7 @@ functions:
 			#exprToUi(func.output) for func in prog.functions
 		])
 nodes:
+	var m = Just(1)
 	var a = 1
 	var program = Program
 		(

@@ -134,7 +134,7 @@ DefVarCache =
   / "cache"
 
 Function =
-	ref:("ref")? _ typeAndId:MaybeTypeAndId _ templates:("<" _ t:Templates _ ">" _ {return t;})? _
+	ref:("ref")? _ typeAndId:MaybeTypeAndId _ typeParams:("<" _ t:IdList _ ">" _ {return t;})? _
 	"(" params:ParamsDecl ")" 
 	_ body:FuncBody?
 	{
@@ -150,9 +150,9 @@ Function =
 			func.nodes = body.nodes;
 			func.out.val = body.val;
 		}
-		if(templates != null)
+		if(typeParams != null)
 		{
-			func.templates = templates;
+			func.typeParams = typeParams;
 		};
 		if("type" in typeAndId)
 		{
@@ -184,13 +184,13 @@ MaybeTypeAndIds =
 	}
 
 Type =
-	base:Id _ templates:("<" _ t:Templates _ ">" _ {return t;})?
+	base:Id _ params:("<" _ t:Templates _ ">" _ {return t;})?
 	{
-		if(templates != null)
+		if(params != null)
 		{
 			return {
 				base : base,
-				templates : templates
+				params : params
 			}
 		}
 		return base
@@ -230,7 +230,7 @@ Structs =
 	}
 	
 Struct = 
-	_ id:Id  _ fieldsAndSubs:("(" _ fieldsAndSubs:FieldsAndSubs _ ")" {return fieldsAndSubs;})?
+	_ id:Id _ typeParams:("<" _ t:IdList _ ">" {return t;})? _ fieldsAndSubs:("(" _ fieldsAndSubs:FieldsAndSubs _ ")" {return fieldsAndSubs;})?
 	{
 		var ret = {
 			name : id
@@ -239,6 +239,10 @@ Struct =
 		{
 					ret.fields = fieldsAndSubs.fields;
 					ret.subs = fieldsAndSubs.subs;
+		}
+		if(typeParams != null)
+		{
+			ret.typeParams = typeParams;
 		}
 		return ret;
 	}
@@ -902,7 +906,7 @@ TypeCases =
 	}
 	
 TypeCase = 
-	type:Id _ ":" _ val:Val
+	type:Type _ ":" _ val:Val
 	{
 		return {
 			type : type,

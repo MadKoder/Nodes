@@ -10,29 +10,9 @@ function setEngineLodash(l)
 	_=l;
 }
 
-function isString(val)
-{
-	return (typeof val == 'string' || val instanceof String);
-}
-
-function isNumber(val)
-{
-	return (typeof val == 'number' || val instanceof Number);
-}
-
-function isBool(val)
-{
-	return (typeof val == 'boolean');
-}
-
-function isArray(val)
-{
-	return val instanceof Array;
-}
-
 function isRef(v)
 {
-	return isArray(v) || (isString(v) && (v[0] != "'" || v[v.length - 1] != "'"));
+	return _.isArray(v) || (_.isString(v) && (v[0] != "'" || v[v.length - 1] != "'"));
 }
 
 function getId(node)
@@ -51,10 +31,10 @@ function getBaseType(type)
 	return type.base;
 }
 
-function getTemplates(type)
+function getTypeParams(type)
 {
 	if(type == undefined)
-		throw "Type undefined in getTemplates"
+		throw "Type undefined in getTypeParams"
 	if(isString(type))
 	{
 		if(/^[^<]*<([^>]*)>$/.test(type))
@@ -64,8 +44,8 @@ function getTemplates(type)
 		// TODO : erreur
 		return [];
 	}
-	if("templates" in type)
-		return type.templates;
+	if("params" in type)
+		return type.params;
 	return [];
 }
 
@@ -97,7 +77,7 @@ function List(val, templateType)
 	
 	this.getType = function()
 	{
-		return {base : "list", templates : [this.templateType]};
+		return mListType(this.templateType);
 	}
 }
 
@@ -120,7 +100,7 @@ function Dict(val, keyType)
 	
 	this.getType = function()
 	{
-		return {base : "dict", templates : ["string", this.keyType]};
+		return {base : "dict", params : ["string", this.keyType]};
 	}
 }
 
@@ -148,7 +128,7 @@ function Store(v, type)
 	if(type != null)
 	{
 		var baseType = getBaseType(type);
-		var templates = getTemplates(type);
+		var templates = getTypeParams(type);
 		var typeObj = (templates.length > 0) ? 
 			library.nodes[baseType].getInstance(templates) :
 			library.nodes[type];
@@ -249,7 +229,7 @@ function SubStore(type, source)
 	if(type != null)
 	{
 		var baseType = getBaseType(type);
-		var templates = getTemplates(type);
+		var templates = getTypeParams(type);
 		var typeObj = (templates.length > 0) ? 
 			library.nodes[baseType].getInstance(templates) :
 			library.nodes[type];
@@ -318,7 +298,7 @@ function FuncInput(type, source)
 	if(type != null)
 	{
 		var baseType = getBaseType(type);
-		var templates = getTemplates(type);
+		var templates = getTypeParams(type);
 		var typeObj = (templates.length > 0) ? 
 			library.nodes[baseType].getInstance(templates) :
 			library.nodes[type];
@@ -497,7 +477,7 @@ function Cache(node)
 
 	var type = node.getType();
 	var baseType = getBaseType(type);
-	var templates = getTemplates(type);
+	var templates = getTypeParams(type);
 	var typeObj = (templates.length > 0) ? 
 		library.nodes[baseType].getInstance(templates) :
 		library.nodes[type];
@@ -510,7 +490,7 @@ function Cache(node)
 	if(this.type != null)
 	{
 		var baseType = getBaseType(this.type);
-		var templates = getTemplates(this.type);
+		var templates = getTypeParams(this.type);
 		var typeObj = (templates.length > 0) ? 
 			library.nodes[baseType].getInstance(templates) :
 			library.nodes[this.type];
@@ -556,7 +536,7 @@ function ActionParam(type)
 {
 	this.type = type;
 	var baseType = getBaseType(type);
-	var templates = getTemplates(type);
+	var templates = getTypeParams(type);
 	var typeObj = (templates.length > 0) ? 
 		library.nodes[baseType].getInstance(templates) :
 		library.nodes[type];
@@ -736,7 +716,7 @@ function Comprehension(nodeGraph, externNodes)
 		{
 			error("Comprehension input parameter " + iterator["in"] + " is not a list : " + inputType);
 		}
-		var inputTemplateType = getTemplates(inputType)[0];
+		var inputTemplateType = getTypeParams(inputType)[0];
 	
 		var inputGraph = iterator["for"];
 		if(_.isString(inputGraph))
@@ -746,7 +726,7 @@ function Comprehension(nodeGraph, externNodes)
 		} else // destruct
 		{
 			var destructGraph = inputGraph.destruct;
-			var destructTypes = getTemplates(inputTemplateType);
+			var destructTypes = getTypeParams(inputTemplateType);
 			destructInputs[index] = _.map(destructTypes, function(type)
 			{
 				return new SubStore(type, exprAndType.val)
@@ -1176,12 +1156,24 @@ function getFieldType(fields, path)
 	return getFieldType(library.nodes[fieldType].fields, _.tail(path));
 }
 
+function typeToCompactString(type)
+{
+	var baseType = getBaseType(type);
+	var typeParams = getTypeParams(type);
+	if(typeParams.length == 0)
+	{
+		return baseType;
+	}
+	var ret = baseType + "#" + (_.map(typeParams, typeToCompactString)).join("#");
+	return ret;
+}
+
 function StructAccess(node, path) {
     this.node = node;
     this.path = path;
 	var nodeType = node.getType();
 	var baseType = getBaseType(nodeType);
-	var templates = getTemplates(nodeType);
+	var templates = getTypeParams(nodeType);
 	check(baseType in library.nodes, "Node type " + baseType + " not found in library");
 	var typeObj = (templates.length > 0) ? 
 		library.nodes[baseType].getInstance(templates) :
@@ -1210,7 +1202,7 @@ function StructAccess(node, path) {
 		if(_.isObject(val) && "__type" in val)
 		//if(true)
 		{
-			var operators = library.nodes[val.__type].operators;
+			var operators = library.nodes[typeToCompactString(val.__type)].operators;
 			this.getPathOperator = operators.getPath;
 		}
 		return this.getPathOperator(val, this.path);
@@ -1275,7 +1267,7 @@ function ArrayAccess(node, index) {
     this.index = index;
 	var nodeType = node.getType();
 	var baseType = getBaseType(nodeType);
-	var templates = getTemplates(nodeType);
+	var templates = getTypeParams(nodeType);
 	check(baseType in library.nodes, "Node type " + baseType + " not found in library");
 	// TODO generic management
 	var elemType = library.nodes[getBaseType(templates[0])];
@@ -1359,7 +1351,7 @@ function compileRef(ref, nodes, promiseAllowed)
 		{
 			// TODO cache
 			var func = library.functions[sourceNode];
-			if("getTemplates" in func)
+			if("guessTypeParams" in func)
 			{
 				return {val : new StoreFunctionTemplate(library.functions[sourceNode], null), type : null};
 			}
@@ -1433,10 +1425,10 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		if(cloneIfRef != undefined && cloneIfRef)
 			return {val : new Cloner(compiledRef.val), type : compiledRef.type};
 		return compiledRef;
-	} else if (isNumber(expr) || isBool(expr))
+	} else if (_.isNumber(expr) || _.isBoolean(expr))
 	{
 		var type;
-		if(isNumber(expr))
+		if(_.isNumber(expr))
 		{
 			if(Math.floor(expr) != expr)
 			{
@@ -1465,7 +1457,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		var templateType = undefined;
 		if(expr.array.length > 0)
 			templateType = makeExprAndType(expr.array[0], nodes).type;
-		return {val : new List(l, templateType), type : {base : "list", templates : [templateType]}};
+		return {val : new List(l, templateType), type : mListType(templateType)};
 	} else if("dict" in expr)
 	{
 		var d = _.mapValues(expr.dict, function(val)
@@ -1486,7 +1478,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				error("Dict value types are not the same, found " + valType + " and " + newType);
 			}
 		});
-		return {val : new Dict(d, valType), type : {base : "dict", templates : ["string", valType]}};
+		return {val : new Dict(d, valType), type : {base : "dict", params : ["string", valType]}};
 	} else  if("string" in expr)
 	{
 		return {val : new Store(expr.string, "string"), type : "string"};
@@ -1510,7 +1502,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		else
 		{
 			var type = getBaseType(expr.type);
-			var typeParams = getTemplates(expr.type);
+			var typeParams = getTypeParams(expr.type);
 			if(!(type in library.nodes))
 			{
 				error("Function " + type + " not found in nodes library");
@@ -1528,7 +1520,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		}
 
 		// TODO simplifier
-		if(("getTemplates" in nodeSpec))
+		if(("guessTypeParams" in nodeSpec))
 		{
 			var instance;
 			if(typeParams.length == 0 && "typeParams" in expr)
@@ -1554,7 +1546,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				//var templates = _.map(paramsValAndType, function(valAndType) {return valAndType.val.getType();});
 				// TODO : faire check entre type explicite et deduit				
 				if(typeParams.length == 0)
-					typeParams = nodeSpec.getTemplates(vals);
+					typeParams = nodeSpec.guessTypeParams(vals);
 				
 				instance = nodeSpec.getInstance(typeParams);
 				var paramsSpec = _.map(instance["fields"], function(nameAndType){return nameAndType[0];});
@@ -1754,7 +1746,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				for(var i = 0; i < this.cases.length - 1; i++)
 				{
 					var match = this.cases[i];
-					if((type == match.type) || isStrictSubType(type, match.type))
+					if(sameTypes(type,  match.type))
 					{
 						match.matchStore.pushVal(val);
 						var ret = match.val.get();
@@ -2528,7 +2520,7 @@ function makeAction(actionGraph, nodes, connections)
 				var type = makeExprAndType(slot.param, mergedNodes).val.getType();
 				if(_.isObject(subSlot) && "destruct" in subSlot)
 				{
-					var templates = getTemplates(type);
+					var templates = getTypeParams(type);
 					var newLoc = {};
 					var destruct = subSlot.destruct;
 					_.each(destruct, function(name, i){
@@ -2643,8 +2635,37 @@ function makeAction(actionGraph, nodes, connections)
 	}
 }
 
-function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
+function typeParamToString(param)
 {
+	var baseType = getBaseType(param);
+	var typeParams = getTypeParams(param);
+	if(typeParams.length == 0)
+	{
+		return "#" + baseType;
+	}
+	return "#" + baseType + _.map(typeParams, typeParamToString);
+}
+
+function makeConcreteName(name, typeParamsInstances)
+{
+	return name + _.map(typeParamsInstances, function(param)
+	{
+		return typeParamToString(param[1]);
+	});
+}
+
+function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeParamsInstances)
+{
+	var name = structGraph.name;
+	var type = name;
+	var concreteName = name;
+	if(typeParamsInstances)
+	{
+		var typeParams = _.map(typeParamsInstances, function(instance){return instance[1];});
+		type = mt(name, typeParams);
+		concreteName = makeConcreteName(name, typeParamsInstances);
+	}
+
 	var fieldsGraph = inheritedFields.concat(structGraph.fields ? structGraph.fields : []);
 	
 	if(isGroup)
@@ -2655,23 +2676,34 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			   "children",
 			   {
 				  "base": "list",
-				  "templates": [
+				  "params": [
 					 superClassName
 				  ]
 			   }
 			]
 		);
 	}
-	var fieldsOperators = {}
+	var fieldsOperators = {};
+	var concreteFieldsGraph = fieldsGraph;
 	for(var i = 0; i < fieldsGraph.length; i++)
 	{
 		var fieldType = fieldsGraph[i][1];
+		if(typeParamsInstances)
+		{
+			_.each(typeParamsInstances, function(instance){
+				if(instance[0] == fieldType)
+				{
+					fieldType = instance[1];
+					concreteFieldsGraph[i][1] = fieldType;
+				}
+			})
+		}
 		if(_.isPlainObject(fieldType))
 		{
 			var baseType = getBaseType(fieldType);
 			if(baseType in library.nodes)
 			{
-				var instance = library.nodes[baseType].getInstance(getTemplates(fieldType));
+				var instance = library.nodes[baseType].getInstance(getTypeParams(fieldType));
 				if("operators" in instance)
 				{
 					var fieldName = fieldsGraph[i][0];
@@ -2694,9 +2726,9 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 		function builder(fields) 
 		{	
 			this.fields = {
-				__type : name
+				__type : type
 			};
-			this.operators = library.nodes[name].operators;
+			this.operators = library.nodes[concreteName].operators;
 			this.signals = {};
 			for(var i = 0; i < fieldsGraph.length; i++)
 			{
@@ -2707,7 +2739,7 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 					var fieldVal = fields[fieldName];
 					if(fieldVal == undefined)
 					{
-						error("Field " + fieldName + " not found in parameters of " + name + " constructor");
+						error("Field " + fieldName + " not found in parameters of " + concreteName + " constructor");
 					}
 					this.fields[fieldName] = fieldVal;
 				} else if("signal" in field)
@@ -2742,7 +2774,7 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			};	
 			this.getType = function()
 			{
-				return name;
+				return type;
 			};
 			this.addSink = function(sink)
 			{
@@ -2762,9 +2794,18 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 
 		return builder;
 	}
+
+	var node = {};
+	if(concreteName in library.nodes)
+	{
+		node = library.nodes[concreteName];
+	} else
+	{
+		library.nodes[concreteName] = node;
+	}
 	
-	var node = {
-		fields : fieldsGraph,
+	_.merge(node, {
+		fields : concreteFieldsGraph,
 		builder : makeBuilder(structGraph),
 		fieldsOp : fieldsOperators,
 		operators : {
@@ -2866,18 +2907,19 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 		},
 		subClasses : [],
 		superClass : superClassName
-	}
+	});
+	
 	
 	//node.operators.selfStore.signalOperator = node.operators
-	library.nodes[name] = node;
+	// library.nodes[concreteName] = node;
 	
 	// Why do we need to use the same store.
 	// Problem with this code is the type, because operators are only those of the root type
-	node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new FuncInput(name);
+	node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new FuncInput(type);
 	// node.operators.selfStore = new SubStore(name);
 	
 	if(superClassName)
-		library.nodes[superClassName].subClasses.push(name);
+		library.nodes[superClassName].subClasses.push(concreteName);
 	
 	for(var i = 0; i < fieldsGraph.length; i++)
 	{
@@ -2895,7 +2937,7 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 					localNodes[param[0]] = node;
 					inputs.push(node);
 				});
-				slotGraph.params = [["self", structGraph.name]].concat(slotGraph.params);
+				slotGraph.params = [["self", concreteName]].concat(slotGraph.params);
 				node.operators.slots[field.slot] = {
 					action : makeAction(slotGraph.action, localNodes),
 					inputs : inputs
@@ -2945,131 +2987,80 @@ function makeStruct(structGraph, name, inheritedFields, superClassName, isGroup)
 			}
 		}
 	}
-	
-	function makeSubs(subs, superClassName, isGroup)
-	{
-		if(subs)
-		{
-			for(var i = 0; i < subs.length; i++)
-			{
-				var subStructGraph = subs[i];
-				makeStruct(subStructGraph, subStructGraph.name, fieldsGraph, superClassName, isGroup);
-			}
-		}
-	}
-	makeSubs(structGraph.subs, structGraph.name, false);
-	makeSubs(structGraph.groups, structGraph.name, true);
-	makeSubs(structGraph.leaves, structGraph.name, false);
 }
 
-function Transmitter(slots) 
+function StructTemplate(classGraph, tp, superClassName, inheritedFields)
 {
-	this.slots = (typeof(slots)==='undefined') ? [] : slots;
-    this.signal = function(p)
-    {
-		for(var i = 0; i < this.slots.length; i++)
-		{
-			this.slots[i].signal(p);
-		}
-    };
-}
+	this.typeParams = tp;
+	var typeParamsToParamsPaths = getTypeParamsToParamsPaths(this.typeParams, classGraph.fields);
+	this.classGraph = classGraph;
+	this.inheritedFields = inheritedFields;
 
-function Composite(classGraph)
-{
-	function builder(fields)
+	// TODO uniquement si il y a des templates dans la spec
+	this.guessTypeParams = function(params)
 	{
-		var nodesGraph = classGraph["nodes"];
-		
-		this.internalSlots = [];
-		this.nodes = {};
-		
-		for(var key in fields)
+		// Guess templates types from params types
+		var paramsTypes = _.map(params, function(param){return param.getType();});
+		return _.map(typeParamsToParamsPaths, function(paths)
 		{
-			var field = fields[key];
-			this.nodes[key] = field;
-		}
-		
-		_.forEach(nodesGraph, function(node){
-			// TODO connections ?
-			this.nodes[getId(node)] = makeNode(node, this.nodes, {});
-		}, this);
-		
-		var connections = classGraph["connections"];
-		
-		this.internalSignal = new Transmitter();
-		this.slots = this.internalSignal.slots;
-		
-		for(signal in connections)
-		{
-			var senderSlots = null;
-			if(signal == "receive")
+			var templatesInPaths = _.map(paths, function(path)
 			{
-				senderSlots = this.internalSlots;
-			}
-			else
-			{
-				senderSlots = this.nodes[signal].slots;
-			}
-			
-			var slots = connections[signal];
-			for(var i = 0; i < slots.length; i++)
-			{
-				var slot = slots[i];
-				if(slot == "signal")
+				if(path.length == 1)
+					return paramsTypes[path[0]];
+				var subPath = path.slice(0);
+				var index = subPath.shift();
+				try
 				{
-					senderSlots.push(this.internalSignal);
+					return getTemplateFromPath(paramsTypes[index], subPath);
 				}
-				else
+				catch(err)
 				{
-					if(isString(slot))
-					{
-						senderSlots.push(this.nodes[slot]);
-					}
-					else
-					{
-						senderSlots.push(this.nodes[slot[0]].fields(slot.slice(1)));
-					}
+					console.log(err)
+					error("Type mismatch of param " + classGraph["in"][index][0] + " for function " + classGraph.id);
 				}
-			}
-		}
-		
-		this.signal = function(p)
-		{
-			for(var i = 0; i < this.internalSlots.length; i++)
+			});
+			var firstTemplate = templatesInPaths[0];
+			_.each(templatesInPaths, function(template)
 			{
-				this.internalSlots[i].signal(p);
-			}
-		};
-		
-		// var outputFunc = library.classes[classGraph["out"].val.type];
-		// var funcSources = _.map(outputFunc["in"], function(value, index){
-			// var param = classGraph["out"].val.params[index];
-			// return this.nodes[param];
-		// }, this);
-		// this.func = new outputFunc.builder(funcSources, undefined);
-		// TODO : connections
-		this.expr = makeExpr(classGraph["out"].val, this.nodes);
-		this.get = function(path)
-		{
-			return this.expr.get();
-		};
-		
-		// TODO ameliorer
-		this.update = function(v)
-		{
-			return this.expr.get();
-		};
-		
-		this.getType = function()
-		{
-			return this.expr.getType();
-		}
-	}
-	
-	return {
-		"fields" : classGraph["in"],
-		"builder" : builder
+				// If template type is used at different places of parameters types, the instances must be of the same type
+				// e.g. if paramsTypes = [list<T>, pair<T, U>], we can have [list<int>, pair<int, float>] but not [list<int>, pair<float, int>]
+				if(template != firstTemplate)
+					throw "Template types not conform for different params : " + firstTemplate + " vs " + template;
+			});
+			return firstTemplate;
+		});
 	};
+	
+	this.superClassName = superClassName;
+	this.cache = {};
+	this.getInstance = function(typeParams)
+	{
+		var key = templatesToKey(typeParams);
+		if(key in this.cache)
+			return this.cache[key];
+		
+		if(this.typeParams.length != typeParams.length)
+		{
+			error("Not the same number for generic parameters between declaration and instance of " + classGraph.name);
+		}
+		var typeParamsInstances = _.zip(this.typeParams, typeParams);
+		var superConcreteName = undefined;
+		if(superClassName)
+		{
+			superConcreteName = makeConcreteName(superClassName, typeParamsInstances);
+			if(!(superConcreteName in library.nodes))
+			{
+				library.nodes[superConcreteName] = library.nodes[superClassName].getInstance(typeParams);
+			}
+		}
+		var concreteName = makeConcreteName(this.classGraph.name, typeParamsInstances);
+		var instance = {};
+		this.cache[key] = instance;
+		library.nodes[concreteName] = instance;
+		makeStruct(this.classGraph, this.inheritedFields, superConcreteName, false, typeParamsInstances);
+		
+		return instance;
+	}
 }
 
 function templatesToKey(templates)
@@ -3136,17 +3127,17 @@ function FunctionInstance(classGraph)
 	};
 }
 
-function getTemplateFromPath(params, path)
+function getTemplateFromPath(type, path)
 {
-	if(!(_.isPlainObject(params) && ("templates" in params)))
+	if(!(_.isPlainObject(type) && ("params" in type)))
 	{
-		throw "Type of param is not a template, cannot deduce template type"
+		throw "Type is not generic, cannot deduce param types"
 	}
 	if(path.length == 1)
-		return params.templates[path[0]];
+		return type.params[path[0]];
 	var subPath = path.slice(0);
 	var index = subPath.shift();	
-	return getTemplateFromPath(params.templates[index], subPath);
+	return getTemplateFromPath(type.params[index], subPath);
 }
 
 function getParamsDeclTypes(paramsDecl)
@@ -3154,15 +3145,15 @@ function getParamsDeclTypes(paramsDecl)
 	return _.map(paramsDecl, function(decl){return decl[1];});
 }
 
-function FunctionTemplate(classGraph)
+function getTypeParamsToParamsPaths(typeParams, inputs)
 {
 	// Liste associant a chaque template les chemins dans les parametres qui l'utilisent
 	// Sert pour deviner les templates a partir des types des parametres
-	var templatesToParamsPaths = [];
+	var typeParamsToParamsPaths = [];
 	
-	var templates = classGraph.templates;
+	var templates = typeParams;
 	// Initialise as a list of empty list
-	templatesToParamsPaths = _.map(Array(templates.length), function(){return [];});
+	typeParamsToParamsPaths = _.map(Array(templates.length), function(){return [];});
 	
 	// For all parameters types, recursively add paths to leaf types (templates), with leaf types at the end
 	// e.g. : [list<list<T>>, pair<F,G>, int] -> [[0, 0, 0, T], [1, 0, F], [1, 1, G], [2, int]]
@@ -3173,7 +3164,7 @@ function FunctionTemplate(classGraph)
 			types, 
 			function(paths, type, index)
 			{
-				var templates = getTemplates(type);
+				var templates = getTypeParams(type);
 				if(templates.length == 0)
 					return paths.concat([parentPath.concat([index, type])]);
 				return paths.concat(getTypePaths(templates, parentPath.concat([index])));
@@ -3181,7 +3172,7 @@ function FunctionTemplate(classGraph)
 			[]
 		);
 	}
-	var paramsTypePaths = getTypePaths(getParamsDeclTypes(classGraph["in"]), []);
+	var paramsTypePaths = getTypePaths(getParamsDeclTypes(inputs), []);
 	
 	// map template name -> index in templates array
 	var templateNameToIndex = _.zipObject(templates, _.range(templates.length));
@@ -3192,16 +3183,23 @@ function FunctionTemplate(classGraph)
 		if(last in templateNameToIndex)
 		{
 			// The leaf type is a template, use the map to find the index, and adds the path without leaf type
-			templatesToParamsPaths[templateNameToIndex[last]].push(_.first(typePath, typePath.length - 1));
+			typeParamsToParamsPaths[templateNameToIndex[last]].push(_.first(typePath, typePath.length - 1));
 		}
 	});
-	
+
+	return typeParamsToParamsPaths;
+}
+
+function FunctionTemplate(classGraph)
+{
+	typeParamsToParamsPaths = getTypeParamsToParamsPaths(classGraph.typeParams, classGraph["in"]);
+
 	// TODO uniquement si il y a des templates dans la spec
-	this.getTemplates = function(params)
+	this.guessTypeParams = function(params)
 	{
 		// Guess templates types from params types
 		var paramsTypes = _.map(params, function(param){return param.getType();});
-		return _.map(templatesToParamsPaths, function(paths)
+		return _.map(typeParamsToParamsPaths, function(paths)
 		{
 			var templatesInPaths = _.map(paths, function(path)
 			{
@@ -3256,12 +3254,12 @@ function FunctionTemplate(classGraph)
 			
 			// return instance.expr.get();
 		// };
-		var templateNameToInstances = _.zipObject(classGraph.templates, templates);	
+		var templateNameToInstances = _.zipObject(classGraph.typeParams, templates);	
 		function instantiateTemplates(type, templateNameToInstances)
 		{
 			if(_.isPlainObject(type))
 			{
-				return mt(getBaseType(type), _.map(getTemplates(type), function(template){return instantiateTemplates(template, templateNameToInstances);}));
+				return mt(getBaseType(type), _.map(getTypeParams(type), function(template){return instantiateTemplates(template, templateNameToInstances);}));
 			}
 			if(type in templateNameToInstances)
 				return templateNameToInstances[type];
@@ -3294,7 +3292,7 @@ function FunctionTemplate(classGraph)
 		});
 		
 		var genericTypeParams = {};
-		_.each(classGraph.templates, function(param, index)
+		_.each(classGraph.typeParams, function(param, index)
 		{
 			genericTypeParams[param] = templates[index];
 		});
@@ -3356,7 +3354,7 @@ function compileGraph(graph, lib, previousNodes)
 			if("func" in structsAndfuncsGraph[i])
 			{
 				var funcGraph = structsAndfuncsGraph[i].func;
-				if("templates" in funcGraph)
+				if("typeParams" in funcGraph)
 				{
 					var func = new FunctionTemplate(funcGraph);
 					library.functions[funcGraph.id] = func;
@@ -3467,11 +3465,49 @@ function compileGraph(graph, lib, previousNodes)
 				if("struct" in structsAndfuncsGraph[i])
 				{
 					var structGraph = structsAndfuncsGraph[i].struct;
-					makeStruct(structGraph, structGraph.name, []);
+					if("typeParams" in structGraph)
+					{
+						function makeGenericStruct(structGraph, typeParams, superClassName, inheritedFields)
+						{
+							library.nodes[structGraph.name] = new StructTemplate(structGraph, typeParams, superClassName, inheritedFields);
+							var subs = structGraph.subs
+							if(subs)
+							{
+								for(var i = 0; i < subs.length; i++)
+								{
+									var subStructGraph = subs[i];
+									makeGenericStruct(subStructGraph, typeParams, structGraph.name, structGraph.fields);
+								}
+							}
+						}
+
+						makeGenericStruct(structGraph, structGraph.typeParams, undefined, []);
+					}
+					else
+					{
+						makeStruct(structGraph, []);
+
+						function makeSubs(subs, inheritedFields, superClassName, isGroup)
+						{
+							if(subs)
+							{
+								for(var i = 0; i < subs.length; i++)
+								{
+									var subStructGraph = subs[i];
+									makeStruct(subStructGraph, inheritedFields, superClassName, isGroup);
+									makeSubs(subStructGraph.subs, subStructGraph.fields, subStructGraph.name, false);
+								}
+							}
+						}
+						
+						makeSubs(structGraph.subs, structGraph.fields, structGraph.name, false);
+						makeSubs(structGraph.groups, structGraph.fields, structGraph.name, true);
+						makeSubs(structGraph.leaves, structGraph.fields, structGraph.name, false);
+					}
 				} else // tree
 				{
 					var treeGraph = structsAndfuncsGraph[i].tree;
-					makeStruct(treeGraph, treeGraph.name, []);
+					makeStruct(treeGraph, []);
 				} 
 			}
 		}
