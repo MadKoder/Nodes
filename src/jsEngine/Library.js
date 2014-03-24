@@ -1365,31 +1365,17 @@ function FunctionNode(func)
 			this.tick = globalTick;
 			return ret;
 		};
-		this.update = function(valTicks, tick)
+		this.update = function(val, ticks, parentTick)
 		{
-			if(valTicks == null)
+			if("hasRef" in func)
 			{
-				if("hasRef" in func)
-				{
-					var ret = func.update(valTicks, tick, params);					
-				}
-				else
-				{
-					var ret = func.func(params.map(function(param){return param.get();}));
-				}
-				return ret;
-			} else
-			{
-				if("hasRef" in func)
-				{
-					var ret = func.update(valTicks, tick, params);					
-				}
-				else
-				{
-					var ret = func.func(params.map(function(param){return param.get();}));
-				}
-				return ret;
+				var ret = func.update(val, ticks, parentTick, params);					
 			}
+			else
+			{
+				var ret = func.func(params.map(function(param){return param.get();}));
+			}
+			return ret;
 		};
 		this.getType = function()
 		{

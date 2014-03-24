@@ -53,6 +53,8 @@ function List(val, templateType)
 {
 	this.list = val;
 	this.templateType = templateType;
+	this.tick = globalTick;
+
 	this.get = function()
     {
 		return this.list.map(function(item)
@@ -64,21 +66,26 @@ function List(val, templateType)
 	this.signal = function(value)
     {
 		this.list = value;
+		this.tick = globalTick;
     }
 	
-	this.update = function(val, tick)
+	this.update = function(val, ticks, parentTick)
 	{
-		if(val == null)
-		{			
-			var list = new Array(this.list.length);
-			var ticks = new Array(this.list.length);
+		// The entire list has changed
+		if(ticks.ticks < this.tick)
+		{
+			return mValTick(this.get());	
+		} else // Only elements of the list may have changed
+		{
+			var subTicks = ticks.subs;
+			var newSubTicks = new Array(this.list.length);
 			_.each(this.list, function(item, i)
 			{
-				var ret = item.update(null, tick);
-				list[i] = ret[0];
+				var ret = item.update(val[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i]);
+				val[i] = ret[0];
 				ticks[i] = ret[1];
 			});
-			return mValTick(list, ticks);
+			return mValTick(val, newSubTicks);
 		}
 	}
 	
@@ -218,12 +225,13 @@ function Store(v, type)
 				}
 				if(!(key in graph.subs))
 				{
-					graph.subs[key] = {min : graph.tick, max : globalTick, subs : {}};
+					graph.subs[key] = {min : graph.min, max : globalTick, subs : {}};
 				}
 				graph.max = globalTick;
 				dirtyPath(graph.subs[key], subPath);
 			}
 		}
+		globalTick++;
 		if(path.length == 0)
 		{
 			this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
@@ -292,12 +300,9 @@ function Store(v, type)
 		return [];
 	}
 
-	this.update = function(val, tick)
+	this.update = function(val, ticks, parentTick)
 	{
-		if(val == null)
-		{
-			return this.val;
-		}
+		return mValTick(this.val);
 	}
 }
 
@@ -425,7 +430,8 @@ function FuncInput(type, source)
 	this.push = function(node)
 	{
 		this.refStack.push(node);
-		this.stack.push(node.get());
+		var res = node.get();
+		this.stack.push(res);
 		this.lastIndex++;
 	};
 	
@@ -505,15 +511,15 @@ function FuncInput(type, source)
 		this.dirtyCounter--;
 	}
 
-	this.update = function(val, tick)
+	this.update = function(val, ticks, parentTick)
 	{
-		if(val == null)
+		if(this.lastIndex < this.refStack.length)
 		{
-			if(this.lastIndex < this.refStack.length)
-			{
-				return this.refStack[this.lastIndex].update(val, tick);
-			}
-			return this.stack[this.lastIndex];
+			return this.refStack[this.lastIndex].update(val, ticks, parentTick);
+		}
+		else
+		{
+			return mValTick(this.stack[this.lastIndex]);
 		}
 	}
 
@@ -588,9 +594,8 @@ function Closure(expr, nodes, genericTypeParams)
 function Cache(node) 
 {
 	this.node = node;
-	var ret = this.node.update(null, 1000);
-	this.val = ret[0];
-	this.ticks = ret[1];
+	this.val = this.node.get();
+	this.ticks = {tick : globalTick};
 	// this.val = node.get();
 	this.type = node.getType();
 	
@@ -630,7 +635,7 @@ function Cache(node)
 		if(this.isDirty)
 		{
 			// this.val = this.node.get();
-			var res = this.node.update([this.val, this.ticks], globalTick);
+			var res = this.node.update(this.val, this.ticks, this.ticks.tick);
 			this.val = res[0];
 			this.ticks = res[1];
 			this.isDirty = false;
@@ -1125,12 +1130,25 @@ function Comprehension(nodeGraph, externNodes)
 	};
 	
 	// TODO ameliorer
-	this.update = function(valTicks, tick)
+	this.update = function(upVal, ticks, parentTick)
 	{
-		if(valTicks == null)
-		{			
+		var maxTicks = 0, maxOfMinTicks = 0;
+		_.each(this.arrays, function(array){
+			var arrayMinMaxTicks = array.getMinMaxTick([]);
+			maxTicks = Math.max(maxTicks, arrayMinMaxTicks[1]);
+			maxOfMinTicks = Math.max(maxOfMinTicks, arrayMinMaxTicks[0]);
+		});
+
+		// No array has been updated after value
+		if(ticks.tick >= maxTicks)
+			return mValTick(upVal, ticks.sub);
+
+		// Parts of array have changed after value, but arrays size didn't
+		if(ticks.tick >= maxOfMinTicks)
+		{
+			var subTicks = ticks.sub;
 			var arrays = _.map(this.arrays, function(array){return array.get();});
-			
+				
 			// Le produit cartesien des indices
 			var indicesArray = cartesianProductOf(_.map(arrays, function(array)
 			{
@@ -1188,8 +1206,11 @@ function Comprehension(nodeGraph, externNodes)
 			}
 			else
 			{
-				var vals = new Array(indicesArray.length);
-				var ticks = new Array(indicesArray.length);
+				var vals = upVal;
+				var inputArrayAccess = _.map(this.arrays, function(array)
+				{
+					return new ArrayAccess(array, 0);
+				});
 				_.each(indicesArray, function(indices, i) 
 				{
 					var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
@@ -1202,8 +1223,9 @@ function Comprehension(nodeGraph, externNodes)
 						}
 						if(inputs[arrayIndex] != undefined)
 						{
-							inputs[arrayIndex].pushVal(tuple[arrayIndex]);
-							// inputs[arrayIndex].push(new ArrayAccess(this.arrays[arrayIndex], i));
+							// inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+							inputs[arrayIndex].push(inputArrayAccess[arrayIndex]);
+							inputArrayAccess[arrayIndex].index = indices[arrayIndex];
 						} else
 						{
 							_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
@@ -1213,7 +1235,7 @@ function Comprehension(nodeGraph, externNodes)
 						}
 					}
 
-					var pair = expr.update(null, tick);
+					var pair = expr.update(vals[i], (subTicks == undefined) ? {tick :parentTick} : subTicks[i], parentTick);
 					var ret = pair[0];
 					if(hasConnections)
 					{
@@ -1249,7 +1271,8 @@ function Comprehension(nodeGraph, externNodes)
 						}
 						if(inputs[arrayIndex] != undefined)
 						{
-							inputs[arrayIndex].popVal();
+							// inputs[arrayIndex].popVal();
+							inputs[arrayIndex].pop();
 						} else
 						{
 							// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
@@ -1265,293 +1288,8 @@ function Comprehension(nodeGraph, externNodes)
 			return mValTick(vals, ticks);
 		}
 		else
-		{	
-			var maxTicks = 0, maxOfMinTicks = 0;
-			_.each(this.arrays, function(array){
-				var arrayMinMaxTicks = array.getMinMaxTick([]);
-				maxTicks = Math.max(maxTicks, arrayMinMaxTicks[0]);
-				maxOfMinTicks = Math.max(maxOfMinTicks, arrayMinMaxTicks[1]);
-			});
-
-			// No array has been updated after value
-			if(valTicks[1].tick >= maxTicks)
-				return valTicks;
-
-			// Parts of array have changed after value, but arrays size didn't
-			if(valTicks[1].tick >= maxOfMinTicks)
-			{
-				var arrays = _.map(this.arrays, function(array){return array.get();});
-					
-				// Le produit cartesien des indices
-				var indicesArray = cartesianProductOf(_.map(arrays, function(array)
-				{
-					return _.range(array.length);
-				}));
-				if(when != undefined)
-				{
-					this.outputList = [];
-					_.each(indicesArray, function(indices)
-					{
-						var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
-					
-						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
-						{
-							if(comprehensionIndices[arrayIndex] != undefined)
-							{
-								comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
-							}
-							if(inputs[arrayIndex] != undefined)
-							{
-								inputs[arrayIndex].pushVal(tuple[arrayIndex]);
-							} else
-							{
-								_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-									{
-										input.set(tuple[arrayIndex][tupleIndex]);
-									});
-							}
-						}
-						
-						if(when.get())
-						{
-							var ret = expr.get();
-							this.outputList.push(ret);
-						}
-
-						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
-						{
-							if(comprehensionIndices[arrayIndex] != undefined)
-							{
-								comprehensionIndices[arrayIndex].popVal();
-							}
-							if(inputs[arrayIndex] != undefined)
-							{
-								inputs[arrayIndex].popVal();
-							} else
-							{
-								// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-								// 	{
-								// 		input.set(tuple[arrayIndex][tupleIndex]);
-								// 	});
-							}
-						}
-					}, this);
-				}
-				else
-				{
-					var vals = valTicks[0];
-					var ticks = valTicks[1];
-					_.each(indicesArray, function(indices, i) 
-					{
-						var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
-					
-						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
-						{
-							if(comprehensionIndices[arrayIndex] != undefined)
-							{
-								comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
-							}
-							if(inputs[arrayIndex] != undefined)
-							{
-								inputs[arrayIndex].pushVal(tuple[arrayIndex]);
-								// inputs[arrayIndex].push(new ArrayAccess(this.arrays[arrayIndex], i));
-							} else
-							{
-								_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-									{
-										input.set(tuple[arrayIndex][tupleIndex]);
-									});
-							}
-						}
-
-						var pair = expr.update([vals[i], valTicks[i]], tick);
-						var ret = pair[0];
-						if(hasConnections)
-						{
-							ret.__referencedNodes = [];
-							// _.each(signalsList, function(signals)
-							// {
-							// 	signals.__referencedNodes = [];
-							// })
-							ret.__refs = inputs;
-							_.each(this.arrays, function(array)
-							{
-								var aa = new ArrayAccess(array, i);
-								ret.__referencedNodes.push(aa);
-								
-							}, this);
-						} 
-						else  if(funcRef)
-						{
-							ret.__refs = inputs.concat(ret.__refs);
-							ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
-							{
-								var ret = new ArrayAccess(this.arrays[arrayIndex], i);
-								// var test = ret.getPath();
-								return ret;
-							}, this).concat(ret.__referencedNodes);
-						} 				
-
-						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
-						{
-							if(comprehensionIndices[arrayIndex] != undefined)
-							{
-								comprehensionIndices[arrayIndex].popVal();
-							}
-							if(inputs[arrayIndex] != undefined)
-							{
-								inputs[arrayIndex].popVal();
-							} else
-							{
-								// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-								// 	{
-								// 		input.set(tuple[arrayIndex][tupleIndex]);
-								// 	});
-							}
-						}
-						vals[i] = ret;
-						ticks[i] = pair[1];
-					}, this);
-				}
-				return mValTick(vals, ticks);
-			}
-			else
-			{
-				var arrays = _.map(this.arrays, function(array){return array.get();});
-				
-				// Le produit cartesien des indices
-				var indicesArray = cartesianProductOf(_.map(arrays, function(array)
-				{
-					return _.range(array.length);
-				}));
-				if(when != undefined)
-				{
-					this.outputList = [];
-					_.each(indicesArray, function(indices)
-					{
-						var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
-					
-						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
-						{
-							if(comprehensionIndices[arrayIndex] != undefined)
-							{
-								comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
-							}
-							if(inputs[arrayIndex] != undefined)
-							{
-								inputs[arrayIndex].pushVal(tuple[arrayIndex]);
-							} else
-							{
-								_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-									{
-										input.set(tuple[arrayIndex][tupleIndex]);
-									});
-							}
-						}
-						
-						if(when.get())
-						{
-							var ret = expr.get();
-							this.outputList.push(ret);
-						}
-
-						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
-						{
-							if(comprehensionIndices[arrayIndex] != undefined)
-							{
-								comprehensionIndices[arrayIndex].popVal();
-							}
-							if(inputs[arrayIndex] != undefined)
-							{
-								inputs[arrayIndex].popVal();
-							} else
-							{
-								// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-								// 	{
-								// 		input.set(tuple[arrayIndex][tupleIndex]);
-								// 	});
-							}
-						}
-					}, this);
-				}
-				else
-				{
-					var vals = new Array(indicesArray.length);
-					var ticks = new Array(indicesArray.length);
-					_.each(indicesArray, function(indices, i) 
-					{
-						var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
-					
-						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
-						{
-							if(comprehensionIndices[arrayIndex] != undefined)
-							{
-								comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
-							}
-							if(inputs[arrayIndex] != undefined)
-							{
-								inputs[arrayIndex].pushVal(tuple[arrayIndex]);
-								// inputs[arrayIndex].push(new ArrayAccess(this.arrays[arrayIndex], i));
-							} else
-							{
-								_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-									{
-										input.set(tuple[arrayIndex][tupleIndex]);
-									});
-							}
-						}
-
-						var pair = expr.update(null, tick);
-						var ret = pair[0];
-						if(hasConnections)
-						{
-							ret.__referencedNodes = [];
-							// _.each(signalsList, function(signals)
-							// {
-							// 	signals.__referencedNodes = [];
-							// })
-							ret.__refs = inputs;
-							_.each(this.arrays, function(array)
-							{
-								var aa = new ArrayAccess(array, i);
-								ret.__referencedNodes.push(aa);
-								
-							}, this);
-						} 
-						else  if(funcRef)
-						{
-							ret.__refs = inputs.concat(ret.__refs);
-							ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
-							{
-								var ret = new ArrayAccess(this.arrays[arrayIndex], i);
-								// var test = ret.getPath();
-								return ret;
-							}, this).concat(ret.__referencedNodes);
-						} 				
-
-						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
-						{
-							if(comprehensionIndices[arrayIndex] != undefined)
-							{
-								comprehensionIndices[arrayIndex].popVal();
-							}
-							if(inputs[arrayIndex] != undefined)
-							{
-								inputs[arrayIndex].popVal();
-							} else
-							{
-								// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-								// 	{
-								// 		input.set(tuple[arrayIndex][tupleIndex]);
-								// 	});
-							}
-						}
-						vals[i] = ret;
-						ticks[i] = pair[1];
-					}, this);
-				}
-				return mValTick(vals, ticks);
-			}
+		{
+			return mValTick(this.get(), undefined);
 		}
 	};
 	
@@ -1789,22 +1527,24 @@ function StructAccess(node, path) {
 		this.node.addSink(sink);
 	};
 
-	this.update = function(val, tick)
+	this.update = function(val, ticks, parentTick)
 	{
-		if(val == null)
+		var minMax = this.node.getMinMaxTick(this.path.concat(path));
+		if(ticks.tick >= minMax[1])
 		{
-			var val = this.node.update(null, tick);
-			// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
-			// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
-			// et meme changer au cours du temps
-			if(_.isObject(val) && "__type" in val)
-			//if(true)
-			{
-				var operators = library.nodes[typeToCompactString(val.__type)].operators;
-				this.getPathOperator = operators.getPath;
-			}
-			return this.getPathOperator(val, this.path);
+			return [val, ticks];
+		} 	
+		var val = this.node.get();
+		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
+		// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
+		// et meme changer au cours du temps
+		if(_.isObject(val) && "__type" in val)
+		//if(true)
+		{
+			var operators = library.nodes[typeToCompactString(val.__type)].operators;
+			this.getPathOperator = operators.getPath;
 		}
+		return mValTick(this.getPathOperator(val, this.path));
 	}
 
 	this.getMinMaxTick = function(path)
@@ -1839,6 +1579,11 @@ function ArrayAccess(node, index) {
 	{
 		var array = this.node.get();
 		return array[this.index];
+	}
+
+	this.getMinMaxTick = function(path)
+	{
+		return this.node.getMinMaxTick([this.index].concat(path));
 	}
 	
 	this.dirty = function(path)
@@ -2343,53 +2088,15 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				// TODO Error				
 			}
 
-			this.update = function(upVal, tick)
+			this.update = function(upVal, ticks, parentTick)
 			{
-				if(upVal == null)
+				var minMax = this.what.getMinMaxTick([]);
+				if(ticks.tick >= minMax[1])
 				{
-					var val = this.what.get();
-					var type = val.__type;
-					for(var i = 0; i < this.cases.length - 1; i++)
-					{
-						var match = this.cases[i];
-						if(sameTypes(type,  match.type))
-						{
-							match.matchStore.push(this.what);
-							var ret = match.val.update(null, tick);
-							if(match.hasConnections)
-							{
-								ret[0].__referencedNodes = [this.what];
-								ret[0].__refs = [match.matchStore];
-							} 
-							else  if(match.funcRef)
-							{
-								ret[0].__refs = [match.matchStore].concat(ret.__refs);
-								ret[0].__referencedNodes = [this.what].concat(ret.__referencedNodes);
-							} 
-							match.matchStore.popVal();
-							return ret;
-						}
-					}
-					// else case
-					var match = this.cases[i];
-					match.matchStore.pushVal(val);
-
-					var ret = match.val.update(null, tick);
-
-					if(match.hasConnections)
-					{
-						ret[0].__referencedNodes = [this.what];
-						ret[0].__refs = [match.matchStore];
-					} 
-					else  if(match.funcRef)
-					{
-						ret[0].__refs = [match.matchStore].concat(ret.__refs);
-						ret[0].__referencedNodes = [this.what].concat(ret.__referencedNodes);
-					} 
-			
-					match.matchStore.popVal();
-					return ret;
+					return upVal;
 				}
+
+				return mValTick(this.get());
 			}
 			
 			this.getType = function()
@@ -3377,43 +3084,20 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				});
 				//return this.fields;
 			};	
-			this.update = function(valTicks, tick)
+			this.update = function(val, ticks, parentTick)
 			{
-				if(valTicks == null)
-				{
-					var fields = {};
-					var ticks = {};
-					_.each(this.fields, function(field, key){
-						// TODO : ameliorer
-						if((key == "__type") || (key == "__signals"))
-						{
-							fields[key] = field;
-						}
-						else
-						{
-							var ret = field.update(null, tick);
-							fields[key] = ret[0];
-							ticks[key] = ret[1];
-						}
-					});
-					return mValTick(fields, ticks);
-				}
-				else
-				{
-					var fieldsVal = valTicks[0];
-					var ticks = valTicks[1].subs;
-					_.each(this.fields, function(field, key){
-						// TODO : ameliorer
-						if((key != "__type") && (key != "__signals"))
-						{
-							 var res = field.update([fieldsVal[key], ticks[key]]);
-							 fieldsVal[key] = res[0];
-							 ticks[key] = res[1];
-						}
-					});
-					valTicks[1].tick = globalTick;
-					return valTicks;
-				}
+				var subTicks = ticks.subs;
+				var newSubTicks = {};
+				_.each(this.fields, function(field, key){
+					// TODO : ameliorer
+					if((key != "__type") && (key != "__signals"))
+					{
+						 var res = field.update(val[key], (subTicks == undefined) ? {tick : parentTick} : subTicks[key], ticks.tick);
+						 val[key] = res[0];
+						 newSubTicks[key] = res[1];
+					}
+				});
+				return mValTick(val, newSubTicks);
 			}
 			this.getType = function()
 			{
@@ -3505,6 +3189,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				// for this, test rootAndPath
 				// TODO : transform rootAndPath in dontPush
 				// if("__refs" in struct && !(struct.__pushed))
+				var pushedRefs = [];
 				if("__refs" in struct && (rootAndPath == undefined))
 				{
 					// struct.__pushed = true;
@@ -3513,6 +3198,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 						// ref.pushVal(node.__referencedNodes[i].get());
 						//ref.push(node.__referencedNodes[i]);
 						ref.push(struct.__referencedNodes[i]);
+						pushedRefs.push(ref);
 					});
 				}
 
@@ -3544,16 +3230,10 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				}
 
 				// if("__refs" in struct && (struct.__pushed))
-				if("__refs" in struct && (rootAndPath == undefined))
+				_.each(pushedRefs, function(ref, i)
 				{
-					_.each(struct.__refs, function(ref, i)
-					{
-						// ref.pushVal(node.__referencedNodes[i].get());
-						//ref.push(node.__referencedNodes[i]);
-						ref.pop();
-					});
-					// struct.__pushed = false;
-				}
+					ref.pop();
+				});
 			},
 			clone : function(struct)
 			{
@@ -3786,14 +3466,26 @@ function FunctionInstance(classGraph)
 		return result;
 	};	
 
-	this.update = function(valTicks, tick, paramNodes) 
+	this.update = function(val, ticks, parentTick, paramNodes) 
 	{	
+		var max = 0;
+		_.each(paramNodes, function(node)
+		{
+			var minMax = node.getMinMaxTick([]);
+			max = Math.max(max, minMax[1]);
+		});
+
+		if(ticks.tick >= max)
+		{
+			return mValTick(val, ticks);
+		}
+
 		_.each(paramNodes, function(node, i)
 		{
 			this.inputNodes[i].push(node);
 		}, this);
 		
-		var res = this.expr.update(valTicks, tick);
+		var res = this.expr.update(val, ticks, parentTick);
 		var val = res[0];
 		
 		if(!("__referencedNodes" in val))
