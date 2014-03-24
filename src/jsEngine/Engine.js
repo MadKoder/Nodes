@@ -66,13 +66,20 @@ function List(val, templateType)
 		this.list = value;
     }
 	
-	this.update = function(l)
+	this.update = function(val, tick)
 	{
-		var list = this.list;
-		return l.map(function(item, index)
-		{
-			return list[index].update(item);
-		});
+		if(val == null)
+		{			
+			var list = new Array(this.list.length);
+			var ticks = new Array(this.list.length);
+			_.each(this.list, function(item, i)
+			{
+				var ret = item.update(null, tick);
+				list[i] = ret[0];
+				ticks[i] = ret[1];
+			});
+			return mValTick(list, ticks);
+		}
 	}
 	
 	this.getType = function()
@@ -123,6 +130,8 @@ function Store(v, type)
 	// DEBUG
 	this.id = storeId;
 	storeId++;
+
+	this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
 	
 	this.dirtyList = [];
 	if(type != null)
@@ -150,8 +159,80 @@ function Store(v, type)
 		this.dirty([]);
 	};
 	
+	this.getMinMaxTick = function(path)
+	{
+		function getMinMaxTick(graph, path)
+		{
+			if(path.length == 1)
+			{
+				var key = path[0];
+				if(_.isNumber(key))
+				{
+					key = key.toString();
+				}
+				if(!(key in graph.subs))
+				{
+					return [graph.min, graph.max];
+				}
+				var sub = graph.subs[key];
+				return [sub.min, sub.max];
+			}
+			else
+			{
+				var subPath = path.slice(0);
+				var key = subPath.shift();
+				if(_.isNumber(key))
+				{
+					key = key.toString();
+				}
+				if(!(key in graph))
+				{
+					return [graph.min, graph.max];
+				}
+				return getMinMaxTick(graph.subs[key], subPath);
+			}
+		}
+		return getMinMaxTick(this.tickGraph, path);
+	}
+
 	this.dirty = function(path)
 	{
+		function dirtyPath(graph, path)
+		{
+			if(path.length == 1)
+			{
+				var key = path[0];
+				if(_.isNumber(key))
+				{
+					key = key.toString();
+				}
+				graph.subs[key] = {min : globalTick, max : globalTick, subs : {}};
+			}
+			else
+			{
+				var subPath = path.slice(0);
+				var key = subPath.shift();
+				if(_.isNumber(key))
+				{
+					key = key.toString();
+				}
+				if(!(key in graph.subs))
+				{
+					graph.subs[key] = {min : graph.tick, max : globalTick, subs : {}};
+				}
+				graph.max = globalTick;
+				dirtyPath(graph.subs[key], subPath);
+			}
+		}
+		if(path.length == 0)
+		{
+			this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
+		}
+		else
+		{
+			dirtyPath(this.tickGraph, path);
+		}
+
 		_.each(this.sinks, function(sink)
 		{
 			sink.dirty()
@@ -204,6 +285,19 @@ function Store(v, type)
 	this.getType = function()
 	{
 		return this.type;
+	}
+
+	this.getPath = function()
+	{
+		return [];
+	}
+
+	this.update = function(val, tick)
+	{
+		if(val == null)
+		{
+			return this.val;
+		}
 	}
 }
 
@@ -320,6 +414,14 @@ function FuncInput(type, source)
 		return this.refStack[this.lastIndex];
 	}
 
+	this.getPath = function()
+	{
+		this.dirtyCounter++;
+		var ret = this.refStack[this.lastIndex - this.dirtyCounter].getPath();
+		this.dirtyCounter--;
+		return ret;
+	}
+
 	this.push = function(node)
 	{
 		this.refStack.push(node);
@@ -402,6 +504,23 @@ function FuncInput(type, source)
 		this.refStack[this.lastIndex].set(val, rootAndPath);
 		this.dirtyCounter--;
 	}
+
+	this.update = function(val, tick)
+	{
+		if(val == null)
+		{
+			if(this.lastIndex < this.refStack.length)
+			{
+				return this.refStack[this.lastIndex].update(val, tick);
+			}
+			return this.stack[this.lastIndex];
+		}
+	}
+
+	this.getMinMaxTick = function(path)
+	{
+		return this.refStack[this.lastIndex].getMinMaxTick(path);
+	}
 }
 
 function Closure(expr, nodes, genericTypeParams) 
@@ -469,11 +588,16 @@ function Closure(expr, nodes, genericTypeParams)
 function Cache(node) 
 {
 	this.node = node;
-	this.val = node.get();
+	var ret = this.node.update(null, 1000);
+	this.val = ret[0];
+	this.ticks = ret[1];
+	// this.val = node.get();
 	this.type = node.getType();
 	
 	this.node.addSink(this);
 	this.isDirty = false;
+
+	this.tick = globalTick;
 
 	var type = node.getType();
 	var baseType = getBaseType(type);
@@ -505,10 +629,14 @@ function Cache(node)
 	{
 		if(this.isDirty)
 		{
-			this.val = this.node.get();
+			// this.val = this.node.get();
+			var res = this.node.update([this.val, this.ticks], globalTick);
+			this.val = res[0];
+			this.ticks = res[1];
 			this.isDirty = false;
 		}
-		return this.val;
+		this.tick = globalTick;
+		return this.val;		
 	};
 
 	this.dirty = function()
@@ -694,6 +822,16 @@ function Merge(what, matchesGraph, nodes)
 	}
 }
 
+function cartesianProductOf(arrays) {
+	return _.reduce(arrays, function(a, b) {
+		return _.flatten(_.map(a, function(x) {
+			return _.map(b, function(y) {
+				return x.concat([y]);
+			});
+		}), true);
+	}, [ [] ]);
+};
+
 function Comprehension(nodeGraph, externNodes)
 {
 	this.nodes = {};
@@ -816,16 +954,6 @@ function Comprehension(nodeGraph, externNodes)
 		// var filteredArray = this.array.get();
 		var arrays = _.map(this.arrays, function(array){return array.get()});
 		
-		function cartesianProductOf(arrays) {
-				return _.reduce(arrays, function(a, b) {
-					return _.flatten(_.map(a, function(x) {
-						return _.map(b, function(y) {
-							return x.concat([y]);
-						});
-					}), true);
-				}, [ [] ]);
-			};
-			
 		// Le produit cartesien des indices
 		var indicesArray = cartesianProductOf(_.map(arrays, function(array)
 		{
@@ -914,6 +1042,7 @@ function Comprehension(nodeGraph, externNodes)
 					if(inputs[arrayIndex] != undefined)
 					{
 						inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+						// inputs[arrayIndex].push(new ArrayAccess(this.arrays[arrayIndex], i));
 					} else
 					{
 						_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
@@ -948,7 +1077,9 @@ function Comprehension(nodeGraph, externNodes)
 					ret.__refs = inputs.concat(ret.__refs);
 					ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
 					{
-						return new ArrayAccess(this.arrays[arrayIndex], i);
+						var ret = new ArrayAccess(this.arrays[arrayIndex], i);
+						// var test = ret.getPath();
+						return ret;
 					}, this).concat(ret.__referencedNodes);
 				} 
 				// else if(funcRef)
@@ -994,43 +1125,434 @@ function Comprehension(nodeGraph, externNodes)
 	};
 	
 	// TODO ameliorer
-	this.update = function(v)
+	this.update = function(valTicks, tick)
 	{
-		var filteredArray = this.array.get();
-		if(when != undefined)
-		{
-			filteredArray = filteredArray.filter(function(item,i){
-				if(index != undefined)
-				{
-					index.signal(i);
-				}
-				input.signal(item);
-				return when.get();
-			});
-		};
-		if(filteredArray.length == this.outputList.length)
-		{
-			for(var i = 0; i < this.outputList.length; i++)
+		if(valTicks == null)
+		{			
+			var arrays = _.map(this.arrays, function(array){return array.get();});
+			
+			// Le produit cartesien des indices
+			var indicesArray = cartesianProductOf(_.map(arrays, function(array)
 			{
-				if(index != undefined)
+				return _.range(array.length);
+			}));
+			if(when != undefined)
+			{
+				this.outputList = [];
+				_.each(indicesArray, function(indices)
 				{
-					index.signal(i);
-				}
-				input.signal(filteredArray[i]);
-				this.outputList[i] = expr.val.update(this.outputList[i]);
-			}			
-		} else
-		{
-			this.outputList = filteredArray.map(function(item, i) {
-				if(index != undefined)
+					var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
+				
+					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					{
+						if(comprehensionIndices[arrayIndex] != undefined)
+						{
+							comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+						}
+						if(inputs[arrayIndex] != undefined)
+						{
+							inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+						} else
+						{
+							_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+								{
+									input.set(tuple[arrayIndex][tupleIndex]);
+								});
+						}
+					}
+					
+					if(when.get())
+					{
+						var ret = expr.get();
+						this.outputList.push(ret);
+					}
+
+					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					{
+						if(comprehensionIndices[arrayIndex] != undefined)
+						{
+							comprehensionIndices[arrayIndex].popVal();
+						}
+						if(inputs[arrayIndex] != undefined)
+						{
+							inputs[arrayIndex].popVal();
+						} else
+						{
+							// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+							// 	{
+							// 		input.set(tuple[arrayIndex][tupleIndex]);
+							// 	});
+						}
+					}
+				}, this);
+			}
+			else
+			{
+				var vals = new Array(indicesArray.length);
+				var ticks = new Array(indicesArray.length);
+				_.each(indicesArray, function(indices, i) 
 				{
-					index.signal(i);
-				}
-				input.signal(item);
-				return expr.val.get();
-			});
+					var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
+				
+					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					{
+						if(comprehensionIndices[arrayIndex] != undefined)
+						{
+							comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+						}
+						if(inputs[arrayIndex] != undefined)
+						{
+							inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+							// inputs[arrayIndex].push(new ArrayAccess(this.arrays[arrayIndex], i));
+						} else
+						{
+							_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+								{
+									input.set(tuple[arrayIndex][tupleIndex]);
+								});
+						}
+					}
+
+					var pair = expr.update(null, tick);
+					var ret = pair[0];
+					if(hasConnections)
+					{
+						ret.__referencedNodes = [];
+						// _.each(signalsList, function(signals)
+						// {
+						// 	signals.__referencedNodes = [];
+						// })
+						ret.__refs = inputs;
+						_.each(this.arrays, function(array)
+						{
+							var aa = new ArrayAccess(array, i);
+							ret.__referencedNodes.push(aa);
+							
+						}, this);
+					} 
+					else  if(funcRef)
+					{
+						ret.__refs = inputs.concat(ret.__refs);
+						ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
+						{
+							var ret = new ArrayAccess(this.arrays[arrayIndex], i);
+							// var test = ret.getPath();
+							return ret;
+						}, this).concat(ret.__referencedNodes);
+					} 				
+
+					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					{
+						if(comprehensionIndices[arrayIndex] != undefined)
+						{
+							comprehensionIndices[arrayIndex].popVal();
+						}
+						if(inputs[arrayIndex] != undefined)
+						{
+							inputs[arrayIndex].popVal();
+						} else
+						{
+							// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+							// 	{
+							// 		input.set(tuple[arrayIndex][tupleIndex]);
+							// 	});
+						}
+					}
+					vals[i] = ret;
+					ticks[i] = pair[1];
+				}, this);
+			}
+			return mValTick(vals, ticks);
 		}
-		return this.outputList;
+		else
+		{	
+			var maxTicks = 0, maxOfMinTicks = 0;
+			_.each(this.arrays, function(array){
+				var arrayMinMaxTicks = array.getMinMaxTick([]);
+				maxTicks = Math.max(maxTicks, arrayMinMaxTicks[0]);
+				maxOfMinTicks = Math.max(maxOfMinTicks, arrayMinMaxTicks[1]);
+			});
+
+			// No array has been updated after value
+			if(valTicks[1].tick >= maxTicks)
+				return valTicks;
+
+			// Parts of array have changed after value, but arrays size didn't
+			if(valTicks[1].tick >= maxOfMinTicks)
+			{
+				var arrays = _.map(this.arrays, function(array){return array.get();});
+					
+				// Le produit cartesien des indices
+				var indicesArray = cartesianProductOf(_.map(arrays, function(array)
+				{
+					return _.range(array.length);
+				}));
+				if(when != undefined)
+				{
+					this.outputList = [];
+					_.each(indicesArray, function(indices)
+					{
+						var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
+					
+						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+						{
+							if(comprehensionIndices[arrayIndex] != undefined)
+							{
+								comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+							}
+							if(inputs[arrayIndex] != undefined)
+							{
+								inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+							} else
+							{
+								_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+									{
+										input.set(tuple[arrayIndex][tupleIndex]);
+									});
+							}
+						}
+						
+						if(when.get())
+						{
+							var ret = expr.get();
+							this.outputList.push(ret);
+						}
+
+						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+						{
+							if(comprehensionIndices[arrayIndex] != undefined)
+							{
+								comprehensionIndices[arrayIndex].popVal();
+							}
+							if(inputs[arrayIndex] != undefined)
+							{
+								inputs[arrayIndex].popVal();
+							} else
+							{
+								// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+								// 	{
+								// 		input.set(tuple[arrayIndex][tupleIndex]);
+								// 	});
+							}
+						}
+					}, this);
+				}
+				else
+				{
+					var vals = valTicks[0];
+					var ticks = valTicks[1];
+					_.each(indicesArray, function(indices, i) 
+					{
+						var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
+					
+						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+						{
+							if(comprehensionIndices[arrayIndex] != undefined)
+							{
+								comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+							}
+							if(inputs[arrayIndex] != undefined)
+							{
+								inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+								// inputs[arrayIndex].push(new ArrayAccess(this.arrays[arrayIndex], i));
+							} else
+							{
+								_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+									{
+										input.set(tuple[arrayIndex][tupleIndex]);
+									});
+							}
+						}
+
+						var pair = expr.update([vals[i], valTicks[i]], tick);
+						var ret = pair[0];
+						if(hasConnections)
+						{
+							ret.__referencedNodes = [];
+							// _.each(signalsList, function(signals)
+							// {
+							// 	signals.__referencedNodes = [];
+							// })
+							ret.__refs = inputs;
+							_.each(this.arrays, function(array)
+							{
+								var aa = new ArrayAccess(array, i);
+								ret.__referencedNodes.push(aa);
+								
+							}, this);
+						} 
+						else  if(funcRef)
+						{
+							ret.__refs = inputs.concat(ret.__refs);
+							ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
+							{
+								var ret = new ArrayAccess(this.arrays[arrayIndex], i);
+								// var test = ret.getPath();
+								return ret;
+							}, this).concat(ret.__referencedNodes);
+						} 				
+
+						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+						{
+							if(comprehensionIndices[arrayIndex] != undefined)
+							{
+								comprehensionIndices[arrayIndex].popVal();
+							}
+							if(inputs[arrayIndex] != undefined)
+							{
+								inputs[arrayIndex].popVal();
+							} else
+							{
+								// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+								// 	{
+								// 		input.set(tuple[arrayIndex][tupleIndex]);
+								// 	});
+							}
+						}
+						vals[i] = ret;
+						ticks[i] = pair[1];
+					}, this);
+				}
+				return mValTick(vals, ticks);
+			}
+			else
+			{
+				var arrays = _.map(this.arrays, function(array){return array.get();});
+				
+				// Le produit cartesien des indices
+				var indicesArray = cartesianProductOf(_.map(arrays, function(array)
+				{
+					return _.range(array.length);
+				}));
+				if(when != undefined)
+				{
+					this.outputList = [];
+					_.each(indicesArray, function(indices)
+					{
+						var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
+					
+						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+						{
+							if(comprehensionIndices[arrayIndex] != undefined)
+							{
+								comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+							}
+							if(inputs[arrayIndex] != undefined)
+							{
+								inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+							} else
+							{
+								_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+									{
+										input.set(tuple[arrayIndex][tupleIndex]);
+									});
+							}
+						}
+						
+						if(when.get())
+						{
+							var ret = expr.get();
+							this.outputList.push(ret);
+						}
+
+						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+						{
+							if(comprehensionIndices[arrayIndex] != undefined)
+							{
+								comprehensionIndices[arrayIndex].popVal();
+							}
+							if(inputs[arrayIndex] != undefined)
+							{
+								inputs[arrayIndex].popVal();
+							} else
+							{
+								// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+								// 	{
+								// 		input.set(tuple[arrayIndex][tupleIndex]);
+								// 	});
+							}
+						}
+					}, this);
+				}
+				else
+				{
+					var vals = new Array(indicesArray.length);
+					var ticks = new Array(indicesArray.length);
+					_.each(indicesArray, function(indices, i) 
+					{
+						var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
+					
+						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+						{
+							if(comprehensionIndices[arrayIndex] != undefined)
+							{
+								comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+							}
+							if(inputs[arrayIndex] != undefined)
+							{
+								inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+								// inputs[arrayIndex].push(new ArrayAccess(this.arrays[arrayIndex], i));
+							} else
+							{
+								_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+									{
+										input.set(tuple[arrayIndex][tupleIndex]);
+									});
+							}
+						}
+
+						var pair = expr.update(null, tick);
+						var ret = pair[0];
+						if(hasConnections)
+						{
+							ret.__referencedNodes = [];
+							// _.each(signalsList, function(signals)
+							// {
+							// 	signals.__referencedNodes = [];
+							// })
+							ret.__refs = inputs;
+							_.each(this.arrays, function(array)
+							{
+								var aa = new ArrayAccess(array, i);
+								ret.__referencedNodes.push(aa);
+								
+							}, this);
+						} 
+						else  if(funcRef)
+						{
+							ret.__refs = inputs.concat(ret.__refs);
+							ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
+							{
+								var ret = new ArrayAccess(this.arrays[arrayIndex], i);
+								// var test = ret.getPath();
+								return ret;
+							}, this).concat(ret.__referencedNodes);
+						} 				
+
+						for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+						{
+							if(comprehensionIndices[arrayIndex] != undefined)
+							{
+								comprehensionIndices[arrayIndex].popVal();
+							}
+							if(inputs[arrayIndex] != undefined)
+							{
+								inputs[arrayIndex].popVal();
+							} else
+							{
+								// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
+								// 	{
+								// 		input.set(tuple[arrayIndex][tupleIndex]);
+								// 	});
+							}
+						}
+						vals[i] = ret;
+						ticks[i] = pair[1];
+					}, this);
+				}
+				return mValTick(vals, ticks);
+			}
+		}
 	};
 	
 	this.getType = function(path)
@@ -1181,6 +1703,7 @@ function StructAccess(node, path) {
 	var operators = typeObj.operators;
 	this.getPathOperator = operators.getPath;
 	this.setPathOperator = operators.setPath;
+	this.updateOperator = operators.update;
 	
 	var fields = typeObj.fields;
 	try
@@ -1232,6 +1755,11 @@ function StructAccess(node, path) {
 		}
 		currentPath = currentPath.slice(0, -this.path.length);
 	};
+
+	this.getPath = function()
+	{
+		return this.node.getPath().concat(this.path);
+	}
 	
 	this.signal = function(signal, params, rootAndPath)
 	{
@@ -1260,6 +1788,29 @@ function StructAccess(node, path) {
 	{
 		this.node.addSink(sink);
 	};
+
+	this.update = function(val, tick)
+	{
+		if(val == null)
+		{
+			var val = this.node.update(null, tick);
+			// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
+			// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
+			// et meme changer au cours du temps
+			if(_.isObject(val) && "__type" in val)
+			//if(true)
+			{
+				var operators = library.nodes[typeToCompactString(val.__type)].operators;
+				this.getPathOperator = operators.getPath;
+			}
+			return this.getPathOperator(val, this.path);
+		}
+	}
+
+	this.getMinMaxTick = function(path)
+	{
+		return this.node.getMinMaxTick(this.path.concat(path));
+	}
 }
 
 function ArrayAccess(node, index) {
@@ -1310,6 +1861,11 @@ function ArrayAccess(node, index) {
 		var array = this.node.get();
 		array[this.index] = val;
 		this.node.dirty([this.index]);
+	}
+
+	this.getPath = function()
+	{
+		return this.node.getPath().concat(this.index);
 	}
 }
 
@@ -1748,7 +2304,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					var match = this.cases[i];
 					if(sameTypes(type,  match.type))
 					{
-						match.matchStore.pushVal(val);
+						match.matchStore.push(this.what);
 						var ret = match.val.get();
 						if(match.hasConnections)
 						{
@@ -1785,6 +2341,55 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		
 				return ret;
 				// TODO Error				
+			}
+
+			this.update = function(upVal, tick)
+			{
+				if(upVal == null)
+				{
+					var val = this.what.get();
+					var type = val.__type;
+					for(var i = 0; i < this.cases.length - 1; i++)
+					{
+						var match = this.cases[i];
+						if(sameTypes(type,  match.type))
+						{
+							match.matchStore.push(this.what);
+							var ret = match.val.update(null, tick);
+							if(match.hasConnections)
+							{
+								ret[0].__referencedNodes = [this.what];
+								ret[0].__refs = [match.matchStore];
+							} 
+							else  if(match.funcRef)
+							{
+								ret[0].__refs = [match.matchStore].concat(ret.__refs);
+								ret[0].__referencedNodes = [this.what].concat(ret.__referencedNodes);
+							} 
+							match.matchStore.popVal();
+							return ret;
+						}
+					}
+					// else case
+					var match = this.cases[i];
+					match.matchStore.pushVal(val);
+
+					var ret = match.val.update(null, tick);
+
+					if(match.hasConnections)
+					{
+						ret[0].__referencedNodes = [this.what];
+						ret[0].__refs = [match.matchStore];
+					} 
+					else  if(match.funcRef)
+					{
+						ret[0].__refs = [match.matchStore].concat(ret.__refs);
+						ret[0].__referencedNodes = [this.what].concat(ret.__referencedNodes);
+					} 
+			
+					match.matchStore.popVal();
+					return ret;
+				}
 			}
 			
 			this.getType = function()
@@ -2772,6 +3377,44 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				});
 				//return this.fields;
 			};	
+			this.update = function(valTicks, tick)
+			{
+				if(valTicks == null)
+				{
+					var fields = {};
+					var ticks = {};
+					_.each(this.fields, function(field, key){
+						// TODO : ameliorer
+						if((key == "__type") || (key == "__signals"))
+						{
+							fields[key] = field;
+						}
+						else
+						{
+							var ret = field.update(null, tick);
+							fields[key] = ret[0];
+							ticks[key] = ret[1];
+						}
+					});
+					return mValTick(fields, ticks);
+				}
+				else
+				{
+					var fieldsVal = valTicks[0];
+					var ticks = valTicks[1].subs;
+					_.each(this.fields, function(field, key){
+						// TODO : ameliorer
+						if((key != "__type") && (key != "__signals"))
+						{
+							 var res = field.update([fieldsVal[key], ticks[key]]);
+							 fieldsVal[key] = res[0];
+							 ticks[key] = res[1];
+						}
+					});
+					valTicks[1].tick = globalTick;
+					return valTicks;
+				}
+			}
 			this.getType = function()
 			{
 				return type;
@@ -2834,6 +3477,23 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					var subPath = path.slice(0);
 					var key = subPath.shift();
 					fieldsOperators[key].setPath(struct[key], subPath, val);
+				}
+			},
+			update : function(struct, path, tick)
+			{
+				if(struct == null)
+				{
+					if(path.length == 1)
+					{
+						// return struct[path[0]].get();
+						return fieldsOperators[path[0]].update(null, tick);
+					}
+					else
+					{
+						var subPath = path.slice(0);
+						var key = subPath.shift();
+						return fieldsOperators[key].update(null, subPath, tick);
+					}
 				}
 			},
 			slots : {},
@@ -3124,6 +3784,34 @@ function FunctionInstance(classGraph)
 		}, this);
 		
 		return result;
+	};	
+
+	this.update = function(valTicks, tick, paramNodes) 
+	{	
+		_.each(paramNodes, function(node, i)
+		{
+			this.inputNodes[i].push(node);
+		}, this);
+		
+		var res = this.expr.update(valTicks, tick);
+		var val = res[0];
+		
+		if(!("__referencedNodes" in val))
+		{
+			val.__referencedNodes = paramNodes.slice(0);
+			val.__refs = this.__refs.slice(0);
+		} else
+		{
+			val.__referencedNodes = paramNodes.concat(val.__referencedNodes);
+			val.__refs = this.__refs.concat(val.__refs);
+		}
+
+		_.each(paramNodes, function(node, i)
+		{
+			this.inputNodes[i].pop();
+		}, this);
+		
+		return [val, res[1]];
 	};
 }
 

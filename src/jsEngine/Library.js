@@ -4,6 +4,11 @@ function check(test, str)
 		throw "Compilation error. " + str;
 }
 
+function mValTick(val, subs)
+{
+	return [val, {tick : globalTick, subs : subs}];
+}
+
 function typeToString(type)
 {
 	var baseType = getBaseType(type);
@@ -1316,6 +1321,8 @@ function cloneAndLink(obj, nodes)
 	return obj;
 }
 
+var globalTick = 0;
+
 function FunctionNode(func)
 {
 	this.fields = func.params;
@@ -1355,7 +1362,34 @@ function FunctionNode(func)
 				var ret = func.func(params.map(function(param){return param.get();}));
 			}
 			
+			this.tick = globalTick;
 			return ret;
+		};
+		this.update = function(valTicks, tick)
+		{
+			if(valTicks == null)
+			{
+				if("hasRef" in func)
+				{
+					var ret = func.update(valTicks, tick, params);					
+				}
+				else
+				{
+					var ret = func.func(params.map(function(param){return param.get();}));
+				}
+				return ret;
+			} else
+			{
+				if("hasRef" in func)
+				{
+					var ret = func.update(valTicks, tick, params);					
+				}
+				else
+				{
+					var ret = func.func(params.map(function(param){return param.get();}));
+				}
+				return ret;
+			}
 		};
 		this.getType = function()
 		{
@@ -1412,6 +1446,10 @@ var nodes =
 			signal : function()
 			{
 				// TODO
+			},
+			update : function(val, tick)
+			{
+
 			}
 		}
 	},

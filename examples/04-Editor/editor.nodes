@@ -88,19 +88,22 @@ functions:
 	ref txtIn(string txtNode)
 		TextInput(txtNode, set => txtNode = text)
 	matchFuncStr(string str)
-		findAllMatches(re("(\D(?:\w*))\(([^)]*)\)"), str)
+		findAllMatches(re("(\\D(?:\\w*))\\(([^)]*)\\)"), str)
+	matchNewFuncStr(string str)
+		findAllMatches(re("(\\D(?:\\w*))\\("), str)
 	getOrElse<T>(Maybe<T> m, T y)
 		type m :
 			Just<T> : m.x
 			_ :  y
 	strToExpr(string str)
 		let :
-			funcMatch = maybeAt(matchFuncStr(str), 0)
-			intMatch = maybeAt(findAllMatches(re("^(\d.*)$"), str), 0)
+			funcMatch = maybeAt(matchNewFuncStr(str), 0)
+			intMatch = maybeAt(findAllMatches(re("^(\\d.*)$"), str), 0)
 			strMatch = maybeAt(findAllMatches(re("^\"(.*)$"), str), 0)
 		in 
 			type funcMatch :
-				Just<regmatch> : Func(group1(funcMatch.x), [Ref([param]) for param in split(group2(funcMatch.x), ",")])
+				# Just<regmatch> : Func(group1(funcMatch.x), [Ref([param]) for param in split(group2(funcMatch.x), ",")])
+				Just<regmatch> : Func(group1(funcMatch.x), [])
 				_ :  type intMatch :
 					Just<regMatch> : IntExpr(strToInt(group1(intMatch.x)))
 					_ :  type strMatch :
@@ -110,7 +113,19 @@ functions:
 		type expr :
 			Func : HGroup
 				([
-					txtIn(expr.type),
+					VGroup
+					([
+						txtIn(expr.type),
+						TextInput
+						(
+							"",
+							set => expr.params = pushBack
+							(
+								expr.params,
+								strToExpr(text)
+							)
+						)
+					]),
 					VGroup
 					([
 						exprToUi(param)
@@ -188,7 +203,7 @@ nodes:
 		)
 	cache ui = progToUi(program)
 	def uiView = UiView(ui)
-	def uiView2 = UiView(progToUi(program))
+	# def uiView2 = UiView(ui)
 actions :
 	# tick :
 	# 	program = program \ functions = pushFront(program.functions, FuncDef("fun2"))

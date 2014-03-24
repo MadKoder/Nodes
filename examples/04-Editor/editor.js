@@ -90,6 +90,7 @@ localNodes =
 		"builder" : function(fields) 
 		{	
 			var ui = fields.ui;
+			this.index = mainUiIndex;
 			var $ui = $("#ui" + mainUiIndex);
 			mainUiIndex++;	
 
@@ -98,7 +99,8 @@ localNodes =
 			this.dirty = function()
 			{
 				$ui.empty();
-				buildUi(ui.get(), $ui, "", [], ui);
+				var uiVal = ui.get();
+				buildUi(uiVal, $ui, "", [], ui);
 			}
 
 			this.dirty();
@@ -191,6 +193,7 @@ $.get("editor.nodes", function( text ) {
 						}),
 					buildExpr(func.out.val)
 				]));
+				globalTick++;
 				prog.dirty([]);
 			}
 		});
