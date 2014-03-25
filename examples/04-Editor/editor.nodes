@@ -203,7 +203,7 @@ nodes:
 		)
 	cache ui = progToUi(program)
 	def uiView = UiView(ui)
-	# def uiView2 = UiView(ui)
+	def uiView2 = UiView(ui)
 actions :
 	# tick :
 	# 	program = program \ functions = pushFront(program.functions, FuncDef("fun2"))

@@ -1125,22 +1125,43 @@ var functions =
 		},		
 		build : function(templates)
 		{
-			return {
-				params : [["function" , inOut1(templates[0], mListType(templates[1]))], ["list" , mListType(templates[0])]],
-				func : function(params) 
+			function instance(templates)
+			{
+				this.params = [["function" , inOut1(templates[0], mListType(templates[1]))], ["list" , mListType(templates[0])]];
+				this.needsNodes = true;
+				this.arrayInput = new FuncInput(mListType(templates[0]));
+				this.arrayAccess = new ArrayAccess(this.arrayInput);
+				this.func = function(params) 
 				{	
-					var funcInstance = params[0];
-					return _(params[1]).map(function(val)
+					var funcInstance = params[0].get();
+					var array = params[1];
+					var arrayAccess = new ArrayAccess(array);
+					return _(array.get()).map(function(val, i)
 					{
+						arrayAccess.push(i);
+
 						// Il faut appeler funcInstance.func pour conserver le "this",
 						// et non pas cacher la methode func puis l'appeler seule
-						return funcInstance.func([val]);
+						if("needsNodes" in funcInstance)
+						{
+							var ret = funcInstance.func([arrayAccess]);
+						}
+						else
+						{
+							var ret = funcInstance.func([arrayAccess.get()]);
+						}
+
+
+						arrayAccess.pop();
+
+						return ret;
 					})
 					.flatten(true).value();
-				},
-				type : mListType(templates[1]),
-				templates : templates
+				};
+				this.type = mListType(templates[1]);
+				this.templates = templates;
 			}
+			return new instance(templates)
 		}
 	},
 	"reduce" : { // Use first element of list as starting accumulator
@@ -1213,25 +1234,48 @@ var functions =
 		},
 		build : function(templates)
 		{
-			return {
-				params : [["list" , mListType(templates[0])], ["item" , templates[0]], ["function" , inOut2(templates[0], templates[0], "bool")]],
-				func : function(params) 
+			function instance(templates)
+			{
+				this.params = [["list" , mListType(templates[0])], ["item" , templates[0]], ["function" , inOut2(templates[0], templates[0], "bool")]];
+				this.needsNodes = true;
+				this.arrayInput = new FuncInput(mListType(templates[0]));
+				this.arrayAccess = new ArrayAccess(this.arrayInput);
+				this.func = function(params) 
 				{	
 					var array = params[0];
+					var arrayLength = array.get().length;
+					this.arrayInput.push(array);
 					var val = params[1];
-					var funcInstance = params[2];
-					for(var i = 0; i < array.length; i++)
+					var funcInstance = params[2].get();
+					for(var i = 0; i < arrayLength; i++)
 					{
 						// Il faut appeler funcInstance.func pour conserver le "this",
 						// et non pas cacher la methode func puis l'appeler seule
-						if(funcInstance.func([array[i], val]))
+						this.arrayAccess.push(i);
+						if("needsNodes" in funcInstance)
+						{
+							var res = funcInstance.func([this.arrayAccess, val]);
+						}
+						else
+						{
+							var res = funcInstance.func([this.arrayAccess.get(), val.get()]);
+						}
+						
+						if(res)
+						{
+							this.arrayAccess.pop();
+							this.arrayInput.pop();
 							return true;
+						}
+						this.arrayAccess.pop();
 					}
+					this.arrayInput.pop();							
 					return false;
-				},
-				type : "bool",
-				templates : templates
+				};
+				this.type = "bool",
+				this.templates = templates;
 			}
+			return new instance(templates);
 		}
 	},
 	"merge" :
@@ -1267,60 +1311,6 @@ var functions =
 	}
 };
 
-function cloneAndLink(obj, nodes)
-{
-	if(_.isFunction(obj))
-	{
-		return obj;
-	} 
-	if(_.isArray(obj))
-	{
-		return _.map(obj, function(elem)
-		{
-			return cloneAndLink(elem, nodes);
-		});
-	} 
-	
-	if(_.isObject(obj))
-	{
-		return _.mapValues(obj, function(val, key, obj)
-		{
-			if(key == "slots")
-			{
-				return _.map(val, function(slot, i)
-				{
-					if("__promise" in slot)
-					{
-						var promise = slot.__promise;
-						var node = nodes[promise[0]];
-						if("getRef" in node)
-						{
-							node = node.getRef();
-						}
-						if(promise.length == 1)
-						{
-							return node;
-						}
-						
-						var subPath = promise.slice(1);
-						return new StructAccess(node, subPath);
-					}
-					return slot;
-				});
-			} 
-			
-			if(key == "param")
-			{
-				return val;
-			}
-
-			return cloneAndLink(val, nodes);
-		});
-	}
-
-	return obj;
-}
-
 var globalTick = 0;
 
 function FunctionNode(func)
@@ -1345,16 +1335,18 @@ function FunctionNode(func)
 				field.setTemplateParams(func.templates);
 			}
 		}, this);
-		this.get = function(dontLink)
+		this.get = function()
 		{
-			if("hasRef" in func)
+			if("needsNodes" in func)
 			{
-				var ret = func.funcRef(params);	
-				// if(func.hasConnections && (dontLink == undefined))
-				// if(dontLink == undefined)
-				if(false)
+				if("hasRef" in func)
 				{
-					return cloneAndLink(ret, fields);
+					var ret = func.funcRef(params);					
+				}
+				else
+				{
+					// var ret = func.func(params.map(function(param){return param.get();}));
+					var ret = func.func(params);
 				}
 			}
 			else
@@ -1364,6 +1356,15 @@ function FunctionNode(func)
 			
 			this.tick = globalTick;
 			return ret;
+		};
+		this.getPath = function(path)
+		{
+			// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
+			// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
+			// et meme changer au cours du temps
+			var val = this.get();
+			var operators = library.nodes[typeToCompactString(val.__type)].operators;
+			return operators.getPath(val, path);
 		};
 		this.update = function(val, ticks, parentTick)
 		{
@@ -1610,18 +1611,23 @@ var nodes =
 					},
 					signalOperator : instanceTypeOperators ? instanceTypeOperators.signal : null,
 					instanceType : subBaseType,
+					arrayAccess : new ArrayAccess(undefined, mListType(subType)),
 					signal : function(list, sig, params, path, rootAndPath)
 					{
+						this.arrayAccess.node = list;
 						if(!path || path.length == 0)
 						{
 							if(sig == "foreach")
 							{
 								var subParams  = params.slice(0);
 								var iteratedSignal = subParams.shift();
-								_.each(list, function(item, index) 
+								var listVal = list.get();
+								_.each(listVal, function(item, index) 
 								{
 									currentPath.push(index);
-									instanceTypeOperators.signal(item, iteratedSignal, subParams, [], {root : rootAndPath.root, path : rootAndPath.path.concat([index])});
+									this.arrayAccess.push(index);
+									instanceTypeOperators.signal(this.arrayAccess, iteratedSignal, subParams, [], {root : rootAndPath.root, path : rootAndPath.path.concat([index])});
+									this.arrayAccess.pop();
 									currentPath.pop();
 								}, this);
 							} else
@@ -1633,7 +1639,9 @@ var nodes =
 						{
 							var subPath = path.slice(0);
 							var index = subPath.shift();
-							instanceTypeOperators.signal(list[index], sig, params, subPath);
+							this.arrayAccess.push(index);
+							instanceTypeOperators.signal(this.arrayAccess, sig, params, subPath);
+							this.arrayAccess.pop();
 						}
 						
 					}

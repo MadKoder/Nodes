@@ -261,7 +261,8 @@ function Store(v, type)
 	this.signal = function(signal, params, path)
 	{
 		var rootAndPath = {root : this, path : []};
-		operators.signal(this.val, signal, params, path, rootAndPath);
+		// operators.signal(this.val, signal, params, path, rootAndPath);
+		operators.signal(this, signal, params, path, rootAndPath);
 		// this.dirty();
 	};
 	
@@ -295,9 +296,22 @@ function Store(v, type)
 		return this.type;
 	}
 
-	this.getPath = function()
+	this.getPath = function(path)
 	{
-		return [];
+		function getPath(struct, path)
+		{
+			if(path.length == 1)
+			{
+				return struct[path[0]];
+			}
+			else
+			{
+				var subPath = path.slice(0);
+				var key = subPath.shift();
+				return getPath(struct[key], subPath);
+			}
+		}
+		return getPath(this.val, path);
 	}
 
 	this.update = function(val, ticks, parentTick)
@@ -384,15 +398,14 @@ function FuncInput(type, source)
 {
 	this.stack = [];
 	this.refStack = [];
+	this.savedStack = [];
 	this.type = type;
-	this.lastIndex = -1;
 	
 	// DEBUG
 	this.id = storeId;
 	storeId++;
 
 	this.source = source;
-	this.dirtyCounter = -1;
 	
 	if(type != null)
 	{
@@ -411,76 +424,80 @@ function FuncInput(type, source)
 	
 	this.get = function()
 	{
-		return this.stack[this.lastIndex];
+		return this.stack[this.stack.length - 1];
 	};
 
 	this.getRef = function()
 	{
-		return this.refStack[this.lastIndex];
+		return this.refStack[this.refStacklength - 1];
 	}
 
-	this.getPath = function()
+	this.getPath = function(path)
 	{
-		this.dirtyCounter++;
-		var ret = this.refStack[this.lastIndex - this.dirtyCounter].getPath();
-		this.dirtyCounter--;
-		return ret;
+		var ref = this.refStack.pop();
+		this.savedStack.push(ref);
+		
+		var ret = ref.getPath(path);
+		
+		this.refStack.push(this.savedStack.pop());
+
+		return ret;		
 	}
 
 	this.push = function(node)
 	{
-		this.refStack.push(node);
 		var res = node.get();
+		this.refStack.push(node);
 		this.stack.push(res);
-		this.lastIndex++;
 	};
 	
 	this.pop = function()
 	{
 		this.refStack.pop();
 		this.stack.pop();
-		this.lastIndex--;
 	}
 
 	this.pushRef = function(node)
 	{
 		this.refStack.push(node);
-		this.lastIndex++;
 	};
 	
 	this.popRef = function()
 	{
 		this.refStack.pop();
-		this.lastIndex--;
 	}
 
 	this.pushVal = function(val)
 	{
 		this.stack.push(val);
-		this.lastIndex++;
 	};
 	
 	this.popVal = function()
 	{
 		this.stack.pop();
-		this.lastIndex--;
 	}
 
 	this.pushOperators = function(operators)
 	{
 		this.operatorStack.push(operators);
-		this.lastOperatorIndex++;
 	}
 	
 	this.popOperators = function()
 	{
 		this.operatorStack.pop();
-		this.lastOperatorIndex--;
 	}
 	
 	this.signal = function(signal, params, path, rootAndPath)
 	{
-		this.operatorStack[this.lastOperatorIndex].signal(this.get(), signal, params, path, rootAndPath);
+		var val = this.get();
+
+		var operator = this.operatorStack.pop();
+		this.savedStack.push(operator);
+
+		operator.signal(this, signal, params, path, rootAndPath);
+		
+		this.operatorStack.push(this.savedStack.pop());
+
 	};
 	
 	this.getType = function()
@@ -493,10 +510,12 @@ function FuncInput(type, source)
 		// Dirty counter is used with recursive calls
 		// If a FuncInput is pushed more than once in a recursive call
 		// Dirty message will go back through it multiple times, but must go to higher node each time
-		this.dirtyCounter++;
-		this.refStack[this.lastIndex - this.dirtyCounter].dirty(path);
-		// this.refStack[0].dirty(path);
-		this.dirtyCounter--;
+		var ref = this.refStack.pop();
+		this.savedStack.push(ref);
+
+		ref.dirty(path);
+		
+		this.refStack.push(this.savedStack.pop());
 	}
 
 	this.addSink = function(sink)
@@ -506,26 +525,39 @@ function FuncInput(type, source)
 
 	this.set = function(val, rootAndPath)
 	{
-		this.dirtyCounter++;
-		this.refStack[this.lastIndex].set(val, rootAndPath);
-		this.dirtyCounter--;
+		var ref = this.refStack.pop();
+		this.savedStack.push(ref);
+
+		ref.set(val, rootAndPath);
+		
+		this.refStack.push(this.savedStack.pop());
 	}
 
 	this.update = function(val, ticks, parentTick)
 	{
 		if(this.lastIndex < this.refStack.length)
 		{
-			return this.refStack[this.lastIndex].update(val, ticks, parentTick);
+			var ref = this.refStack.pop();
+			this.savedStack.push(ref);
+
+			return ref.update(val, ticks, parentTick);
+
+			this.refStack.push(this.savedStack.pop());
 		}
 		else
 		{
-			return mValTick(this.stack[this.lastIndex]);
+			return mValTick(this.stack[this.stack.length - 1]);
 		}
 	}
 
 	this.getMinMaxTick = function(path)
 	{
-		return this.refStack[this.lastIndex].getMinMaxTick(path);
+		var ref = this.refStack.pop();
+		this.savedStack.push(ref);
+
+		return ref.getMinMaxTick(path);
+
+		this.refStack.push(this.savedStack.pop());
 	}
 }
 
@@ -536,25 +568,31 @@ function Closure(expr, nodes, genericTypeParams)
 	{
 		return new SubStore(node.getType());
 	});
+	var localNodes = {};
 	var paramSpec = [];
 	var paramStores = _.map(expr.params, function(param, index)
 	{
-		var node = new SubStore(param.type);
-		this.nodesClosure[param.id] = node;
+		var node = new FuncInput(param.type);
+		localNodes[param.id] = node;
 		paramSpec.push(["param" + index.toString(), param.type]);
 		return node;
 	}, this);
 	
-	var expr = makeExpr(expr.closure, this.nodesClosure, genericTypeParams);
+	var localNodes = _.merge(localNodes, nodes);
+	var expr = makeExpr(expr.closure, localNodes, genericTypeParams);
 	
 	this.funcSpec = {
 		params : paramSpec,
 		func : function(params)	{	
 			_.each(params, function(param, index)
 			{
-				paramStores[index].set(param);
+				paramStores[index].push(param);
 			});
 			return expr.get();
+			_.each(params, function(param, index)
+			{
+				paramStores[index].pop();
+			});
 		},
 		type : expr.getType()
 	}
@@ -573,14 +611,14 @@ function Closure(expr, nodes, genericTypeParams)
 	
 	this.get = function()
 	{
-		_.each(this.nodesClosure, function(closure, key)
-		{
-			var node = this.nodes[key];
-			if(node)
-			{
-				closure.set(node.get());
-			}
-		}, this);
+		// _.each(this.nodesClosure, function(closure, key)
+		// {
+		// 	var node = this.nodes[key];
+		// 	if(node)
+		// 	{
+		// 		closure.set(node.get());
+		// 	}
+		// }, this);
 		return this.funcSpec;
 	};
 	
@@ -635,9 +673,10 @@ function Cache(node)
 		if(this.isDirty)
 		{
 			// this.val = this.node.get();
-			var res = this.node.update(this.val, this.ticks, this.ticks.tick);
-			this.val = res[0];
-			this.ticks = res[1];
+			// var res = this.node.update(this.val, this.ticks, this.ticks.tick);
+			// this.val = res[0];
+			// this.ticks = res[1];
+			this.val = this.node.get();
 			this.isDirty = false;
 		}
 		this.tick = globalTick;
@@ -848,6 +887,9 @@ function Comprehension(nodeGraph, externNodes)
 	var destructInputs = new Array(iterators.length);
 	var comprehensionIndices = new Array(iterators.length);
 
+	this.id = storeId;
+	storeId++;
+
 	// TODO replace SubStores by FuncInput (for reccursion)
 	// And cleanup SubStores of push, pop, dirty ...
 	_.forEach(iterators, function(iterator, index)
@@ -864,7 +906,7 @@ function Comprehension(nodeGraph, externNodes)
 		var inputGraph = iterator["for"];
 		if(_.isString(inputGraph))
 		{
-			inputs[index] = new FuncInput(inputTemplateType, exprAndType.val);
+			inputs[index] = new ArrayAccess(this.arrays[index]);
 			this.nodes[iterator["for"]] = inputs[index];
 		} else // destruct
 		{
@@ -905,44 +947,7 @@ function Comprehension(nodeGraph, externNodes)
 	// TODO only if connection in the expression, or function takes a ref
 	var hasConnections = false;
 	var funcRef = false;
-	var signalsList = [];
-	// if(connections.length > beforeConnectionsLength)
-	// {
-	// 	hasConnections = true;
-	// 	var newConnections = _.tail(connections, beforeConnectionsLength);
-	// 	this.__refs = [];
-	// 	// signals.__referencedNodes = [];
-	// 	var refNodes = {};
-	// 	_.each(inputs, function(node, i)
-	// 	{
-	// 		var nodeRef = new FuncInput(node.getType());
-	// 		this.__refs.push(nodeRef);
-	// 		refNodes[iterators[i]["for"]] = nodeRef;
-	// 	}, this)
-	// 	_.each(newConnections, function(nodeConnection)
-	// 	{
-	// 		var signals = nodeConnection.signals;
-	// 		signalsList.push(signals);
-	// 		var type = nodeConnection.type;
-	// 		var slots = library.nodes[type].operators.slots;
-	// 		_.each(nodeConnection.connections, function(connection)
-	// 		{
-	// 			var signals = nodeConnection.signals;
-				
-	// 			var mergedNodes = _.clone(externNodes);
-	// 			_.merge(mergedNodes, slots[connection.signal].localNodes);
-	// 			_.merge(mergedNodes, refNodes);
-
-	// 			var action = makeAction(connection.action, mergedNodes);
-	// 			signals[connection.signal].push(action);
-	// 		});
-	// 	});
-	// 	connections = _.head(connections, beforeConnectionsLength);
-	// }
-	// else if("func" in expr && "hasRef" in expr.func)
-	// {
-	// 	funcRef = true;
-	// }
+	var signalsList = [];	
 
 	if("func" in expr && "hasRef" in expr.func)
 	{
@@ -966,24 +971,6 @@ function Comprehension(nodeGraph, externNodes)
 		}));
 		if(when != undefined)
 		{
-			// filteredArray = filteredArray.filter(function(item,i){
-				// if(index != undefined)
-				// {
-					// index.signal(i);
-				// }
-				// if(input != null)
-				// {
-					// input.signal(item);
-				// } else
-				// {
-					// _(inputs).forEach(function(input, index)
-						// {
-							// input.signal(item[index]);
-						// });
-				// }
-				// return when.get();
-			// });
-			
 			this.outputList = [];
 			_.each(indicesArray, function(indices)
 			{
@@ -997,7 +984,7 @@ function Comprehension(nodeGraph, externNodes)
 					}
 					if(inputs[arrayIndex] != undefined)
 					{
-						inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+						inputs[arrayIndex].push(indices[arrayIndex]);
 					} else
 					{
 						_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
@@ -1021,7 +1008,7 @@ function Comprehension(nodeGraph, externNodes)
 					}
 					if(inputs[arrayIndex] != undefined)
 					{
-						inputs[arrayIndex].popVal();
+						inputs[arrayIndex].pop();
 					} else
 					{
 						// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
@@ -1046,7 +1033,7 @@ function Comprehension(nodeGraph, externNodes)
 					}
 					if(inputs[arrayIndex] != undefined)
 					{
-						inputs[arrayIndex].pushVal(tuple[arrayIndex]);
+						inputs[arrayIndex].push(indices[arrayIndex]);
 						// inputs[arrayIndex].push(new ArrayAccess(this.arrays[arrayIndex], i));
 					} else
 					{
@@ -1061,20 +1048,10 @@ function Comprehension(nodeGraph, externNodes)
 				if(hasConnections)
 				{
 					ret.__referencedNodes = [];
-					// _.each(signalsList, function(signals)
-					// {
-					// 	signals.__referencedNodes = [];
-					// })
 					ret.__refs = inputs;
 					_.each(this.arrays, function(array)
 					{
-						var aa = new ArrayAccess(array, i);
-						ret.__referencedNodes.push(aa);
-						
-						// _.each(signalsList, function(signals)
-						// {
-						// 	signals.__referencedNodes.push(aa);
-						// })
+						ret.__referencedNodes.push(i);
 					}, this);
 				} 
 				else  if(funcRef)
@@ -1082,29 +1059,9 @@ function Comprehension(nodeGraph, externNodes)
 					ret.__refs = inputs.concat(ret.__refs);
 					ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
 					{
-						var ret = new ArrayAccess(this.arrays[arrayIndex], i);
-						// var test = ret.getPath();
-						return ret;
+						return i;
 					}, this).concat(ret.__referencedNodes);
 				} 
-				// else if(funcRef)
-				// {
-				// 	ret.__refs = inputs.concat(ret.__refs);
-				// 	ret.__referencedNodes = _.map(inputs, function(input, i)
-				// 	{
-				// 		return new ArrayAccess(this.arrays[0], i);
-				// 	}, this).concat(ret.__referencedNodes);
-				// 	// _.each(ret.__referencedNodes, function(referencedNode, refIndex)
-				// 	// {
-				// 	// 	_.each(inputs, function(input)
-				// 	// 	{
-				// 	// 		if(referencedNode.id == input.id)
-				// 	// 		{
-				// 	// 			ret.__referencedNodes[refIndex] = new ArrayAccess(this.arrays[0], i);
-				// 	// 		}
-				// 	// 	}, this);
-				// 	// }, this)
-				// }
 
 				for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
 				{
@@ -1114,7 +1071,7 @@ function Comprehension(nodeGraph, externNodes)
 					}
 					if(inputs[arrayIndex] != undefined)
 					{
-						inputs[arrayIndex].popVal();
+						inputs[arrayIndex].pop();
 					} else
 					{
 						// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
@@ -1207,10 +1164,6 @@ function Comprehension(nodeGraph, externNodes)
 			else
 			{
 				var vals = upVal;
-				var inputArrayAccess = _.map(this.arrays, function(array)
-				{
-					return new ArrayAccess(array, 0);
-				});
 				_.each(indicesArray, function(indices, i) 
 				{
 					var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
@@ -1223,9 +1176,7 @@ function Comprehension(nodeGraph, externNodes)
 						}
 						if(inputs[arrayIndex] != undefined)
 						{
-							// inputs[arrayIndex].pushVal(tuple[arrayIndex]);
-							inputs[arrayIndex].push(inputArrayAccess[arrayIndex]);
-							inputArrayAccess[arrayIndex].index = indices[arrayIndex];
+							inputs[arrayIndex].push(indices[arrayIndex]);
 						} else
 						{
 							_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
@@ -1240,16 +1191,10 @@ function Comprehension(nodeGraph, externNodes)
 					if(hasConnections)
 					{
 						ret.__referencedNodes = [];
-						// _.each(signalsList, function(signals)
-						// {
-						// 	signals.__referencedNodes = [];
-						// })
 						ret.__refs = inputs;
 						_.each(this.arrays, function(array)
 						{
-							var aa = new ArrayAccess(array, i);
-							ret.__referencedNodes.push(aa);
-							
+							ret.__referencedNodes.push(i);
 						}, this);
 					} 
 					else  if(funcRef)
@@ -1257,11 +1202,9 @@ function Comprehension(nodeGraph, externNodes)
 						ret.__refs = inputs.concat(ret.__refs);
 						ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
 						{
-							var ret = new ArrayAccess(this.arrays[arrayIndex], i);
-							// var test = ret.getPath();
-							return ret;
+							return i;
 						}, this).concat(ret.__referencedNodes);
-					} 				
+					} 
 
 					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
 					{
@@ -1428,10 +1371,17 @@ function typeToCompactString(type)
 	return ret;
 }
 
-function StructAccess(node, path) {
+function StructAccess(node, path, val) {
     this.node = node;
     this.path = path;
-	var nodeType = node.getType();
+    if(val == undefined)
+    {
+		var nodeType = node.getType();	
+    }
+    else
+    {
+    	var nodeType = val.__type;
+    }
 	var baseType = getBaseType(nodeType);
 	var templates = getTypeParams(nodeType);
 	check(baseType in library.nodes, "Node type " + baseType + " not found in library");
@@ -1456,17 +1406,17 @@ function StructAccess(node, path) {
 
 	this.get = function()
 	{
-		var val = this.node.get();
+		return this.node.getPath(this.path);
 		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
 		// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
 		// et meme changer au cours du temps
-		if(_.isObject(val) && "__type" in val)
-		//if(true)
-		{
-			var operators = library.nodes[typeToCompactString(val.__type)].operators;
-			this.getPathOperator = operators.getPath;
-		}
-		return this.getPathOperator(val, this.path);
+		// if(_.isObject(val) && "__type" in val)
+		// //if(true)
+		// {
+		// 	var operators = library.nodes[typeToCompactString(val.__type)].operators;
+		// 	this.getPathOperator = operators.getPath;
+		// }
+		// return this.getPathOperator(val, this.path);
 	};
 	
 	this.set = function(val, rootAndPath, subPath)
@@ -1494,9 +1444,9 @@ function StructAccess(node, path) {
 		currentPath = currentPath.slice(0, -this.path.length);
 	};
 
-	this.getPath = function()
+	this.getPath = function(path)
 	{
-		return this.node.getPath().concat(this.path);
+		return this.node.getPath(this.path.concat(path));		
 	}
 	
 	this.signal = function(signal, params, rootAndPath)
@@ -1553,10 +1503,16 @@ function StructAccess(node, path) {
 	}
 }
 
-function ArrayAccess(node, index) {
+function ArrayAccess(node, type) {
     this.node = node;
-    this.index = index;
-	var nodeType = node.getType();
+    if(node == undefined)
+    {
+    	var nodeType = type;	
+    }
+    else
+    {
+    	var nodeType = node.getType();
+    }
 	var baseType = getBaseType(nodeType);
 	var templates = getTypeParams(nodeType);
 	check(baseType in library.nodes, "Node type " + baseType + " not found in library");
@@ -1567,32 +1523,75 @@ function ArrayAccess(node, index) {
 	this.id = storeId;
 	storeId++;
 
+	this.stack = [];
+	this.savedStack = [];
+
 	this.signal = function(signal, params, rootAndPath)
 	{
-		currentPath = currentPath.concat(this.index);
-		operators.signal(this.node.get()[this.index], signal, params, {root : rootAndPath.root, path : rootAndPath.path.concat([this.index])});
+		var index = this.stack.pop();
+		this.savedStack.push(index);
+
+		currentPath = currentPath.concat(index);
+		operators.signal(this.node.get()[index], signal, params, {root : rootAndPath.root, path : rootAndPath.path.concat([index])});
 		// this.node.dirty();
 		currentPath = currentPath.slice(0, -1);
+
+		index = this.savedStack.pop();
+		this.stack.push(index);
 	};
 
 	this.get = function()
-	{
+	{		
+		var index = this.stack.pop();
+		this.savedStack.push(index);
+
 		var array = this.node.get();
-		return array[this.index];
+		var ret = array[index];
+		
+		index = this.savedStack.pop();
+		this.stack.push(index);
+
+		return ret;
+	}
+
+	this.push = function(index)
+	{
+		this.stack.push(index);
+	}
+
+	this.pop = function()
+	{
+		this.stack.pop();
 	}
 
 	this.getMinMaxTick = function(path)
 	{
-		return this.node.getMinMaxTick([this.index].concat(path));
+		var index = this.stack.pop();
+		this.savedStack.push(index);
+
+		var ret = this.node.getMinMaxTick([index].concat(path));
+
+		index = this.savedStack.pop();
+		this.stack.push(index);
+
+		return ret;
 	}
 	
 	this.dirty = function(path)
 	{
-		this.node.dirty([this.index].concat(path));
+		var index = this.stack.pop();
+		this.savedStack.push(index);
+
+		this.node.dirty([index].concat(path));
+		
+		index = this.savedStack.pop();
+		this.stack.push(index);
 	}
 	
 	this.getType = function()
 	{
+		var nodeType = node.getType();
+		var templates = getTypeParams(nodeType);
 		return  templates[0];
 	}
 
@@ -1603,14 +1602,28 @@ function ArrayAccess(node, index) {
 
 	this.set = function(val, rootAndPath)
 	{
+		var index = this.stack.pop();
+		this.savedStack.push(index);
+
 		var array = this.node.get();
-		array[this.index] = val;
-		this.node.dirty([this.index]);
+		array[index] = val;
+		this.node.dirty([index]);
+
+		index = this.savedStack.pop();
+		this.stack.push(index);
 	}
 
-	this.getPath = function()
+	this.getPath = function(path)
 	{
-		return this.node.getPath().concat(this.index);
+		var index = this.stack.pop();
+		this.savedStack.push(index);
+
+		var ret = this.node.getPath([index].concat(path));
+		
+		index = this.savedStack.pop();
+		this.stack.push(index);
+
+		return ret;
 	}
 }
 
@@ -2061,13 +2074,13 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 							ret.__refs = [match.matchStore].concat(ret.__refs);
 							ret.__referencedNodes = [this.what].concat(ret.__referencedNodes);
 						} 
-						match.matchStore.popVal();
+						match.matchStore.pop();
 						return ret;
 					}
 				}
 				// else case
 				var match = this.cases[i];
-				match.matchStore.pushVal(val);
+				match.matchStore.push(this.what);
 
 				var ret = match.val.get();
 
@@ -2082,7 +2095,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					ret.__referencedNodes = [this.what].concat(ret.__referencedNodes);
 				} 
 		
-				match.matchStore.popVal();
+				match.matchStore.pop();
 		
 				return ret;
 				// TODO Error				
@@ -2241,53 +2254,6 @@ function compileSlots(slots, nodes, connections)
 
 var msgIndex = 0;
 
-function ListNodeElementRef(listNode)
-{
-	this.listNode = listNode;
-	this.type = getListTypeParam(listNode.getType());
-	this.list = null;
-	this.index = 0;
-	
-	this.get = function()
-	{
-		return this.list[this.index];
-	}
-	
-	this.set = function(val)
-	{
-		this.list[this.index] = val;
-		this.listNode.dirty([this.index]);
-		// TODO : retablir ?
-		this.listNode.addDelta({path : [], val : new ListDelta([0], 0, [[this.index, val]])});
-	}		
-	
-	this.signal = function(signal, params)
-	{
-		this.listNode.signal(signal, params, [this.index]);
-	}
-	
-	this.dirty = function(path)
-	{
-		this.listNode.dirty(path);
-	}
-	
-	this.addDelta = function(delta)
-	{
-		this.listNode.addDelta({path : [this.index].concat(delta.path), val : delta.val});
-	}	
-	
-	this.getType = function()
-	{
-		return this.type;
-	}
-	
-	this.addSink = function(sink)
-	{
-		// TODO : y'en a besoin ?
-	};
-
-}
-
 function GroupChildRef(children, typeParam, rootNode)
 {
 	this.children = children;
@@ -2421,7 +2387,7 @@ function makeAction(actionGraph, nodes, connections)
 			var cases = actionGraph.cases;
 			this.what = getNode(actionGraph.matchType, nodes);
 			this.cases = cases.map(function(matchExp){
-				var matchStore = new SubStore(matchExp.type != "_" ? matchExp.type : this.what.getType());
+				var matchStore = new FuncInput(matchExp.type != "_" ? matchExp.type : this.what.getType());
 				var mergedNodes = _.clone(nodes);
 				mergedNodes[actionGraph.matchType] = matchStore;
 				return {
@@ -2441,8 +2407,9 @@ function makeAction(actionGraph, nodes, connections)
 					var match = this.cases[i];
 					if((type == match.type) || isStrictSubType(type, match.type))
 					{
-						match.matchStore.set(val);
+						match.matchStore.push(this.what);
 						match.action.signal(rootAndPath);
+						match.matchStore.pop();
 					}
 				}
 			}
@@ -2464,7 +2431,7 @@ function makeAction(actionGraph, nodes, connections)
 			if(nodeGraph.path)
 			{
 				// TODO utiliser le type component, car le root n'est pas forcement de ce type
-				pathStore = new SubStore(mt("list", [rootNode.getType()]));
+				pathStore = new FuncInput(mt("list", [rootNode.getType()]));
 			}
 			
 			var matches = _.map(nodeGraph.apply, function(match)
@@ -2506,7 +2473,7 @@ function makeAction(actionGraph, nodes, connections)
 					var type = val.__type;
 					if(pathStore != null)
 					{
-						pathStore.set(path);
+						pathStore.push(path);
 					}
 					for(var i = 0; i < matches.length; ++i)
 					{
@@ -2532,6 +2499,11 @@ function makeAction(actionGraph, nodes, connections)
 							apply(child, concatPath);
 						});
 					}
+
+					if(pathStore != null)
+					{
+						pathStore.pop();
+					}					
 				}
 				
 				// TODO set path only when needed
@@ -2545,25 +2517,25 @@ function makeAction(actionGraph, nodes, connections)
 	
 	if("for" in actionGraph)
 	{
-		function ForAction(iterated, itRef, indexStore, action)
+		function ForAction(iterated, arrayAccess, indexStore, action)
 		{
 			this.listStore = iterated;
-			this.itRef = itRef;
+			this.arrayAccess = arrayAccess;
 			this.indexStore = indexStore;
 			this.action = action;
 			
 			this.signal = function()
 			{
 				var list = this.listStore.get();
-				this.itRef.list = list;
 				_.each(
 					list, 
 					function(element, index)
 					{
-						this.itRef.index = index;
+						this.arrayAccess.push(index);
 						if(this.indexStore != undefined)
 							this.indexStore.set(index);
-						this.action.signal();						
+						this.action.signal();	
+						this.arrayAccess.pop();					
 					},
 					this
 				);
@@ -2573,9 +2545,9 @@ function makeAction(actionGraph, nodes, connections)
 		var iterated = compileRef(actionGraph["in"], nodes).val;
 		var localNodes = _.clone(nodes);
 		
-		var itRef = new ListNodeElementRef(iterated);
+		var arrayAccess = new ArrayAccess(iterated);
 		// TODO gerer destruct
-		localNodes[actionGraph["for"]] = itRef;
+		localNodes[actionGraph["for"]] = arrayAccess;
 		var indexStore = null;
 		if("index" in actionGraph)
 		{
@@ -2589,40 +2561,40 @@ function makeAction(actionGraph, nodes, connections)
 			localNodes
 		);
 
-		return new ForAction(iterated, itRef, indexStore, action);
+		return new ForAction(iterated, arrayAccess, indexStore, action);
 	}
 	
 	if("update" in actionGraph)
 	{
-		function Update(iterated, itRef, indexStore, action)
+		function Update(iterated, arrayAccess, indexStore, action)
 		{
 			this.listStore = iterated;
-			this.itRef = itRef;
+			this.arrayAccess = arrayAccess;
 			this.indexStore = indexStore;
 			this.action = action;
 			
 			this.signal = function()
 			{
 				var list = this.listStore.get();
-				this.itRef.list = list;
 				_.each(
 					list, 
 					function(element, index)
 					{
-						this.itRef.index = index;
+						this.arrayAccess.push(index);
 						if(this.indexStore != undefined)
 							this.indexStore.set(index);
-						this.action.signal();						
+						this.action.signal();
+						this.arrayAccess.pop();
 					},
 					this
 				);
 			}
 		}
 		
-		function CondUpdate(iterated, itRef, indexStore, action, cond)
+		function CondUpdate(iterated, arrayAccess, indexStore, action, cond)
 		{
 			this.listStore = iterated;
-			this.itRef = itRef;
+			this.arrayAccess = arrayAccess;
 			this.indexStore = indexStore;
 			this.action = action;
 			this.cond = cond;
@@ -2632,25 +2604,25 @@ function makeAction(actionGraph, nodes, connections)
 				
 				var updated = [];
 				var list = this.listStore.get();
-				this.itRef.list = list;
 				var removed = false;
 				_.each(
 					list, 
 					function(element, index)
 					{
-						this.itRef.index = index;
+						this.arrayAccess.push(index);
 						if(this.indexStore != undefined)
 							this.indexStore.signal(index);
 						if(this.cond.get())
 						{
 							this.action.signal();
-							var newVal = this.itRef.get();
+							var newVal = this.arrayAccess.get();
 							updated.push(newVal);
 						}
 						else
 						{
 							removed = true;
 						}
+						this.arrayAccess.pop();
 					},
 					this
 				);
@@ -2661,9 +2633,9 @@ function makeAction(actionGraph, nodes, connections)
 		var iterated = compileRef(actionGraph["in"], nodes).val;
 		var localNodes = _.clone(nodes);
 		
-		var itRef = new ListNodeElementRef(iterated);
+		var arrayAccess = new ArrayAccess(iterated);
 		// TODO gerer destruct
-		localNodes[actionGraph["update"]] = itRef;
+		localNodes[actionGraph["update"]] = arrayAccess;
 		var indexStore = null;
 		if("index" in actionGraph)
 		{
@@ -2704,10 +2676,10 @@ function makeAction(actionGraph, nodes, connections)
 		
 		if("filter" in actionGraph)
 		{
-			return new CondUpdate(iterated, itRef, indexStore, action, makeExpr(actionGraph.filter, localNodes));
+			return new CondUpdate(iterated, arrayAccess, indexStore, action, makeExpr(actionGraph.filter, localNodes));
 		}
 
-		return new Update(iterated, itRef, indexStore, action);
+		return new Update(iterated, arrayAccess, indexStore, action);
 	}
 	
 	if("signal" in actionGraph)
@@ -3084,6 +3056,20 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				});
 				//return this.fields;
 			};	
+			this.getPath = function(path)
+			{
+				if(path.length == 1)
+				{
+					// return struct[path[0]].get();
+					return this.fields[path[0]].get();
+				}
+				else
+				{
+					var subPath = path.slice(0);
+					var key = subPath.shift();
+					return this.fields[key].getPath(subPath);
+				}
+			};	
 			this.update = function(val, ticks, parentTick)
 			{
 				var subTicks = ticks.subs;
@@ -3181,7 +3167,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				}
 			},
 			slots : {},
-			signal : function(struct, id, params, path, rootAndPath)
+			signal : function(node, id, params, path, rootAndPath)
 			{
 				// In case of a call from a slot, a push has already been made, we must not push anymore
 				// else dirty won't work.
@@ -3189,6 +3175,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				// for this, test rootAndPath
 				// TODO : transform rootAndPath in dontPush
 				// if("__refs" in struct && !(struct.__pushed))
+				var struct = node.get();
 				var pushedRefs = [];
 				if("__refs" in struct && (rootAndPath == undefined))
 				{
@@ -3204,7 +3191,8 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 
 				if(!path || path.length == 0)
 				{
-					this.selfStore.pushVal(struct);
+					// this.selfStore.pushVal(struct);
+					this.selfStore.push(node);
 					// Need this because selfStore is shared between the entire class hierarchy
 					this.selfStore.pushOperators(this);
 					// Dynamic dispatch
@@ -3212,11 +3200,16 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					var slot = slots[id];
 					_.each(params, function(param, i)
 					{
-						slot.inputs[i].set(param.get());
+						slot.inputs[i].push(param);
 					});
 					slot.action.signal(rootAndPath);
+					_.each(params, function(param, i)
+					{
+						slot.inputs[i].pop();
+					});
 					this.selfStore.popOperators();
-					this.selfStore.popVal();
+					// this.selfStore.popVal();
+					this.selfStore.pop();
 				}
 				else
 				{
@@ -3226,7 +3219,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					var key = subPath.shift();
 					// Dynamic dispatch
 					var fieldsOp = library.nodes[struct.__type].fieldsOp;
-					fieldsOp[key].signal(struct[key], id, params, subPath, rootAndPath);
+					fieldsOp[key].signal(new StructAccess(node, [key], struct), id, params, subPath, rootAndPath);
 				}
 
 				// if("__refs" in struct && (struct.__pushed))
@@ -3273,7 +3266,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				var inputs = [];
 				_.each(slotGraph.params, function(param)
 				{
-					var node = new SubStore(param[1]);
+					var node = new FuncInput(param[1]);
 					localNodes[param[0]] = node;
 					inputs.push(node);
 				});
@@ -3422,18 +3415,22 @@ function FunctionInstance(classGraph)
 	// {
 		// return [];
 	// });
+	this.needsNodes = true;
+
 	this.func = function(paramNodes) 
 	{	
 		_.each(paramNodes, function(node, i)
 		{
-			this.inputNodes[i].pushVal(node);
+			// this.inputNodes[i].pushVal(node);
+			this.inputNodes[i].push(node);
 		}, this);
 		
 		var result = this.expr.get(true);
 		
 		_.each(paramNodes, function(node, i)
 		{
-			this.inputNodes[i].popVal();
+			// this.inputNodes[i].popVal();
+			this.inputNodes[i].pop();
 		}, this);
 		
 		return result;

@@ -250,43 +250,66 @@ $.get( "arcaNodes.nodes", function( text ) {
 	
 	var mazeSink = new Sink(code.maze, function()
 	{
-		var mazeDeltas = code.maze.getDeltas(mazeTag);
-		mazeTag = code.maze.tag;
-		
-		_.each(mazeDeltas, function(delta)
-		{
-			var path = delta.path;
-			var i = delta.path[0];
-			var deltaVal = delta.val;
-			var updates = deltaVal.updates;
-			
-			_.each(updates, function(update)
+		_.each(code.maze.get(), function(column, i){
+			_.each(column, function(block, j)
 			{
-				var j = update[0];
-				var newVal = update[1];
 				var rect = cellView[i][j].view;
-				var model = cellView[i][j].model;
-				if(model != newVal)
+				cellView[i][j].model = block;
+						
+				if(block > 0)
 				{
-					cellView[i][j].model = newVal;
-					if(newVal > 0)
+					if(block == 1)
 					{
-						if(newVal == 1)
-						{
-							rect.attr({ stroke : "#008", fill : "#f00"});
-						}
-						else
-						{
-							rect.attr({ stroke : "#008", fill : "#008"});
-						}
+						rect.attr({ stroke : "#008", fill : "#f00"});
 					}
 					else
 					{
-						rect.attr({ stroke : "#000", fill : "#000"});
+						rect.attr({ stroke : "#008", fill : "#008"});
 					}
 				}
-			});
-		});
+				else
+				{
+					rect.attr({ stroke : "#000", fill : "#000"});
+				}
+			})
+		})
+		// var mazeDeltas = code.maze.getDeltas(mazeTag);
+		// mazeTag = code.maze.tag;
+		
+		// _.each(mazeDeltas, function(delta)
+		// {
+		// 	var path = delta.path;
+		// 	var i = delta.path[0];
+		// 	var deltaVal = delta.val;
+		// 	var updates = deltaVal.updates;
+			
+		// 	_.each(updates, function(update)
+		// 	{
+		// 		var j = update[0];
+		// 		var newVal = update[1];
+		// 		var rect = cellView[i][j].view;
+		// 		var model = cellView[i][j].model;
+		// 		if(model != newVal)
+		// 		{
+		// 			cellView[i][j].model = newVal;
+		// 			if(newVal > 0)
+		// 			{
+		// 				if(newVal == 1)
+		// 				{
+		// 					rect.attr({ stroke : "#008", fill : "#f00"});
+		// 				}
+		// 				else
+		// 				{
+		// 					rect.attr({ stroke : "#008", fill : "#008"});
+		// 				}
+		// 			}
+		// 			else
+		// 			{
+		// 				rect.attr({ stroke : "#000", fill : "#000"});
+		// 			}
+		// 		}
+		// 	});
+		// });
 	});
 	
 	var mazeLengthSink = new Sink(code.mazeLength, function()
