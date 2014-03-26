@@ -1174,21 +1174,54 @@ var functions =
 		},		
 		build : function(templates)
 		{
-			return {
-				params : [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , mListType(templates[0])]],
-				func : function(params) 
+			function instance(templates)
+			{
+				this.params = [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , mListType(templates[0])]];
+				this.needsNodes = true;
+				this.arrayInput = new FuncInput(mListType(templates[0]));
+				this.arrayAccess = new ArrayAccess(this.arrayInput);
+				this.accumNode = new FuncInput(templates[1]);
+				this.func = function(params) 
 				{	
-					var funcInstance = params[0];
-					return _.reduce(params[1], function(accum, val)
+					var array = params[1];
+					var arrayVal = array.get();
+					this.arrayInput.push(array);
+					var funcInstance = params[0].get();
+					var aa = this.arrayAccess;
+					var an = this.accumNode;
+					var ret = _.reduce(arrayVal, function(accum, val, i)
 					{
 						// Il faut appeler funcInstance.func pour conserver le "this",
 						// et non pas cacher la methode func puis l'appeler seule
-						return funcInstance.func([accum, val]);
+						// return funcInstance.func([accum, val]);
+
+						if("needsNodes" in funcInstance)
+						{
+							an.pushVal(accum);
+							aa.push(i);
+
+							var res = funcInstance.func([an, aa]);
+
+							aa.pop();
+							an.popVal();
+
+							return res;
+						}
+						else
+						{
+							return funcInstance.func([accum, val]);
+						}
 					});
-				},
-				type : templates[1],
-				templates : templates
+
+					this.arrayInput.pop();
+					
+					return ret;
+				};
+				this.type = templates[1];
+				this.templates = templates;
 			}
+
+			return new instance(templates);
 		}
 	},
 	"fold" : { // need starting accumulator
@@ -1269,7 +1302,7 @@ var functions =
 						}
 						this.arrayAccess.pop();
 					}
-					this.arrayInput.pop();							
+					this.arrayInput.pop();
 					return false;
 				};
 				this.type = "bool",
@@ -1363,7 +1396,16 @@ function FunctionNode(func)
 			// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
 			// et meme changer au cours du temps
 			var val = this.get();
-			var operators = library.nodes[typeToCompactString(val.__type)].operators;
+			// var operators = library.nodes[typeToCompactString(val.__type)].operators;
+			var type = func.type;
+			var typeParams = getTypeParams(type);
+			if(typeParams.length > 0)
+			{
+				var operators = library.nodes[getBaseType(type)].getInstance(typeParams).operators;
+				return operators.getPath(val, path);
+			}
+			var str = typeToCompactString(type);
+			var operators = library.nodes[str].operators;
 			return operators.getPath(val, path);
 		};
 		this.update = function(val, ticks, parentTick)
@@ -1399,7 +1441,7 @@ function FunctionNode(func)
 		{
 			var struct = this.get();
 			var nodeClass = library.nodes[struct.__type];
-			nodeClass.operators.signal(struct, sig, val, path);
+			nodeClass.operators.signal(this, sig, val, path);
 			// val.__signals[sig], val, path);
 		}
 	}
@@ -1582,7 +1624,7 @@ var nodes =
 					}
 				},
 				operators : {
-					getPath : function(struct, path)
+					getPath : function(list, path)
 					{
 						if(path.length == 1)
 						{
@@ -1592,11 +1634,11 @@ var nodes =
 						else
 						{
 							var subPath = path.slice(0);
-							var key = subPath.shift();
-							return fieldsOperators[key].getPath(struct[key], subPath);
+							var index = subPath.shift();
+							return instanceTypeOperators.getPath(list[index], subPath);
 						}
 					},
-					setPath : function(struct, path, val)
+					setPath : function(list, path, val)
 					{
 						if(path.length == 1)
 						{
@@ -1605,30 +1647,27 @@ var nodes =
 						else
 						{
 							var subPath = path.slice(0);
-							var key = subPath.shift();
-							fieldsOperators[key].setPath(struct[key], subPath, val);
+							var index = subPath.shift();
+							instanceTypeOperators.setPath(list[index], subPath, val);
 						}
 					},
 					signalOperator : instanceTypeOperators ? instanceTypeOperators.signal : null,
 					instanceType : subBaseType,
 					arrayAccess : new ArrayAccess(undefined, mListType(subType)),
-					signal : function(list, sig, params, path, rootAndPath)
+					signal : function(list, sig, params, path, node)
 					{
-						this.arrayAccess.node = list;
+						// this.arrayAccess.pushCache(list.get());
 						if(!path || path.length == 0)
 						{
 							if(sig == "foreach")
 							{
 								var subParams  = params.slice(0);
 								var iteratedSignal = subParams.shift();
-								var listVal = list.get();
-								_.each(listVal, function(item, index) 
+								_.each(list, function(item, index) 
 								{
-									currentPath.push(index);
-									this.arrayAccess.push(index);
-									instanceTypeOperators.signal(this.arrayAccess, iteratedSignal, subParams, [], {root : rootAndPath.root, path : rootAndPath.path.concat([index])});
-									this.arrayAccess.pop();
-									currentPath.pop();
+									node.pushPath(index);
+									instanceTypeOperators.signal(item, iteratedSignal, subParams, [], node);
+									node.popPath()
 								}, this);
 							} else
 							{
@@ -1640,10 +1679,12 @@ var nodes =
 							var subPath = path.slice(0);
 							var index = subPath.shift();
 							this.arrayAccess.push(index);
-							instanceTypeOperators.signal(this.arrayAccess, sig, params, subPath);
+							node.pushPath(index);
+							instanceTypeOperators.signal(list[index], sig, params, subPath, node);
+							node.popPath();
 							this.arrayAccess.pop();
 						}
-						
+						this.arrayAccess.popCache();
 					}
 				}
 			}

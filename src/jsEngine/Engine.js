@@ -124,6 +124,20 @@ var connections = null;
 var connectionSet = false;
 var connectionsAllowed = false;
 
+function getPath(struct, path)
+{
+	if(path.length == 1)
+	{
+		return struct[path[0]];
+	}
+	else
+	{
+		var subPath = path.slice(0);
+		var key = subPath.shift();
+		return getPath(struct[key], subPath);
+	}
+}
+
 function Store(v, type) 
 {
 	this.val = v;
@@ -133,6 +147,7 @@ function Store(v, type)
 	this.tag = 0;
 	
 	this.sinks = [];
+	this.path = [];
 	
 	// DEBUG
 	this.id = storeId;
@@ -155,9 +170,23 @@ function Store(v, type)
 		}
 	}
 	
+	this.pushPath = function(path)
+	{
+		this.path = this.path.concat([path]);
+	};
+	
+	this.popPath = function()
+	{
+		this.path.pop();
+	};
+
 	this.get = function()
 	{
-		return this.val;
+		if(this.path.length == 0)
+		{
+			return this.val;
+		}
+		return getPath(this.val, this.path);
 	};
 
 	this.set = function(val)
@@ -260,9 +289,8 @@ function Store(v, type)
 	
 	this.signal = function(signal, params, path)
 	{
-		var rootAndPath = {root : this, path : []};
-		// operators.signal(this.val, signal, params, path, rootAndPath);
-		operators.signal(this, signal, params, path, rootAndPath);
+		// operators.signal(this.val, signal, params, [], new NodeAccess(this.val, this.type));
+		operators.signal(this.val, signal, params, path, this);
 		// this.dirty();
 	};
 	
@@ -298,20 +326,7 @@ function Store(v, type)
 
 	this.getPath = function(path)
 	{
-		function getPath(struct, path)
-		{
-			if(path.length == 1)
-			{
-				return struct[path[0]];
-			}
-			else
-			{
-				var subPath = path.slice(0);
-				var key = subPath.shift();
-				return getPath(struct[key], subPath);
-			}
-		}
-		return getPath(this.val, path);
+		return getPath(this.val, this.path.concat(path));
 	}
 
 	this.update = function(val, ticks, parentTick)
@@ -373,9 +388,9 @@ function SubStore(type, source)
 	{
 	};
 	
-	this.signal = function(signal, params, path, rootAndPath)
+	this.signal = function(signal, params, path, node)
 	{
-		this.operators.signal(this.val, signal, params, path, rootAndPath);
+		this.operators.signal(this.val, signal, params, path, node);
 	};
 	
 	this.getType = function()
@@ -487,17 +502,16 @@ function FuncInput(type, source)
 		this.operatorStack.pop();
 	}
 	
-	this.signal = function(signal, params, path, rootAndPath)
+	this.signal = function(signal, params, path, callFromSlot)
 	{
 		var val = this.get();
 
 		var operator = this.operatorStack.pop();
 		this.savedStack.push(operator);
 
-		operator.signal(this, signal, params, path, rootAndPath);
+		operator.signal(val, signal, params, path, this, callFromSlot);
 		
 		this.operatorStack.push(this.savedStack.pop());
-
 	};
 	
 	this.getType = function()
@@ -583,6 +597,7 @@ function Closure(expr, nodes, genericTypeParams)
 	
 	this.funcSpec = {
 		params : paramSpec,
+		needsNodes : true,
 		func : function(params)	{	
 			_.each(params, function(param, index)
 			{
@@ -626,6 +641,57 @@ function Closure(expr, nodes, genericTypeParams)
 	{
 		return this.type;
 	}
+}
+
+function NodeAccess(val, type) 
+{
+	this.val = val;
+	this.path = [];
+	this.type = type;
+	
+	// DEBUG
+	this.id = storeId;
+	storeId++;
+
+	var baseType = getBaseType(type);
+	var templates = getTypeParams(type);
+	var typeObj = (templates.length > 0) ? 
+		library.nodes[baseType].getInstance(templates) :
+		library.nodes[type];
+	if(typeObj != undefined && "operators" in typeObj)
+	{
+		this.operatorStack = [typeObj.operators];
+		this.lastOperatorIndex = 0;
+		//this.signalOperator = operators.signal;
+	}
+
+	this.get = function()
+	{
+		if(this.path.length == 0)
+		{
+			return this.val;
+		}
+		return getPath(this.val, this.path);
+	};
+
+	this.getPath = function(path)
+	{
+		if(path.length == 0)
+		{
+			return this.val;
+		}
+		return getPath(this.val, path);
+	};
+
+	this.pushPath = function(path)
+	{
+		this.path = this.path.concat([path]);
+	};
+	
+	this.popPath = function()
+	{
+		this.path.pop();
+	};
 }
 
 
@@ -698,9 +764,27 @@ function Cache(node)
 		return this.type;
 	}
 
+	this.getPath = function(path)
+	{
+		function getPath(struct, path)
+		{
+			if(path.length == 1)
+			{
+				return struct[path[0]];
+			}
+			else
+			{
+				var subPath = path.slice(0);
+				var key = subPath.shift();
+				return getPath(struct[key], subPath);
+			}
+		}
+		return getPath(this.val, path);
+	}
+
 	this.signal = function(signal, params, path, rootAndPath)
 	{
-		operators.signal(this.get(), signal, params, path, rootAndPath);
+		operators.signal(this.val, signal, params, path, new NodeAccess(this.val, this.type));
 	}
 }
 
@@ -962,7 +1046,15 @@ function Comprehension(nodeGraph, externNodes)
 	this.get = function(path)
 	{
 		// var filteredArray = this.array.get();
-		var arrays = _.map(this.arrays, function(array){return array.get()});
+		var arrays = _.map(this.arrays, function(array, index)
+		{
+			var ret = array.get();
+			if(inputs[index] != undefined)
+			{
+				inputs[index].pushCache(ret);
+			}
+			return ret;
+		});
 		
 		// Le produit cartesien des indices
 		var indicesArray = cartesianProductOf(_.map(arrays, function(array)
@@ -1083,6 +1175,15 @@ function Comprehension(nodeGraph, externNodes)
 				return ret;
 			}, this);
 		}
+
+		_.each(this.arrays, function(array, index)
+		{
+			if(inputs[index] != undefined)
+			{
+				inputs[index].popCache();
+			}
+		});
+
 		return this.outputList;
 	};
 	
@@ -1525,6 +1626,7 @@ function ArrayAccess(node, type) {
 
 	this.stack = [];
 	this.savedStack = [];
+	this.cacheStack = [];
 
 	this.signal = function(signal, params, rootAndPath)
 	{
@@ -1542,16 +1644,34 @@ function ArrayAccess(node, type) {
 
 	this.get = function()
 	{		
-		var index = this.stack.pop();
-		this.savedStack.push(index);
+		if(this.cacheStack.length > 0)
+		{
+			var array = this.cacheStack[this.cacheStack.length - 1];
+			return array[this.stack[this.stack.length - 1]];
+		}
+		else
+		{
+			var index = this.stack.pop();
+			this.savedStack.push(index);
 
-		var array = this.node.get();
-		var ret = array[index];
-		
-		index = this.savedStack.pop();
-		this.stack.push(index);
+			var array = this.node.get();
+			var ret = array[index];
+			
+			index = this.savedStack.pop();
+			this.stack.push(index);
 
-		return ret;
+			return ret;
+		}
+	}
+
+	this.pushCache = function(array)
+	{
+		this.cacheStack.push(array);
+	}
+
+	this.popCache = function()
+	{
+		this.cacheStack.pop();
 	}
 
 	this.push = function(index)
@@ -2323,9 +2443,9 @@ function makeAction(actionGraph, nodes, connections)
 			this.iteratedSignal = signal;
 			this.params = params;
 			
-			this.signal = function(rootAndPath)
+			this.signal = function()
 			{
-				this.list.signal("foreach", [this.iteratedSignal].concat(this.params), rootAndPath);
+				this.list.signal("foreach", [this.iteratedSignal].concat(this.params));
 			}
 		}
 		var iterated = compileRef(actionGraph["foreach"], nodes).val;
@@ -2693,7 +2813,7 @@ function makeAction(actionGraph, nodes, connections)
 			this.signal = function()
 			{
 				// TODO ameliorer params.params
-				this.node.signal(this.nodeSignal, this.params, [], {root : this.node, path : []});
+				this.node.signal(this.nodeSignal, this.params, [], true);
 			}
 		}
 		var paramsGraph = actionGraph.params;
@@ -3167,19 +3287,15 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				}
 			},
 			slots : {},
-			signal : function(node, id, params, path, rootAndPath)
+			signal : function(struct, id, params, path, node, callFromSlot)
 			{
-				// In case of a call from a slot, a push has already been made, we must not push anymore
-				// else dirty won't work.
-				// We must push only in the case of descending into a hierarchy.
-				// for this, test rootAndPath
-				// TODO : transform rootAndPath in dontPush
-				// if("__refs" in struct && !(struct.__pushed))
-				var struct = node.get();
 				var pushedRefs = [];
-				if("__refs" in struct && (rootAndPath == undefined))
+				// In case of a call from a slot, a push has already been made, we must not push anymore
+				// We must push only in the case of descending into a hierarchy.
+				// Other solution : add a "__pushed" field in struct, so that it references are not pushed anymore
+				if("__refs" in struct && (callFromSlot == undefined))
+				// if("__refs" in struct && !("__pushed" in struct))
 				{
-					// struct.__pushed = true;
 					_.each(struct.__refs, function(ref, i)
 					{
 						// ref.pushVal(node.__referencedNodes[i].get());
@@ -3187,6 +3303,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 						ref.push(struct.__referencedNodes[i]);
 						pushedRefs.push(ref);
 					});
+					// struct.__pushed = true;
 				}
 
 				if(!path || path.length == 0)
@@ -3202,7 +3319,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					{
 						slot.inputs[i].push(param);
 					});
-					slot.action.signal(rootAndPath);
+					slot.action.signal();
 					_.each(params, function(param, i)
 					{
 						slot.inputs[i].pop();
@@ -3219,13 +3336,15 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					var key = subPath.shift();
 					// Dynamic dispatch
 					var fieldsOp = library.nodes[struct.__type].fieldsOp;
-					fieldsOp[key].signal(new StructAccess(node, [key], struct), id, params, subPath, rootAndPath);
+					node.pushPath([key]);
+					fieldsOp[key].signal(struct[key], id, params, subPath, node);
+					node.popPath();
 				}
 
-				// if("__refs" in struct && (struct.__pushed))
 				_.each(pushedRefs, function(ref, i)
 				{
 					ref.pop();
+					// delete struct.__pushed;
 				});
 			},
 			clone : function(struct)
