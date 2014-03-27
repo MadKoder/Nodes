@@ -1229,28 +1229,59 @@ var functions =
 		{
 			var list = params[1];
 			var temp0 = getListTypeParam(list.getType());
-			var accum = params[2];
-			var temp1 = accum.getType();
-			var funcType = getFuncType(params[0], [temp1, temp0]);
-			return [temp0, temp1];
+			var funcType = getFuncType(params[0], [temp0]);
+			return [temp0, funcType.output];
 		},		
 		build : function(templates)
 		{
-			return {
-				params : [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , mListType(templates[0])], ["accum", templates[1]]],
-				func : function(params) 
+			function instance(templates)
+			{
+				this.params = [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , mListType(templates[0])], ["start" , templates[1]]];
+				this.needsNodes = true;
+				this.arrayInput = new FuncInput(mListType(templates[0]));
+				this.arrayAccess = new ArrayAccess(this.arrayInput);
+				this.accumNode = new FuncInput(templates[1]);
+				this.func = function(params) 
 				{	
-					var funcInstance = params[0];
-					return _.reduce(params[1], function(accum, val)
+					var array = params[1];
+					var arrayVal = array.get();
+					this.arrayInput.push(array);
+					var funcInstance = params[0].get();
+					var aa = this.arrayAccess;
+					var an = this.accumNode;
+					var ret = _.reduce(arrayVal, function(accum, val, i)
 					{
 						// Il faut appeler funcInstance.func pour conserver le "this",
 						// et non pas cacher la methode func puis l'appeler seule
-						return funcInstance.func([accum, val]);
-					}, params[2]);
-				},
-				type : templates[1],
-				templates : templates
+						// return funcInstance.func([accum, val]);
+
+						if("needsNodes" in funcInstance)
+						{
+							an.pushVal(accum);
+							aa.push(i);
+
+							var res = funcInstance.func([an, aa]);
+
+							aa.pop();
+							an.popVal();
+
+							return res;
+						}
+						else
+						{
+							return funcInstance.func([accum, val]);
+						}
+					}, params[2].get());
+
+					this.arrayInput.pop();
+					
+					return ret;
+				};
+				this.type = templates[1];
+				this.templates = templates;
 			}
+
+			return new instance(templates);
 		}
 	},
 	"contains" : {

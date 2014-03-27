@@ -1057,12 +1057,11 @@ function Comprehension(nodeGraph, externNodes)
 	this.outputList = [];
 	this.get = function(path)
 	{
-		var arrayVals = [];
-		_.each(this.arrays, function(array, index)
+		var arrayVals = _.map(this.arrays, function(array, index)
 		{
 			var val = array.get();
-			arrayVals.push(val);
 			inputs[index].pushCache(val);
+			return val;
 		});
 		
 		// Cartesian product of indices
@@ -1074,7 +1073,7 @@ function Comprehension(nodeGraph, externNodes)
 		if(when != undefined)
 		{
 			this.outputList = [];
-			_.each(indicesArray, function(indices)
+			_.each(indicesArray, function(indices, i)
 			{
 				for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 				{
@@ -1157,67 +1156,58 @@ function Comprehension(nodeGraph, externNodes)
 		if(ticks.tick >= maxOfMinTicks)
 		{
 			var subTicks = ticks.subs;
-			var arrays = _.map(this.arrays, function(array){return array.get();});
+			var arrayVals = _.map(this.arrays, function(array, index)
+			{
+				var val = array.get();
+				inputs[index].pushCache(val);
+				return val;
+			});
 				
-			// Le produit cartesien des indices
-			var indicesArray = cartesianProductOf(_.map(arrays, function(array)
+			var indicesArray = cartesianProductOf(_.map(arrayVals, function(array)
 			{
 				return _.range(array.length);
 			}));
-
-			var newTicks = new Array(indicesArray.size);
+			
 			if(when != undefined)
 			{
 				this.outputList = [];
+				var newTicks = [];
 				_.each(indicesArray, function(indices)
 				{
 					var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
 				
-					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 					{
 						if(comprehensionIndices[arrayIndex] != undefined)
 						{
 							comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
 						}
-						if(inputs[arrayIndex] != undefined)
-						{
-							inputs[arrayIndex].pushVal(tuple[arrayIndex]);
-						} else
-						{
-							_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-								{
-									input.set(tuple[arrayIndex][tupleIndex]);
-								});
-						}
+						inputs[arrayIndex].push(indices[arrayIndex]);
 					}
+
 					
 					if(when.get())
 					{
-						var ret = expr.get();
+						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
+						var ret = pair[0];						
+						connect(ret, i);
 						this.outputList.push(ret);
+						newTicks.push(pair[1]);
 					}
 
-					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 					{
 						if(comprehensionIndices[arrayIndex] != undefined)
 						{
 							comprehensionIndices[arrayIndex].popVal();
 						}
-						if(inputs[arrayIndex] != undefined)
-						{
-							inputs[arrayIndex].popVal();
-						} else
-						{
-							// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-							// 	{
-							// 		input.set(tuple[arrayIndex][tupleIndex]);
-							// 	});
-						}
+						inputs[arrayIndex].pop();
 					}
 				}, this);
 			}
 			else
 			{
+				var newTicks = new Array(indicesArray.size);
 				var vals = upVal;
 				_.each(indicesArray, function(indices, i) 
 				{
@@ -1248,6 +1238,12 @@ function Comprehension(nodeGraph, externNodes)
 					newTicks[i] = pair[1];
 				}, this);
 			}
+
+			_.each(inputs, function(input)
+			{
+				input.popCache();
+			});
+			
 			return mValTick(vals, newTicks);
 		}
 		else
@@ -1972,7 +1968,6 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		{
 			if(connectionsAllowed)
 			{
-				var signals = node.get().__signals;
 				var signals = node.fields.__signals;
 				var type = node.getType();
 				connections.push({

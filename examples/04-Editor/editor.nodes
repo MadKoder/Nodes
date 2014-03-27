@@ -32,6 +32,7 @@ structs:
 			TextInput :
 				string desc
 				signal set(string text)
+				signal focus()
 				slot onChange(string text):
 					self.set(text)
 			Text :
@@ -108,7 +109,7 @@ functions:
 					Just<regMatch> : IntExpr(strToInt(group1(intMatch.x)))
 					_ :  type strMatch :
 						Just<regMatch> : StrExpr(group1(strMatch.x))
-						_ : Ref(["toto"])
+						_ : Ref(split(str, "."))
 	ref Ui exprToUi(Expr expr)
 		type expr :
 			Func : HGroup
@@ -119,11 +120,13 @@ functions:
 						TextInput
 						(
 							"",
-							set => expr.params = pushBack
-							(
-								expr.params,
-								strToExpr(text)
-							)
+							set => 
+								self.focus()
+								expr.params = pushBack
+									(
+										expr.params,
+										strToExpr(text)
+									)								
 						)
 					]),
 					VGroup
@@ -135,13 +138,7 @@ functions:
 			Ref : TextInput
 				(
 					join(expr.path, "."),
-					set => expr = strToExpr(text)
-						# expr.path = ["a"]
-						# expr.path = concat(expr.path, ["b"])
-						# expr = Func("toto", [Ref(split(text, "."))])
-						# expr.path = split(text, ".")
-					# set => expr = Ref(split(text, "."))
-					# set => expr.path = split(text, ".")
+					set => expr = strToExpr(text)						
 				)				
 			IntExpr : TextInput
 				(
@@ -196,7 +193,7 @@ functions:
 		])
 nodes:
 	var m = Just(1)
-	var a = 1
+	var uiCounter = 0
 	var program = Program
 		(
 			[]

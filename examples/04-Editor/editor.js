@@ -28,6 +28,7 @@ function enclose(str, parentType)
 
 var code;
 var uiIndex = 0;
+
 function buildUi(model, parentView, parentType, path, rootUi)
 {
 	
@@ -38,7 +39,18 @@ function buildUi(model, parentView, parentType, path, rootUi)
 			var uiId = type + uiIndex.toString();
 			var buttonIndex = uiIndex;
 			parentView.append(enclose("<input size=\"8\" type = \"text\" id=" + uiId + " value = \"" + model.desc + "\"></input>", parentType));
-			$("#" + uiId).change(function(event) 
+			var $ui = $("#" + uiId);
+			if(!("__focusSlotPushed" in model.__signals))
+			{
+				model.__signals.__focusSlotPushed = true;
+				model.__signals.focus.push({
+					signal : function()
+					{
+						// $ui.focus();
+					}
+				})
+			}
+			$ui.change(function(event) 
 			{
 				// rootUi.set("toto");
 				rootUi.signal("onChange",  [new Store($(this).val())], path);
