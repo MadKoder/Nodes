@@ -995,17 +995,16 @@ function Comprehension(nodeGraph, externNodes)
 		var inputTemplateType = getTypeParams(inputType)[0];
 	
 		var inputGraph = iterator["for"];
+		inputs[index] = new ArrayAccess(this.arrays[index]);
 		if(_.isString(inputGraph))
 		{
-			inputs[index] = new ArrayAccess(this.arrays[index]);
-			this.nodes[iterator["for"]] = inputs[index];
+			this.nodes[inputGraph] = inputs[index];
 		} else // destruct
 		{
 			var destructGraph = inputGraph.destruct;
-			var destructTypes = getTypeParams(inputTemplateType);
-			destructInputs[index] = _.map(destructTypes, function(type)
+			destructInputs[index] = _.map(destructGraph, function(destruct, destructIndex)
 			{
-				return new SubStore(type, exprAndType.val)
+				return new ArrayAccess(inputs[index], destructIndex);
 			});
 			this.nodes = _(destructGraph)
 				.zipObject(destructInputs[index])
@@ -1028,93 +1027,78 @@ function Comprehension(nodeGraph, externNodes)
 		var when = makeExpr(nodeGraph["when"], mergedNodes);
 	};
 	
-	// TODO  connections ?
-	// TODO param nodes = union(this.nodes, externNodes)
-	var beforeConnectionsLength = connections.length;
-	
-	
 	var expr = makeExpr(nodeGraph["comp"], mergedNodes);
 
-	// TODO only if connection in the expression, or function takes a ref
-	var hasConnections = false;
-	var funcRef = false;
-	var signalsList = [];	
-
+	var hasConnections = false; // If a connection is made directly in the comprehension (e.g. [Input(x, e => doAnything) for x in a])
+	var funcRef = false; // If the expression is a function that needs references (for making connections)
 	if("func" in expr && "hasRef" in expr.func)
 	{
 		funcRef = true;
-	} else
-	if(connectionSet)
+	} 
+	else if(connectionSet)
 	{
 		hasConnections = true;
+	}
+
+	function connect(val, i)
+	{					
+		if(hasConnections)
+		{
+			val.__refs = inputs;
+			val.__referencedNodes = _.map(inputs, function() {return i;});
+		} 
+		else if(funcRef)
+		{
+			val.__refs = inputs.concat(val.__refs);
+			val.__referencedNodes = _.map(inputs, function() {return i;}).concat(val.__referencedNodes);
+		} 
 	}
 
 	this.outputList = [];
 	this.get = function(path)
 	{
-		// var filteredArray = this.array.get();
-		var arrays = _.map(this.arrays, function(array, index)
+		var arrayVals = [];
+		_.each(this.arrays, function(array, index)
 		{
-			var ret = array.get();
-			if(inputs[index] != undefined)
-			{
-				inputs[index].pushCache(ret);
-			}
-			return ret;
+			var val = array.get();
+			arrayVals.push(val);
+			inputs[index].pushCache(val);
 		});
 		
-		// Le produit cartesien des indices
-		var indicesArray = cartesianProductOf(_.map(arrays, function(array)
+		// Cartesian product of indices
+		var indicesArray = cartesianProductOf(_.map(arrayVals, function(array)
 		{
 			return _.range(array.length);
 		}));
+
 		if(when != undefined)
 		{
 			this.outputList = [];
 			_.each(indicesArray, function(indices)
 			{
-				var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
-			
-				for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+				for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
 						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
 					}
-					if(inputs[arrayIndex] != undefined)
-					{
-						inputs[arrayIndex].push(indices[arrayIndex]);
-					} else
-					{
-						_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-							{
-								input.set(tuple[arrayIndex][tupleIndex]);
-							});
-					}
+					inputs[arrayIndex].push(indices[arrayIndex]);					
 				}
 				
 				if(when.get())
 				{
 					var ret = expr.get();
+					connect(ret, i);
 					this.outputList.push(ret);
 				}
 
-				for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+				for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
 						comprehensionIndices[arrayIndex].popVal();
 					}
-					if(inputs[arrayIndex] != undefined)
-					{
-						inputs[arrayIndex].pop();
-					} else
-					{
-						// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-						// 	{
-						// 		input.set(tuple[arrayIndex][tupleIndex]);
-						// 	});
-					}
+					inputs[arrayIndex].pop();					
 				}
 			}, this);
 		}
@@ -1122,73 +1106,34 @@ function Comprehension(nodeGraph, externNodes)
 		{
 			this.outputList = _.map(indicesArray, function(indices, i) 
 			{
-				var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
-			
-				for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+				for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
 						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
 					}
-					if(inputs[arrayIndex] != undefined)
-					{
-						inputs[arrayIndex].push(indices[arrayIndex]);
-						// inputs[arrayIndex].push(new ArrayAccess(this.arrays[arrayIndex], i));
-					} else
-					{
-						_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-							{
-								input.set(tuple[arrayIndex][tupleIndex]);
-							});
-					}
+					inputs[arrayIndex].push(indices[arrayIndex]);
 				}
 
 				var ret = expr.get(true);
-				if(hasConnections)
-				{
-					ret.__referencedNodes = [];
-					ret.__refs = inputs;
-					_.each(this.arrays, function(array)
-					{
-						ret.__referencedNodes.push(i);
-					}, this);
-				} 
-				else  if(funcRef)
-				{
-					ret.__refs = inputs.concat(ret.__refs);
-					ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
-					{
-						return i;
-					}, this).concat(ret.__referencedNodes);
-				} 
 
-				for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+				connect(ret, i);
+
+				for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
 						comprehensionIndices[arrayIndex].popVal();
 					}
-					if(inputs[arrayIndex] != undefined)
-					{
-						inputs[arrayIndex].pop();
-					} else
-					{
-						// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-						// 	{
-						// 		input.set(tuple[arrayIndex][tupleIndex]);
-						// 	});
-					}
+					inputs[arrayIndex].pop();					
 				}
 				return ret;
 			}, this);
 		}
 
-		_.each(this.arrays, function(array, index)
+		_.each(inputs, function(input)
 		{
-			if(inputs[index] != undefined)
-			{
-				inputs[index].popCache();
-			}
+			input.popCache();
 		});
 
 		return this.outputList;
@@ -1276,64 +1221,29 @@ function Comprehension(nodeGraph, externNodes)
 				var vals = upVal;
 				_.each(indicesArray, function(indices, i) 
 				{
-					var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
-				
-					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 					{
 						if(comprehensionIndices[arrayIndex] != undefined)
 						{
 							comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
 						}
-						if(inputs[arrayIndex] != undefined)
-						{
-							inputs[arrayIndex].push(indices[arrayIndex]);
-						} else
-						{
-							_(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-								{
-									input.set(tuple[arrayIndex][tupleIndex]);
-								});
-						}
+						inputs[arrayIndex].push(indices[arrayIndex]);
 					}
 
-					var pair = expr.update(vals[i], (subTicks == undefined) ? {tick :parentTick} : subTicks[i], parentTick);
+					var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
 					var ret = pair[0];
-					if(hasConnections)
-					{
-						ret.__referencedNodes = [];
-						ret.__refs = inputs;
-						_.each(this.arrays, function(array)
-						{
-							ret.__referencedNodes.push(i);
-						}, this);
-					} 
-					else  if(funcRef)
-					{
-						ret.__refs = inputs.concat(ret.__refs);
-						ret.__referencedNodes = _.map(inputs, function(input, arrayIndex)
-						{
-							return i;
-						}, this).concat(ret.__referencedNodes);
-					} 
+					
+					connect(ret, i);
 
-					for(var arrayIndex = 0; arrayIndex < arrays.length; arrayIndex++)
+					for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 					{
 						if(comprehensionIndices[arrayIndex] != undefined)
 						{
 							comprehensionIndices[arrayIndex].popVal();
 						}
-						if(inputs[arrayIndex] != undefined)
-						{
-							// inputs[arrayIndex].popVal();
-							inputs[arrayIndex].pop();
-						} else
-						{
-							// _(destructInputs[arrayIndex]).forEach(function(input, tupleIndex)
-							// 	{
-							// 		input.set(tuple[arrayIndex][tupleIndex]);
-							// 	});
-						}
+						inputs[arrayIndex].pop();					
 					}
+
 					vals[i] = ret;
 					newTicks[i] = pair[1];
 				}, this);
