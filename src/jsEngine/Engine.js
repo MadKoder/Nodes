@@ -72,7 +72,7 @@ function List(val, templateType)
 	this.update = function(val, ticks, parentTick)
 	{
 		// The entire list has changed
-		if(ticks.ticks < this.tick)
+		if(ticks.tick < this.tick)
 		{
 			return mValTick(this.get());	
 		} else // Only elements of the list may have changed
@@ -83,7 +83,7 @@ function List(val, templateType)
 			{
 				var ret = item.update(val[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i]);
 				val[i] = ret[0];
-				ticks[i] = ret[1];
+				newSubTicks[i] = ret[1];
 			});
 			return mValTick(val, newSubTicks);
 		}
@@ -208,7 +208,7 @@ function Store(v, type)
 				}
 				if(!(key in graph.subs))
 				{
-					return [graph.min, graph.max];
+					return [graph.min, graph.min];
 				}
 				var sub = graph.subs[key];
 				return [sub.min, sub.max];
@@ -221,12 +221,16 @@ function Store(v, type)
 				{
 					key = key.toString();
 				}
-				if(!(key in graph))
+				if(!(key in graph.subs))
 				{
-					return [graph.min, graph.max];
+					return [graph.min, graph.min];
 				}
 				return getMinMaxTick(graph.subs[key], subPath);
 			}
+		}
+		if(path.length == 0)
+		{
+			return [this.tickGraph.min, this.tickGraph.max];
 		}
 		return getMinMaxTick(this.tickGraph, path);
 	}
@@ -242,6 +246,7 @@ function Store(v, type)
 				{
 					key = key.toString();
 				}
+				graph.max = globalTick;
 				graph.subs[key] = {min : globalTick, max : globalTick, subs : {}};
 			}
 			else
@@ -254,7 +259,7 @@ function Store(v, type)
 				}
 				if(!(key in graph.subs))
 				{
-					graph.subs[key] = {min : graph.min, max : globalTick, subs : {}};
+					graph.subs[key] = {min : globalTick, max : globalTick, subs : {}};
 				}
 				graph.max = globalTick;
 				dirtyPath(graph.subs[key], subPath);
@@ -569,9 +574,11 @@ function FuncInput(type, source)
 		var ref = this.refStack.pop();
 		this.savedStack.push(ref);
 
-		return ref.getMinMaxTick(path);
+		var ret = ref.getMinMaxTick(path);
 
 		this.refStack.push(this.savedStack.pop());
+
+		return ret;
 	}
 }
 
@@ -739,10 +746,10 @@ function Cache(node)
 		if(this.isDirty)
 		{
 			// this.val = this.node.get();
-			// var res = this.node.update(this.val, this.ticks, this.ticks.tick);
-			// this.val = res[0];
-			// this.ticks = res[1];
-			this.val = this.node.get();
+			var res = this.node.update(this.val, this.ticks, this.ticks.tick);
+			this.val = res[0];
+			this.ticks = res[1];
+			// this.val = this.node.get();
 			this.isDirty = false;
 		}
 		this.tick = globalTick;
@@ -1204,7 +1211,7 @@ function Comprehension(nodeGraph, externNodes)
 		// Parts of array have changed after value, but arrays size didn't
 		if(ticks.tick >= maxOfMinTicks)
 		{
-			var subTicks = ticks.sub;
+			var subTicks = ticks.subs;
 			var arrays = _.map(this.arrays, function(array){return array.get();});
 				
 			// Le produit cartesien des indices
@@ -1212,6 +1219,8 @@ function Comprehension(nodeGraph, externNodes)
 			{
 				return _.range(array.length);
 			}));
+
+			var newTicks = new Array(indicesArray.size);
 			if(when != undefined)
 			{
 				this.outputList = [];
@@ -1326,10 +1335,10 @@ function Comprehension(nodeGraph, externNodes)
 						}
 					}
 					vals[i] = ret;
-					ticks[i] = pair[1];
+					newTicks[i] = pair[1];
 				}, this);
 			}
-			return mValTick(vals, ticks);
+			return mValTick(vals, newTicks);
 		}
 		else
 		{
@@ -2229,7 +2238,53 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					return upVal;
 				}
 
-				return mValTick(this.get());
+				var val = this.what.get();
+				var type = val.__type;
+				for(var i = 0; i < this.cases.length - 1; i++)
+				{
+					var match = this.cases[i];
+					if(sameTypes(type,  match.type))
+					{
+						match.matchStore.push(this.what);
+						var ret = match.val.update(upVal, ticks, parentTick);
+						var val = ret[0];
+						var ticks = ret[1];
+						if(match.hasConnections)
+						{
+							val.__referencedNodes = [this.what];
+							val.__refs = [match.matchStore];
+						} 
+						else  if(match.funcRef)
+						{
+							val.__refs = [match.matchStore].concat(val.__refs);
+							val.__referencedNodes = [this.what].concat(val.__referencedNodes);
+						} 
+						match.matchStore.pop();
+						return [val, ticks];
+					}
+				}
+				// else case
+				var match = this.cases[i];
+				match.matchStore.push(this.what);
+
+				var ret = match.val.get();
+				var val = ret[0];
+				var ticks = ret[1];
+						
+				if(match.hasConnections)
+				{
+					val.__referencedNodes = [this.what];
+					val.__refs = [match.matchStore];
+				} 
+				else  if(match.funcRef)
+				{
+					val.__refs = [match.matchStore].concat(val.__refs);
+					val.__referencedNodes = [this.what].concat(val.__referencedNodes);
+				} 
+		
+				match.matchStore.pop();
+		
+				return [val, ticks];
 			}
 			
 			this.getType = function()
@@ -3192,18 +3247,24 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			};	
 			this.update = function(val, ticks, parentTick)
 			{
-				var subTicks = ticks.subs;
-				var newSubTicks = {};
-				_.each(this.fields, function(field, key){
-					// TODO : ameliorer
-					if((key != "__type") && (key != "__signals"))
-					{
-						 var res = field.update(val[key], (subTicks == undefined) ? {tick : parentTick} : subTicks[key], ticks.tick);
-						 val[key] = res[0];
-						 newSubTicks[key] = res[1];
-					}
-				});
-				return mValTick(val, newSubTicks);
+				if(val.__type == this.fields.__type) // Check if type is same (in case of a type match)
+				{					
+					var subTicks = ticks.subs;
+					var newSubTicks = {};
+					_.each(this.fields, function(field, key){
+						if((key != "__type") && (key != "__signals"))
+						{
+							var res = field.update(val[key], (subTicks != undefined && (key in subTicks)) ? subTicks[key] : {tick : parentTick}, ticks.tick);
+							val[key] = res[0];
+							newSubTicks[key] = res[1];
+						}
+					});
+					return mValTick(val, newSubTicks);
+				} 
+				else
+				{
+					return mValTick(this.get());
+				}
 			}
 			this.getType = function()
 			{

@@ -1390,6 +1390,17 @@ function FunctionNode(func)
 			this.tick = globalTick;
 			return ret;
 		};
+		this.getMinMaxTick = function(path)
+		{
+			var min = 0, max = 0;
+			_.each(params, function(param)
+			{
+				var minMax = param.getMinMaxTick([]);
+				min = Math.max(min, minMax[0]);
+				max = Math.max(max, minMax[1]);
+			})
+			return [min, max];
+		};
 		this.getPath = function(path)
 		{
 			// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
@@ -1416,7 +1427,7 @@ function FunctionNode(func)
 			}
 			else
 			{
-				var ret = func.func(params.map(function(param){return param.get();}));
+				var ret = mValTick(func.func(params.map(function(param){return param.get();})));
 			}
 			return ret;
 		};
@@ -1564,26 +1575,59 @@ var nodes =
 				"fields" : [["first", "bool"], ["second", typeParam], ["third", typeParam]],
 				"builder" : function(fields) 
 				{	
-					var first = fields.first;
-					var second = fields.second;
-					var third = fields.third;
-					
+					var cond = fields.first;
+					var first = fields.second;
+					var second = fields.third;
 					this.get = function()
 					{
-						if(first.get())
+						if(cond.get())
 						{
-							return second.get();
+							return first.get();
 						}
-						return third.get();
+						return second.get();
+					};
+					this.update = function(val, ticks, parentTick)
+					{
+						// If condition didn't change, update result
+						if(ticks.tick >= cond.getMinMaxTick([])[1])
+						{
+							if(cond.get())
+							{
+								if(ticks.tick >= first.getMinMaxTick([])[1])
+								{
+									return mValTick(val, ticks);
+								}
+								else
+								{
+									return first.update(val, ticks, parentTick);
+								}
+							}
+							else
+							{
+								if(ticks.tick >= second.getMinMaxTick([])[1])
+								{
+									return mValTick(val, ticks);
+								}
+								else
+								{
+									return second.update(val, ticks, parentTick);
+								}
+							}							
+						}
+						else // We don't know, so we get the new value
+						{
+							return mValTick(this.get());
+						}
 					};
 					this.getType = function(){
-							return third.getType();
+							// TODO check first and second type compatibles
+							return second.getType();
 					};
 					this.addSink = function(sink)
 					{
+						cond.addSink(sink);
 						first.addSink(sink);
 						second.addSink(sink);
-						third.addSink(sink);
 					};
 				}
 			}
