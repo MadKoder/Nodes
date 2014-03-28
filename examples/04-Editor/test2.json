@@ -307,20 +307,7 @@
                     "type": null,
                     "val": {
                         "type": "Vec2",
-                        "params": [
-                            {
-                                "type": "+",
-                                "params": [
-                                    [
-                                        "v0",
-                                        "x"
-                                    ],
-                                    [
-                                        "v1",
-                                        "x"
-                                    ]
-                                ]
-                            },
+                        "params": [["v0","x"],
                             {
                                 "type": "+",
                                 "params": [

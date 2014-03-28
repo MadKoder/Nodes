@@ -1452,9 +1452,17 @@ function FunctionNode(func)
 		};
 		this.update = function(val, ticks, parentTick)
 		{
-			if("hasRef" in func)
+			if("needsNodes" in func)
 			{
-				var ret = func.update(val, ticks, parentTick, params);					
+				if("hasRef" in func)
+				{
+					var ret = func.update(val, ticks, parentTick, params);
+				} 
+				else
+				{
+					// var ret = func.func(params.map(function(param){return param.get();}));
+					var ret = mValTick(func.func(params));
+				}
 			}
 			else
 			{

@@ -81,7 +81,7 @@ function List(val, templateType)
 			var newSubTicks = new Array(this.list.length);
 			_.each(this.list, function(item, i)
 			{
-				var ret = item.update(val[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i]);
+				var ret = item.update(val[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
 				val[i] = ret[0];
 				newSubTicks[i] = ret[1];
 			});
@@ -749,7 +749,6 @@ function Cache(node)
 			var res = this.node.update(this.val, this.ticks, this.ticks.tick);
 			this.val = res[0];
 			this.ticks = res[1];
-			// this.val = this.node.get();
 			this.isDirty = false;
 		}
 		this.tick = globalTick;
@@ -3157,7 +3156,11 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					var subTicks = ticks.subs;
 					var newSubTicks = {};
 					_.each(this.fields, function(field, key){
-						if((key != "__type") && (key != "__signals"))
+						if(key == "__signals")
+						{
+							val.__signals = field;
+						}
+						else if(key != "__type")
 						{
 							var res = field.update(val[key], (subTicks != undefined && (key in subTicks)) ? subTicks[key] : {tick : parentTick}, ticks.tick);
 							val[key] = res[0];
