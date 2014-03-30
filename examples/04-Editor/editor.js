@@ -32,7 +32,10 @@ function enclose(str, parentType)
 
 
 var $tmp = $("#tmp");
+var doingFocus;
+var requestFocus;
 
+var modelToUi = {};
 function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 {
 	if((ticks != undefined) && (ticks.tick < parentTick))
@@ -52,21 +55,40 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 				$enclose.attr("modelType", type);
 				$enclose.data("ui", $ui);
 				$ui = $enclose.data("ui");
+				// if(model.desc== "i")
+				if(true)
+				{
+					doingFocus = true;
+					// $ui.focus();
+					doingFocus = false;
+				}
+				if(requestFocus == model.__id)
+				{
+					requestFocus = $ui;
+				}
+				// modelToUi[model.__id] = $ui;
 				if(!("__focusSlotPushed" in model.__signals))
 				{
 					model.__signals.__focusSlotPushed = true;
 					model.__signals.focus.push({
 						signal : function()
 						{
+							// var a = "a";
 							// $("#" + uiId).focus();
+							var slots = library.nodes["TextInput"].operators.slots;
+							var slot = slots["focus"];
+							var model = slot.inputs[0].get();
+							requestFocus = model.__id;
 						}
 					});
 				}
 				$ui.change(function(event) 
 				{
-					// rootUi.set("toto");
-					rootUi.signal("onChange",  [new Store($(this).val())], path);
-					// code.p.dirty([]);
+					if(!doingFocus)
+					{
+						rootUi.signal("onChange",  [new Store($(this).val())], path);
+						// $(this).focus();
+					}
 				});
 				uiIndex++;
 				return $enclose;
@@ -158,6 +180,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 					var childUi = $ui.data(index.toString());
 					var previousType = $uiChild.attr("modelType");
 					// $uiChild.replaceWith(buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick));
+					// requestFocus = false;
 					var newUi = buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick);
 					// var newUi = buildUi($(child), model.children[index], type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick);
 					if(previousType != newUi.attr("modelType"))
@@ -209,12 +232,21 @@ localNodes =
 			this.dirty = function()
 			{
 				var mustAppend = ($root == null);
+				// requestFocus = null;
 				var uiVal = ui.get();
 				$root = buildUi($root, uiVal, "", [], ui, ui.ticks, this.tick);
 				this.tick = globalTick;
 				if(mustAppend)
 				{
 					$ui.append($root);
+				}
+				// if(requestFocus != null && requestFocus in modelToUi)
+				if(requestFocus != null)
+				{
+					doingFocus = true;
+					requestFocus.focus();
+					doingFocus = false;
+					requestFocus = null;
 				}
 			}
 
@@ -242,7 +274,8 @@ localNodes =
 			{
 				$ui.empty();
 				var child = childNode.get();
-				$ui.append(child);	
+				$ui.append(child);
+
 
 				_.each(this.sinks, function(sink)
 				{
@@ -443,6 +476,23 @@ $.get("editor.nodes", function( text ) {
 		}
 	}
 
+	function buildStruct(struct)
+	{
+		return build("StructDef",
+		[
+			struct.name,
+			_.map(struct.fields, function(paramDecl)
+				{
+					var p = build("ParamDecl", [paramDecl[0], paramDecl[1]]);
+					return p;
+				}),
+			_.map(struct.subs, function(subStruct)
+				{
+					return buildStruct(subStruct);
+				})
+		])
+	}
+
 	//var txt = JSON.stringify(codeGraph, undefined, 4);
 	var prog = code.program;
 	$.get("test2.json", function(graph)
@@ -453,7 +503,8 @@ $.get("editor.nodes", function( text ) {
 		{
 			if("struct" in structOrfunc)
 			{
-				var struct = structOrfunc.struct;	
+				var struct = structOrfunc.struct;
+				prog.get().structs.push(buildStruct(struct));
 			} else if("func" in structOrfunc)
 			{
 				var func = structOrfunc.func;
@@ -471,10 +522,11 @@ $.get("editor.nodes", function( text ) {
 						}),
 					buildExpr(func.out.val)
 				]));
-				globalTick++;
-				prog.dirty([]);
+				
 			}
 		});
+		globalTick++;
+		prog.dirty([]);
 	}, "json");
 	// var $ui = $("#ui");	
 	// var ui = code.ui.get();

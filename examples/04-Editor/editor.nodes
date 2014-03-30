@@ -32,7 +32,8 @@ structs:
 			TextInput :
 				string desc
 				signal set(string text)
-				signal focus()
+				signal focus(int what)
+				signal onBuilt()
 				slot onChange(string text):
 					self.set(text)
 			Text :
@@ -57,8 +58,13 @@ structs:
 		string	id
 		list<ParamDecl>	inputs
 		Expr	output
+	StructDef :
+		string	name
+		list<ParamDecl>	fields
+		list<StructDef>	subs
 	Program :
 		list<FuncDef>	functions
+		list<StructDef>	structs
 functions:
 	join(list<string> strs, string sep)
 		reduce
@@ -119,14 +125,14 @@ functions:
 						txtIn(expr.type),
 						TextInput
 						(
-							"",
-							set => 
-								self.focus()
-								expr.params = pushBack
-									(
-										expr.params,
-										strToExpr(text)
-									)								
+							"i",
+							set => expr.params = pushBack
+								(
+									expr.params,
+									strToExpr(text)
+								),
+							onBuilt =>
+								self.focus(self)
 						)
 					]),
 					VGroup
@@ -142,13 +148,13 @@ functions:
 				)				
 			IntExpr : TextInput
 				(
-						intToStr(expr.x),
-						set => expr = strToExpr(text)
+					intToStr(expr.x),
+					set => expr = strToExpr(text)
 				)
 			StrExpr : TextInput
 				(
-						expr.str,
-						set => expr = strToExpr(text)
+					expr.str,
+					set => expr = strToExpr(text)
 				)
 			_ : TextInput("")
 	# ref Ui exprToUi(Expr expr)
@@ -194,18 +200,18 @@ functions:
 nodes:
 	var m = Just(1)
 	var uiCounter = 0
-	var program = Program
-		(
-			[]
-		)
+	var program = Program :
+		[]
+		[]
 	cache ui = progToUi(program)
 	cache view = ui
 	def uiView = UiView(ui)
+	def uiView2 = UiView(ui)
 	var toto = "toto"
 	def txt = TextInput(toto, set => toto = text)
 	# cache test = RootView(VGroupView(VGroup([]), "", [], ui, [TextInputView(txt, "VGroup", [], ui)]))
 	# def test2 = TextInputView(txt, "", [], ui)
-	# def uiView2 = UiView(ui)
+
 actions :
 	# tick :
 	# 	program = program \ functions = pushFront(program.functions, FuncDef("fun2"))

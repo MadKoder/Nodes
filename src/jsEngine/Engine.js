@@ -491,6 +491,12 @@ function FuncInput(type, source)
 		this.refStack.push(node);
 		this.stack.push(res);
 	};
+
+	this.pushNodeAndVal = function(node, val)
+	{
+		this.refStack.push(node);
+		this.stack.push(val);
+	};
 	
 	this.pop = function()
 	{
@@ -3062,6 +3068,8 @@ function makeConcreteName(name, typeParamsInstances)
 	});
 }
 
+var structId = 0;
+
 function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeParamsInstances)
 {
 	var name = structGraph.name;
@@ -3091,6 +3099,16 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			]
 		);
 	}
+
+	var node = {};
+	if(concreteName in library.nodes)
+	{
+		node = library.nodes[concreteName];
+	} else
+	{
+		library.nodes[concreteName] = node;
+	}
+
 	var fieldsOperators = {};
 	var concreteFieldsGraph = fieldsGraph;
 	for(var i = 0; i < fieldsGraph.length; i++)
@@ -3138,6 +3156,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			};
 			this.operators = library.nodes[concreteName].operators;
 			this.signals = {};
+			this.built = false;
 			for(var i = 0; i < fieldsGraph.length; i++)
 			{
 				var field = fieldsGraph[i];
@@ -3189,11 +3208,19 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			}
 			this.get = function()
 			{
-				return _.mapValues(this.fields, function(field, key){
+				var ret = _.mapValues(this.fields, function(field, key){
 					// TODO : ameliorer
 					return ((key == "__type") || (key == "__signals")) ? field :  field.get();
 				});
-				//return this.fields;
+				ret.__id = structId++;
+				if("__signals" in this.fields && "onBuilt" in this.fields.__signals)
+				{
+					// this.built = true;
+					this.operators.signal(ret, "onBuilt", [], [], this);
+					// this.built = false;
+					// signal : function(struct, id, params, path, node, callFromSlot)
+				}
+				return ret;
 			};	
 			this.getPath = function(path)
 			{
@@ -3220,7 +3247,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 						{
 							val.__signals = field;
 						}
-						else if(key != "__type")
+						else if((key != "__type") &&  (key != "__id"))
 						{
 							var res = field.update(val[key], (subTicks != undefined && (key in subTicks)) ? subTicks[key] : {tick : parentTick}, ticks.tick);
 							val[key] = res[0];
@@ -3252,18 +3279,13 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			{
 				this.operators.signal(this.get(), id, params, path, this);
 			}
+			if("__signals" in this.fields && "onBuilt" in this.fields.__signals)
+			{
+				var a = "t";
+			}
 		}
 
 		return builder;
-	}
-
-	var node = {};
-	if(concreteName in library.nodes)
-	{
-		node = library.nodes[concreteName];
-	} else
-	{
-		library.nodes[concreteName] = node;
 	}
 	
 	_.merge(node, {
@@ -3338,7 +3360,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				if(!path || path.length == 0)
 				{
 					// this.selfStore.pushVal(struct);
-					this.selfStore.push(node);
+					this.selfStore.pushNodeAndVal(node, struct);
 					// Need this because selfStore is shared between the entire class hierarchy
 					this.selfStore.pushOperators(this);
 					// Dynamic dispatch
