@@ -199,8 +199,13 @@ nodes:
 			[]
 		)
 	cache ui = progToUi(program)
+	cache view = ui
 	def uiView = UiView(ui)
-	def uiView2 = UiView(ui)
+	var toto = "toto"
+	def txt = TextInput(toto, set => toto = text)
+	# cache test = RootView(VGroupView(VGroup([]), "", [], ui, [TextInputView(txt, "VGroup", [], ui)]))
+	# def test2 = TextInputView(txt, "", [], ui)
+	# def uiView2 = UiView(ui)
 actions :
 	# tick :
 	# 	program = program \ functions = pushFront(program.functions, FuncDef("fun2"))

@@ -13,82 +13,178 @@ function mf1(func1, inAndOutTypes)
 	}
 }
 
+var code;
+var uiIndex = 0;
+
 function enclose(str, parentType)
 {
 	switch(parentType)
 	{
 		case "VGroup" :
-			return "<div class=\"vGroupElem\">" + str + "</div>";
+			return"<div class=\"vGroupElem\" id=enclose" + uiIndex.toString() + ">" + str + "</div>";
 		case "HGroup" :
-			return "<div class=\"hGroupElem\">" + str + "</div>";
+			return "<div class=\"hGroupElem\" id=enclose" + uiIndex.toString() + ">" + str + "</div>";
 		case "" :
 			return str;
 	}
 }
 
-var code;
-var uiIndex = 0;
 
-function buildUi(model, parentView, parentType, path, rootUi)
+
+var $tmp = $("#tmp");
+
+function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 {
-	
+	if((ticks != undefined) && (ticks.tick < parentTick))
+		return view;
+
 	var type = model.__type;
 	switch(type)
 	{
 		case "TextInput" :
-			var uiId = type + uiIndex.toString();
-			var buttonIndex = uiIndex;
-			parentView.append(enclose("<input size=\"8\" type = \"text\" id=" + uiId + " value = \"" + model.desc + "\"></input>", parentType));
-			var $ui = $("#" + uiId);
-			if(!("__focusSlotPushed" in model.__signals))
+			if((view == null) || (type != view.attr("modelType")))
+			{				
+				var uiId = type + uiIndex.toString();
+				var buttonIndex = uiIndex;
+				$tmp.append(enclose("<input size=\"8\" type = \"text\" id=" + uiId + " value = \"" + model.desc + "\"></input>", parentType));
+				var $ui = $("#" + uiId);
+				var $enclose = $("#enclose" + uiIndex.toString());
+				$enclose.attr("modelType", type);
+				$enclose.data("ui", $ui);
+				$ui = $enclose.data("ui");
+				if(!("__focusSlotPushed" in model.__signals))
+				{
+					model.__signals.__focusSlotPushed = true;
+					model.__signals.focus.push({
+						signal : function()
+						{
+							// $("#" + uiId).focus();
+						}
+					});
+				}
+				$ui.change(function(event) 
+				{
+					// rootUi.set("toto");
+					rootUi.signal("onChange",  [new Store($(this).val())], path);
+					// code.p.dirty([]);
+				});
+				uiIndex++;
+				return $enclose;
+			} else
 			{
-				model.__signals.__focusSlotPushed = true;
-				model.__signals.focus.push({
-					signal : function()
-					{
-						// $ui.focus();
-					}
-				})
+				var $enclose = view;
+				var $ui = $enclose.children();
+				$ui.attr("value", model.desc);
+				// $ui.change(function(event) 
+				// {
+				// 	// rootUi.set("toto");
+				// 	rootUi.signal("onChange",  [new Store($(this).val())], path);
+				// 	// code.p.dirty([]);
+				// });
 			}
-			$ui.change(function(event) 
-			{
-				// rootUi.set("toto");
-				rootUi.signal("onChange",  [new Store($(this).val())], path);
-				// code.p.dirty([]);
-			});
-			uiIndex++;
+			return view;
 			break;
 		case "Text" :
 			var uiId = type + uiIndex.toString();
-			var buttonIndex = uiIndex;
-			parentView.append(enclose("<div class=\"text\" id=" + uiId  + "\">" + model.txt+ "</div>", parentType));
+			$tmp.append(enclose("<div class=\"text\" id=" + uiId  + "\">" + model.txt+ "</div>", parentType));			
+			var $ui = $("#" + uiId);
+			var $enclose = $("#enclose" + uiIndex.toString());
+			$enclose.attr("modelType", type);
+			$enclose.data("ui", $ui);
 			uiIndex++;
+			return $enclose;
 			break;
 		case "Button" :
 			var uiId = type + uiIndex.toString();
-			var buttonIndex = uiIndex;
-			parentView.append(enclose("<button id=" + uiId + "></button>", parentType));
+			$tmp.append(enclose("<button id=" + uiId + "></button>", parentType));
+			var $ui = $("#" + uiId);
+			var $enclose = $("#enclose" + uiIndex.toString());
+			$enclose.attr("modelType", type);
+			$enclose.data("ui", $ui);
 			$("#" + uiId).button().html(model.desc).click(function() 
 			{
 				rootUi.signal("onClick", [new Store(model.desc)], path);
 			});
 			uiIndex++;
+			return $enclose;
 			break;
 		case "HGroup" :
 		case "VGroup" :
-			var uiId = type + uiIndex.toString();
-			// parentView.append(enclose("<div id=" + uiId + "></div>", parentType));
-			var uiClass = type == "HGroup" ? "hGroup" : "vGroup";
-			parentView.append((parentType == "HGroup") ? 
-				"<div class=\"hGroupElem " + uiClass + "\" id=" + uiId + "></div>" :
-				"<div class=\"vGroupElem " + uiClass + "\" id=" + uiId + "></div>"
-			);
-			var $ui = $("#" + uiId);
-			uiIndex++;
-			_.each(model.children, function(child, index)
+			if((view == null) || (type != view.attr("modelType")))
+			{				
+				var uiId = type + uiIndex.toString();
+				// $tmp.append(enclose("<div id=" + uiId + "></div>", parentType));
+				var uiClass = type == "HGroup" ? "hGroup" : "vGroup";
+				$tmp.append((parentType == "HGroup") ? 
+					"<div class=\"hGroupElem " + uiClass + "\" id=" + uiId + "></div>" :
+					"<div class=\"vGroupElem " + uiClass + "\" id=" + uiId + "></div>"
+				);
+				var $ui = $("#" + uiId);
+				$ui.attr("modelType", type);				
+				uiIndex++;
+				_.each(model.children, function(child, index)
+				{
+					var childUi = buildUi(null, child, type, path.concat(["children", index]), rootUi);
+					$ui.append(childUi);
+					$ui.data(index.toString(), childUi);
+					var test = $ui.data(index.toString());
+					test = $ui.data();					
+					var a = test;
+				});
+			} else if((ticks.subs == undefined) || (ticks.subs.children == undefined) || (ticks.subs.children.subs == undefined))
 			{
-				buildUi(child, $ui, type, path.concat(["children", index]), rootUi);
-			});
+				var $ui = view;
+				$ui.empty();
+				_.each(model.children, function(child, index)
+				{
+					var childUi = buildUi(null, child, type, path.concat(["children", index]), rootUi);
+					$ui.append(childUi);
+					$ui.data(index.toString(), childUi);
+					var test = $ui.data(index.toString());
+					var a = test;
+				});
+			} else
+			{
+				var childrenTicks = ticks.subs.children.subs;
+				$ui = view;
+				var $uiChildren = $ui.children();
+				var $uiChild = $ui.children().first();
+				var newUis = jQuery();
+				// $ui.empty();
+				_.each(model.children, function(child, index)
+				// $uiChildren.each(function(index, child)
+				{
+					var test = $ui.data();
+					var childUi = $ui.data(index.toString());
+					var previousType = $uiChild.attr("modelType");
+					// $uiChild.replaceWith(buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick));
+					var newUi = buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick);
+					// var newUi = buildUi($(child), model.children[index], type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick);
+					if(previousType != newUi.attr("modelType"))
+					{
+						$uiChild.replaceWith(newUi);
+					}
+					// $ui.append(newUi);
+					// if(model.children[index].__type == "TextInput")
+					// {						
+					// 	newUi.change(function(event) 
+					// 	{
+					// 		rootUi.signal("onChange",  [new Store($(this).val())], path.concat(["children", index]));
+					// 	});
+					// }
+
+					// newUis = newUis.add(buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick));
+					$uiChild = $uiChild.next();
+				});
+				// $ui.empty();
+				// $ui.append(newUis);
+				// _.each(newUis, function(newUi)
+				// {
+				// 	$ui.append(newUi);
+				// })
+				
+			}
+			return $ui;
 			break;
 	}
 }
@@ -108,14 +204,184 @@ localNodes =
 
 			ui.addSink(this);			
 			
+			var $root = null;
+			this.tick = globalTick;
 			this.dirty = function()
 			{
-				$ui.empty();
+				var mustAppend = ($root == null);
 				var uiVal = ui.get();
-				buildUi(uiVal, $ui, "", [], ui);
+				$root = buildUi($root, uiVal, "", [], ui, ui.ticks, this.tick);
+				this.tick = globalTick;
+				if(mustAppend)
+				{
+					$ui.append($root);
+				}
 			}
 
 			this.dirty();
+		}
+	},
+	RootView :
+	{
+		"fields" : [["child", "UiView"]],
+		"builder" : function(fields) 
+		{	
+			var childNode = fields.child;
+
+			childNode.addSink(this);
+			var $ui = $("#ui" + mainUiIndex);
+			mainUiIndex++;
+
+			this.get = function()
+			{
+				return null;
+			}
+
+			this.sinks = [];
+			this.dirty = function()
+			{
+				$ui.empty();
+				var child = childNode.get();
+				$ui.append(child);	
+
+				_.each(this.sinks, function(sink)
+				{
+					sink.dirty()
+				});			
+			}
+
+			this.dirty();
+
+			this.getType = function()
+			{
+				return "RootView";
+			}
+
+			this.addSink = function(sink)
+			{
+				this.sinks.push(sink);
+			}
+		}
+	},
+	"TextInputView" : 
+	{
+		superClass : "UiView",
+		"fields" : [["ui", "TextInput"], ["parentType", "string"], ["path", mListType("string")], ["rootUi", "Ui"]],
+		"builder" : function(fields) 
+		{	
+			var uiNode = fields.ui;
+			var parentType = fields.parentType.get();
+			var path = fields.path.get();
+			var rootUi = fields.rootUi;
+
+			uiNode.addSink(this);
+			
+			// if(!("__focusSlotPushed" in model.__signals))
+			// {
+			// 	model.__signals.__focusSlotPushed = true;
+			// 	model.__signals.focus.push({
+			// 		signal : function()
+			// 		{
+			// 			// $("#" + uiId).focus();
+			// 		}
+			// 	});
+			// }
+			
+			this.sinks = [];
+	
+			this.dirty = function()
+			{
+				_.each(this.sinks, function(sink)
+				{
+					sink.dirty()
+				});
+			}
+
+			this.dirty();
+
+			this.get = function()
+			{
+				var ui = fields.ui.get();
+				var uiId = "TextInput" + uiIndex.toString();
+				var buttonIndex = uiIndex;
+				$tmp.append(enclose("<input size=\"8\" type = \"text\" id=" + uiId + " value = \"" + ui.desc + "\"></input>", parentType));
+				var $ui = $("#" + uiId);
+				var $enclose = $("#enclose" + uiIndex.toString());
+				$ui.change(function(event) 
+				{
+					// rootUi.set("toto");
+					uiNode.signal("onChange",  [new Store($(this).val())], []);
+					// code.p.dirty([]);
+				});
+				uiIndex++;
+				this.enclose = $enclose;
+				return this.enclose;
+			}
+			this.getType = function()
+			{
+				return "TextInputView";
+			}
+
+			this.addSink = function(sink)
+			{
+				this.sinks.push(sink);
+			}
+		}
+	},
+	"VGroupView" : 
+	{
+		superClass : "UiView",
+		"fields" : [["ui", "VGroup"], ["parentType", "string"], ["path", mListType("string")], ["rootUi", "Ui"], ["children", mListType("UiView")]],
+		"builder" : function(fields) 
+		{	
+			var uiNode = fields.ui;
+			var parentType = fields.parentType.get();
+			var path = fields.path.get();
+			var rootUi = fields.rootUi;
+			var childrenNode = fields.children;
+
+			uiNode.addSink(this);
+			childrenNode.addSink(this);
+
+			this.sinks = [];
+			this.dirty = function()
+			{
+				_.each(this.sinks, function(sink)
+				{
+					sink.dirty()
+				});
+			}
+
+			this.get = function()
+			{
+				var children = childrenNode.get();
+				var uiId = "VGroupView" + uiIndex.toString();
+				// $tmp.append(enclose("<div id=" + uiId + "></div>", parentType));
+				var uiClass = "vGroup";
+				$tmp.append((parentType == "HGroup") ? 
+					"<div class=\"hGroupElem " + uiClass + "\" id=" + uiId + "></div>" :
+					"<div class=\"vGroupElem " + uiClass + "\" id=" + uiId + "></div>"
+				);
+				var $ui = $("#" + uiId);
+				$ui.empty();
+				uiIndex++;
+				_.each(children, function(child, index)
+				{
+					$ui.append(child);
+				});
+				this.enclose = $ui;
+				return this.enclose;
+			}
+
+			this.getType = function()
+			{
+				return "VGroupView";
+			}
+
+			this.addSink = function(sink)
+			{
+				this.sinks.push(sink);
+			}
 		}
 	}
 }

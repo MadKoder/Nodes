@@ -89,9 +89,30 @@ function List(val, templateType)
 		}
 	}
 	
+	this.getMinMaxTick = function(path)
+	{
+		var maxTicks = 0, maxOfMinTicks = 0;
+		_.each(this.list, function(item){
+			var itemMinMaxTicks = item.getMinMaxTick([]);
+			maxTicks = Math.max(maxTicks, itemMinMaxTicks[1]);
+			maxOfMinTicks = Math.max(maxOfMinTicks, itemMinMaxTicks[0]);
+		});
+
+		return [maxOfMinTicks, maxTicks];
+	}
+
 	this.getType = function()
 	{
 		return mListType(this.templateType);
+	}
+
+
+	this.addSink = function(sink)
+	{
+		_.each(this.list, function(item)
+			{
+				item.addSink(sink);
+			});
 	}
 }
 
@@ -259,7 +280,7 @@ function Store(v, type)
 				}
 				if(!(key in graph.subs))
 				{
-					graph.subs[key] = {min : globalTick, max : globalTick, subs : {}};
+					graph.subs[key] = {min : graph.min, max : globalTick, subs : {}};
 				}
 				graph.max = globalTick;
 				dirtyPath(graph.subs[key], subPath);
@@ -713,8 +734,6 @@ function Cache(node)
 	this.node.addSink(this);
 	this.isDirty = false;
 
-	this.tick = globalTick;
-
 	var type = node.getType();
 	var baseType = getBaseType(type);
 	var templates = getTypeParams(type);
@@ -751,10 +770,24 @@ function Cache(node)
 			this.ticks = res[1];
 			this.isDirty = false;
 		}
-		this.tick = globalTick;
 		return this.val;		
 	};
 
+	this.update = function(val, ticks, parentTick)
+	{
+		if(this.isDirty)
+		{
+			// this.val = this.node.get();
+			var res = this.node.update(this.val, this.ticks, this.ticks.tick);
+			this.val = res[0];
+			this.ticks = res[1];
+			this.isDirty = false;
+		}
+		return [this.val, this.ticks];
+	};
+
+	this.get();
+	
 	this.dirty = function()
 	{
 		this.isDirty = true;
@@ -1137,6 +1170,18 @@ function Comprehension(nodeGraph, externNodes)
 		return this.outputList;
 	};
 	
+	this.getMinMaxTick = function(path)
+	{
+		var maxTicks = 0, maxOfMinTicks = 0;
+		_.each(this.arrays, function(array){
+			var arrayMinMaxTicks = array.getMinMaxTick([]);
+			maxTicks = Math.max(maxTicks, arrayMinMaxTicks[1]);
+			maxOfMinTicks = Math.max(maxOfMinTicks, arrayMinMaxTicks[0]);
+		});
+
+		return [maxOfMinTicks, maxTicks];
+	}
+
 	// TODO ameliorer
 	this.update = function(upVal, ticks, parentTick)
 	{
@@ -1174,7 +1219,7 @@ function Comprehension(nodeGraph, externNodes)
 				_.each(indicesArray, function(indices)
 				{
 					var tuple = _.map(arrays, function(array, index){return array[indices[index]];});
-				
+
 					for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 					{
 						if(comprehensionIndices[arrayIndex] != undefined)
@@ -1184,7 +1229,6 @@ function Comprehension(nodeGraph, externNodes)
 						inputs[arrayIndex].push(indices[arrayIndex]);
 					}
 
-					
 					if(when.get())
 					{
 						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
@@ -2136,11 +2180,12 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 
 			this.update = function(upVal, ticks, parentTick)
 			{
-				var minMax = this.what.getMinMaxTick([]);
-				if(ticks.tick >= minMax[1])
-				{
-					return upVal;
-				}
+				// inputticks should already have been checked in calling function
+				// var minMax = this.what.getMinMaxTick([]);
+				// if(ticks.tick >= minMax[1])
+				// {
+				// 	return upVal;
+				// }
 
 				var val = this.what.get();
 				var type = val.__type;
@@ -3127,6 +3172,21 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					this.fields.__signals[signalGraph.signal] = [];
 				}
 			};
+
+			this.getMinMaxTick = function(path)
+			{
+				var maxTicks = 0, maxOfMinTicks = 0;
+				_.each(this.fields, function(field, key){
+					if((key != "__type") && (key != "__signals"))
+					{
+						var itemMinMaxTicks = field.getMinMaxTick([]);
+						maxTicks = Math.max(maxTicks, itemMinMaxTicks[1]);
+						maxOfMinTicks = Math.max(maxOfMinTicks, itemMinMaxTicks[0]);
+					}
+				});
+
+				return [maxOfMinTicks, maxTicks];
+			}
 			this.get = function()
 			{
 				return _.mapValues(this.fields, function(field, key){
@@ -3190,7 +3250,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			};
 			this.signal = function(id, params, path)
 			{
-				this.operators.signal(this.get(), id, params, path, null);
+				this.operators.signal(this.get(), id, params, path, this);
 			}
 		}
 
@@ -3562,7 +3622,7 @@ function FunctionInstance(classGraph)
 
 		if(ticks.tick >= max)
 		{
-			return mValTick(val, ticks);
+			return [val, ticks];
 		}
 
 		_.each(paramNodes, function(node, i)

@@ -4,6 +4,18 @@
 		"selected_items":
 		[
 			[
+				"sin",
+				"sinks"
+			],
+			[
+				"pa",
+				"parentType"
+			],
+			[
+				"nee",
+				"needsNodes"
+			],
+			[
 				"has",
 				"hasConnections"
 			],
@@ -130,10 +142,6 @@
 			[
 				"bo",
 				"border-width"
-			],
-			[
-				"pa",
-				"padding-bottom"
 			],
 			[
 				"conn",
@@ -263,7 +271,7 @@
 			"file": "src/jsEngine/Engine.js",
 			"settings":
 			{
-				"buffer_size": 96314,
+				"buffer_size": 96573,
 				"line_ending": "Unix"
 			}
 		},
@@ -271,7 +279,7 @@
 			"file": "src/jsEngine/Library.js",
 			"settings":
 			{
-				"buffer_size": 43356,
+				"buffer_size": 44272,
 				"line_ending": "Unix"
 			}
 		},
@@ -284,10 +292,29 @@
 			}
 		},
 		{
+			"contents": "$(document).ready(function ()\n{\n\n\nfunction mf1(func1, inAndOutTypes)\n{\n	return {\n		params : [[\"first\", inAndOutTypes.inputs[0]]],\n		func : function(params)	{	\n			return func1(params[0]);\n		},\n		type : inAndOutTypes.output\n	}\n}\n\nvar code;\nvar uiIndex = 0;\n\nfunction enclose(str, parentType)\n{\n	switch(parentType)\n	{\n		case \"VGroup\" :\n			return\"<div class=\\\"vGroupElem\\\" id=enclose\" + uiIndex.toString() + \">\" + str + \"</div>\";\n		case \"HGroup\" :\n			return \"<div class=\\\"hGroupElem\\\" id=enclose\" + uiIndex.toString() + \">\" + str + \"</div>\";\n		case \"\" :\n			return str;\n	}\n}\n\n\n\nvar $tmp = $(\"#tmp\");\n\nfunction buildUi(view, model, parentType, path, rootUi, ticks, maxTick)\n{\n	if(ticks.tick < maxTick)\n		return view;\n\n	var type = model.__type;\n	switch(type)\n	{\n		case \"TextInput\" :\n			var uiId = type + uiIndex.toString();\n			var buttonIndex = uiIndex;\n			$tmp.append(enclose(\"<input size=\\\"8\\\" type = \\\"text\\\" id=\" + uiId + \" value = \\\"\" + model.desc + \"\\\"></input>\", parentType));\n			var $ui = $(\"#\" + uiId);\n			var $enclose = $(\"#enclose\" + uiIndex.toString());\n			if(!(\"__focusSlotPushed\" in model.__signals))\n			{\n				model.__signals.__focusSlotPushed = true;\n				model.__signals.focus.push({\n					signal : function()\n					{\n						// $(\"#\" + uiId).focus();\n					}\n				});\n			}\n			$ui.change(function(event) \n			{\n				// rootUi.set(\"toto\");\n				rootUi.signal(\"onChange\",  [new Store($(this).val())], path);\n				// code.p.dirty([]);\n			});\n			uiIndex++;\n			return $enclose;\n			break;\n		case \"Text\" :\n			var uiId = type + uiIndex.toString();\n			$tmp.append(enclose(\"<div class=\\\"text\\\" id=\" + uiId  + \"\\\">\" + model.txt+ \"</div>\", parentType));			\n			var $ui = $(\"#\" + uiId);\n			var $enclose = $(\"#enclose\" + uiIndex.toString());\n			uiIndex++;\n			return $enclose;\n			break;\n		case \"Button\" :\n			var uiId = type + uiIndex.toString();\n			$tmp.append(enclose(\"<button id=\" + uiId + \"></button>\", parentType));\n			var $ui = $(\"#\" + uiId);\n			var $enclose = $(\"#enclose\" + uiIndex.toString());\n			$(\"#\" + uiId).button().html(model.desc).click(function() \n			{\n				rootUi.signal(\"onClick\", [new Store(model.desc)], path);\n			});\n			uiIndex++;\n			return $enclose;\n			break;\n		case \"HGroup\" :\n		case \"VGroup\" :\n			if(view == null)\n			{				\n				var uiId = type + uiIndex.toString();\n				// $tmp.append(enclose(\"<div id=\" + uiId + \"></div>\", parentType));\n				var uiClass = type == \"HGroup\" ? \"hGroup\" : \"vGroup\";\n				$tmp.append((parentType == \"HGroup\") ? \n					\"<div class=\\\"hGroupElem \" + uiClass + \"\\\" id=\" + uiId + \"></div>\" :\n					\"<div class=\\\"vGroupElem \" + uiClass + \"\\\" id=\" + uiId + \"></div>\"\n				);\n				var $ui = $(\"#\" + uiId);\n				uiIndex++;\n				_.each(model.children, function(child, index)\n				{\n					$ui.append(buildUi(child, type, path.concat([\"children\", index]), rootUi));\n				});\n			} else\n			{\n				$ui = view;\n				var childrenTicks = ticks.subs.children;\n				\n			}\n			return $ui;\n			break;\n	}\n}\n\nvar mainUiIndex = 0;\nlocalNodes =\n{\n	\"UiView\" : \n	{\n		\"fields\" : [[\"ui\", \"Ui\"]],\n		\"builder\" : function(fields) \n		{	\n			var ui = fields.ui;\n			this.index = mainUiIndex;\n			var $ui = $(\"#ui\" + mainUiIndex);\n			mainUiIndex++;	\n\n			ui.addSink(this);			\n			\n			var $root = null;\n\n			this.dirty = function()\n			{\n				$ui.empty();\n				var uiVal = ui.get();\n				buildUi($root, uiVal, \"\", [], ui, ui.ticks, ui.ticks.tick)\n				$ui.append();\n			}\n\n			this.dirty();\n		}\n	},\n	RootView :\n	{\n		\"fields\" : [[\"child\", \"UiView\"]],\n		\"builder\" : function(fields) \n		{	\n			var childNode = fields.child;\n\n			childNode.addSink(this);\n			var $ui = $(\"#ui\" + mainUiIndex);\n			mainUiIndex++;\n\n			this.get = function()\n			{\n				return null;\n			}\n\n			this.sinks = [];\n			this.dirty = function()\n			{\n				$ui.empty();\n				var child = childNode.get();\n				$ui.append(child);	\n\n				_.each(this.sinks, function(sink)\n				{\n					sink.dirty()\n				});			\n			}\n\n			this.dirty();\n\n			this.getType = function()\n			{\n				return \"RootView\";\n			}\n\n			this.addSink = function(sink)\n			{\n				this.sinks.push(sink);\n			}\n		}\n	},\n	\"TextInputView\" : \n	{\n		superClass : \"UiView\",\n		\"fields\" : [[\"ui\", \"TextInput\"], [\"parentType\", \"string\"], [\"path\", mListType(\"string\")], [\"rootUi\", \"Ui\"]],\n		\"builder\" : function(fields) \n		{	\n			var uiNode = fields.ui;\n			var parentType = fields.parentType.get();\n			var path = fields.path.get();\n			var rootUi = fields.rootUi;\n\n			uiNode.addSink(this);\n			\n			// if(!(\"__focusSlotPushed\" in model.__signals))\n			// {\n			// 	model.__signals.__focusSlotPushed = true;\n			// 	model.__signals.focus.push({\n			// 		signal : function()\n			// 		{\n			// 			// $(\"#\" + uiId).focus();\n			// 		}\n			// 	});\n			// }\n			\n			this.sinks = [];\n	\n			this.dirty = function()\n			{\n				_.each(this.sinks, function(sink)\n				{\n					sink.dirty()\n				});\n			}\n\n			this.dirty();\n\n			this.get = function()\n			{\n				var ui = fields.ui.get();\n				var uiId = \"TextInput\" + uiIndex.toString();\n				var buttonIndex = uiIndex;\n				$tmp.append(enclose(\"<input size=\\\"8\\\" type = \\\"text\\\" id=\" + uiId + \" value = \\\"\" + ui.desc + \"\\\"></input>\", parentType));\n				var $ui = $(\"#\" + uiId);\n				var $enclose = $(\"#enclose\" + uiIndex.toString());\n				$ui.change(function(event) \n				{\n					// rootUi.set(\"toto\");\n					uiNode.signal(\"onChange\",  [new Store($(this).val())], []);\n					// code.p.dirty([]);\n				});\n				uiIndex++;\n				this.enclose = $enclose;\n				return this.enclose;\n			}\n			this.getType = function()\n			{\n				return \"TextInputView\";\n			}\n\n			this.addSink = function(sink)\n			{\n				this.sinks.push(sink);\n			}\n		}\n	},\n	\"VGroupView\" : \n	{\n		superClass : \"UiView\",\n		\"fields\" : [[\"ui\", \"VGroup\"], [\"parentType\", \"string\"], [\"path\", mListType(\"string\")], [\"rootUi\", \"Ui\"], [\"children\", mListType(\"UiView\")]],\n		\"builder\" : function(fields) \n		{	\n			var uiNode = fields.ui;\n			var parentType = fields.parentType.get();\n			var path = fields.path.get();\n			var rootUi = fields.rootUi;\n			var childrenNode = fields.children;\n\n			uiNode.addSink(this);\n			childrenNode.addSink(this);\n\n			this.sinks = [];\n			this.dirty = function()\n			{\n				_.each(this.sinks, function(sink)\n				{\n					sink.dirty()\n				});\n			}\n\n			this.get = function()\n			{\n				var children = childrenNode.get();\n				var uiId = \"VGroupView\" + uiIndex.toString();\n				// $tmp.append(enclose(\"<div id=\" + uiId + \"></div>\", parentType));\n				var uiClass = \"vGroup\";\n				$tmp.append((parentType == \"HGroup\") ? \n					\"<div class=\\\"hGroupElem \" + uiClass + \"\\\" id=\" + uiId + \"></div>\" :\n					\"<div class=\\\"vGroupElem \" + uiClass + \"\\\" id=\" + uiId + \"></div>\"\n				);\n				var $ui = $(\"#\" + uiId);\n				$ui.empty();\n				uiIndex++;\n				_.each(children, function(child, index)\n				{\n					$ui.append(child);\n				});\n				this.enclose = $ui;\n				return this.enclose;\n			}\n\n			this.getType = function()\n			{\n				return \"VGroupView\";\n			}\n\n			this.addSink = function(sink)\n			{\n				this.sinks.push(sink);\n			}\n		}\n	}\n}\n\n_.merge(nodes, localNodes);\n\nvar library =\n{\n	nodes : nodes,\n	functions : functions,\n	actions : actions\n};\n\n\n\n$.get(\"editor.nodes\", function( text ) {\n// $.get( \"structSlots.nodes\", function( text ) {\n	setLodash(_);\n	setEngineLodash(_);\n\n	var codeGraph = codeToGraph(text, library, parser);\n	code = compileGraph(codeGraph, library);\n\n	function build(type, params)\n	{\n		var fieldsDecl = library.nodes[type].fields;\n		var fields = _.zipObject(_.map(fieldsDecl, function(fieldDecl, i)\n		{\n			return [fieldDecl[0], params[i]];\n		}));\n		return new library.nodes[type].builder\n		(\n			_.mapValues(fields, function(fieldVal)\n			{\n				return new Store(fieldVal);\n			})\n		).get();\n	}\n\n	function buildExpr(expr)\n	{\n		if(_.isArray(expr))\n		{\n			return	build(\"Ref\", [_.map(expr, function(elem)\n			{\n				return elem;\n			})]);\n		}\n		else\n		{\n			return	build(\"Func\", \n				[\n					expr.type, \n					_.map(expr.params, function(param)\n					{\n						return buildExpr(param);\n					})\n				])\n		}\n	}\n\n	//var txt = JSON.stringify(codeGraph, undefined, 4);\n	var prog = code.program;\n	$.get(\"test2.json\", function(graph)\n	{\n		// TODO enable\n		// return;\n		_.each(graph.structsAndFuncs, function(structOrfunc)\n		{\n			if(\"struct\" in structOrfunc)\n			{\n				var struct = structOrfunc.struct;	\n			} else if(\"func\" in structOrfunc)\n			{\n				var func = structOrfunc.func;\n				// prog.get().functions.push(new library.nodes.Function.builder(\n				// {\n				// 	id : new Store(func.id)\n				// }).get());\n				prog.get().functions.push(build(\"FuncDef\",\n				[\n					func.id,\n					_.map(func.in, function(paramDecl)\n						{\n							var p = build(\"ParamDecl\", [paramDecl[0], paramDecl[1]]);\n							return p;\n						}),\n					buildExpr(func.out.val)\n				]));\n				globalTick++;\n				prog.dirty([]);\n			}\n		});\n	}, \"json\");\n	// var $ui = $(\"#ui\");	\n	// var ui = code.ui.get();\n\n	// buildUi(ui, $ui, \"\", [], code.ui);\n	// $ui.empty();\n	// buildUi(ui, $ui, \"\", [], code.ui);\n\n	var tick   = Bacon.interval(20);\n	//code.tick.signal();\n	tick.onValue(function(t)\n	{\n		// code.tick.signal();\n	});\n}\n, \"text\" // Commenter pour lire du json\n);\n\n})",
 			"file": "examples/04-Editor/editor.js",
+			"file_size": 9098,
+			"file_write_time": 130405282732848626,
 			"settings":
 			{
-				"buffer_size": 4663,
+				"buffer_size": 8919,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "examples/04-Editor/editor.css",
+			"settings":
+			{
+				"buffer_size": 1019,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "examples/04-Editor/editor.html",
+			"settings":
+			{
+				"buffer_size": 1132,
 				"line_ending": "Windows"
 			}
 		},
@@ -303,7 +330,7 @@
 			"file": "examples/04-Editor/editor.nodes",
 			"settings":
 			{
-				"buffer_size": 4184,
+				"buffer_size": 4255,
 				"line_ending": "Windows"
 			}
 		},
@@ -311,7 +338,7 @@
 			"file": "examples/04-Editor/test2.json",
 			"settings":
 			{
-				"buffer_size": 10505,
+				"buffer_size": 9999,
 				"line_ending": "Windows"
 			}
 		},
@@ -464,6 +491,40 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"this.sinks",
+			"addSink",
+			"rootUi",
+			"var $enclose = $(\"#enclose\" + uiIndex);",
+			"class",
+			"Class",
+			"class",
+			"Class",
+			"class",
+			"buttonIndex",
+			"parentView.append",
+			"break;",
+			"parentType",
+			"rootUi",
+			"mValTick",
+			"this.tick",
+			"MatchTy",
+			"matchType",
+			"needsNodes",
+			"hasRef",
+			"hasConnections",
+			"connectionSet",
+			"hasConnections",
+			"funcRef",
+			"hasConnections",
+			"FunctionInstance",
+			"join",
+			"clone",
+			"__signals",
+			"StructSignal",
+			"__signa",
+			"split",
+			"join",
+			"split",
 			"connect",
 			"signalsList",
 			"funcRef",
@@ -557,41 +618,7 @@
 			"))",
 			"funcRef",
 			"getPath",
-			"inputs[arrayIndex].pushVal(tuple[arrayIndex]);",
-			"Rect",
-			"type.templates",
-			"String",
-			"sameTypes",
-			"string",
-			"sameTypes",
-			"Lit",
-			"match",
-			"fields",
-			"paramsGraph",
-			"fields",
-			"if((type == match.type) || isStrictSubType(type, match.type))",
-			"findAllMatches",
-			"concreteFieldsGraph",
-			"Type",
-			"type",
-			"Type",
-			"type",
-			"Type",
-			"type",
-			"Type",
-			"MatchType",
-			"matchtyp",
-			"makeConcreteName",
-			"instance",
-			"StructTemplate",
-			"typeParams",
-			"getTypeParamsToParamsPaths",
-			"classGraph",
-			"getTypeParamsToParamsPaths",
-			"StructTemplate",
-			"makeStruct",
-			"name",
-			"typeToString"
+			"inputs[arrayIndex].pushVal(tuple[arrayIndex]);"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -620,7 +647,7 @@
 	"groups":
 	[
 		{
-			"selected": 0,
+			"selected": 3,
 			"sheets":
 			[
 				{
@@ -629,15 +656,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 96314,
+						"buffer_size": 96573,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								24853,
-								24853
+								5214,
+								5236
 							]
 						],
 						"settings":
@@ -645,56 +672,56 @@
 							"BracketHighlighterBusy": false,
 							"bh_regions":
 							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
 								"bh_unmatched",
 								"bh_unmatched_center",
 								"bh_unmatched_open",
 								"bh_unmatched_close",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
 								"bh_tag",
 								"bh_tag_center",
 								"bh_tag_open",
-								"bh_tag_close"
+								"bh_tag_close",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close"
 							],
 							"history_list_is_closing": true,
 							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 17293.0,
+						"translation.y": 3870.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
@@ -703,7 +730,7 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 43356,
+						"buffer_size": 44272,
 						"regions":
 						{
 							"bookmarks":
@@ -713,8 +740,8 @@
 								"regions":
 								[
 									[
-										30540,
-										30546
+										31274,
+										31280
 									]
 								],
 								"scope": "bookmarks"
@@ -723,8 +750,8 @@
 						"selection":
 						[
 							[
-								35615,
-								35615
+								1979,
+								1989
 							]
 						],
 						"settings":
@@ -732,46 +759,46 @@
 							"BracketHighlighterBusy": false,
 							"bh_regions":
 							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
 								"bh_unmatched",
 								"bh_unmatched_center",
 								"bh_unmatched_open",
 								"bh_unmatched_close",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
 								"bh_tag",
 								"bh_tag_center",
 								"bh_tag_open",
-								"bh_tag_close"
+								"bh_tag_close",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close"
 							],
 							"history_list_is_closing": true,
 							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
@@ -779,10 +806,10 @@
 							"word_wrap": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 23458.0,
+						"translation.y": 1498.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 4,
 					"type": "text"
 				},
 				{
@@ -855,7 +882,7 @@
 						"translation.y": 258.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 8,
+					"stack_index": 10,
 					"type": "text"
 				},
 				{
@@ -864,15 +891,36 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 4663,
+						"buffer_size": 8919,
 						"regions":
 						{
+							"bookmarks":
+							{
+								"flags": 144,
+								"icon": "bookmark",
+								"regions":
+								[
+									[
+										1538,
+										1538
+									],
+									[
+										1828,
+										1828
+									],
+									[
+										4298,
+										4304
+									]
+								],
+								"scope": "bookmarks"
+							}
 						},
 						"selection":
 						[
 							[
-								3757,
-								3757
+								2853,
+								2853
 							]
 						],
 						"settings":
@@ -880,59 +928,205 @@
 							"BracketHighlighterBusy": false,
 							"bh_regions":
 							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
 								"bh_unmatched",
 								"bh_unmatched_center",
 								"bh_unmatched_open",
 								"bh_unmatched_close",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
 								"bh_tag",
 								"bh_tag_center",
 								"bh_tag_open",
-								"bh_tag_close"
+								"bh_tag_close",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close"
 							],
 							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 1959.0,
+						"translation.y": 800.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 6,
+					"stack_index": 0,
 					"type": "text"
 				},
 				{
 					"buffer": 4,
+					"file": "examples/04-Editor/editor.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1019,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"BracketHighlighterBusy": false,
+							"bh_regions":
+							[
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close"
+							],
+							"syntax": "Packages/CSS/CSS.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 135.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "examples/04-Editor/editor.html",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1132,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								820,
+								817
+							]
+						],
+						"settings":
+						{
+							"BracketHighlighterBusy": false,
+							"bh_regions":
+							[
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close"
+							],
+							"syntax": "Packages/HTML/HTML.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				},
+				{
+					"buffer": 6,
 					"file": "examples/02-ArcaNodes/arcaNodes.js",
 					"semi_transient": false,
 					"settings":
@@ -1001,30 +1195,30 @@
 						"translation.y": 463.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 8,
 					"type": "text"
 				}
 			]
 		},
 		{
-			"selected": 2,
+			"selected": 0,
 			"sheets":
 			[
 				{
-					"buffer": 5,
+					"buffer": 7,
 					"file": "examples/04-Editor/editor.nodes",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 4184,
+						"buffer_size": 4255,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								4067,
-								4067
+								4255,
+								4255
 							]
 						],
 						"settings":
@@ -1032,72 +1226,72 @@
 							"BracketHighlighterBusy": false,
 							"bh_regions":
 							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
 								"bh_unmatched",
 								"bh_unmatched_center",
 								"bh_unmatched_open",
 								"bh_unmatched_close",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
 								"bh_tag",
 								"bh_tag_center",
 								"bh_tag_open",
-								"bh_tag_close"
+								"bh_tag_close",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close"
 							],
 							"syntax": "Packages/Python/Python.tmLanguage",
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 2550.0,
+						"translation.y": 2595.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 3,
+					"stack_index": 1,
 					"type": "text"
 				},
 				{
-					"buffer": 6,
+					"buffer": 8,
 					"file": "examples/04-Editor/test2.json",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 10505,
+						"buffer_size": 9999,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								8985,
-								8985
+								9999,
+								9999
 							]
 						],
 						"settings":
@@ -1105,26 +1299,30 @@
 							"BracketHighlighterBusy": false,
 							"bh_regions":
 							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
 								"bh_square",
 								"bh_square_center",
 								"bh_square_open",
 								"bh_square_close",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
 								"bh_default",
 								"bh_default_center",
 								"bh_default_open",
@@ -1133,32 +1331,28 @@
 								"bh_curly_center",
 								"bh_curly_open",
 								"bh_curly_close",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
 								"bh_unmatched",
 								"bh_unmatched_center",
 								"bh_unmatched_open",
 								"bh_unmatched_close",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close"
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close"
 							],
 							"syntax": "Packages/JavaScript/JSON.tmLanguage",
 							"tab_size": 4,
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 3913.0,
+						"translation.y": 1890.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 4,
+					"stack_index": 6,
 					"type": "text"
 				},
 				{
-					"buffer": 7,
+					"buffer": 9,
 					"file": "examples/02-ArcaNodes/arcaNodes.nodes",
 					"semi_transient": false,
 					"settings":
@@ -1227,11 +1421,11 @@
 						"translation.y": 1228.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 7,
 					"type": "text"
 				},
 				{
-					"buffer": 8,
+					"buffer": 10,
 					"file": "/E/Python/Nodes/Qml/Expression.qml",
 					"semi_transient": false,
 					"settings":
@@ -1300,11 +1494,11 @@
 						"translation.y": 615.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 11,
+					"stack_index": 13,
 					"type": "text"
 				},
 				{
-					"buffer": 9,
+					"buffer": 11,
 					"file": "examples/03-Tree/treeEdit.nodes",
 					"semi_transient": false,
 					"settings":
@@ -1373,11 +1567,11 @@
 						"translation.y": 1843.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 7,
+					"stack_index": 9,
 					"type": "text"
 				},
 				{
-					"buffer": 10,
+					"buffer": 12,
 					"file": "src/jsEngine/Parser.txt",
 					"semi_transient": false,
 					"settings":
@@ -1446,11 +1640,11 @@
 						"translation.y": 17400.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 10,
+					"stack_index": 12,
 					"type": "text"
 				},
 				{
-					"buffer": 11,
+					"buffer": 13,
 					"file": "/E/GitHub/libs/Parser.js",
 					"semi_transient": false,
 					"settings":
@@ -1520,7 +1714,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 9,
+					"stack_index": 11,
 					"type": "text"
 				}
 			]
@@ -1554,7 +1748,7 @@
 		"cols":
 		[
 			0.0,
-			0.581776921392,
+			0.5,
 			1.0
 		],
 		"rows":
@@ -1571,7 +1765,7 @@
 	"project": "Nodes.sublime-project",
 	"replace":
 	{
-		"height": 42.0
+		"height": 62.0
 	},
 	"save_all_on_build": true,
 	"select_file":

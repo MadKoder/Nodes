@@ -1452,6 +1452,18 @@ function FunctionNode(func)
 		};
 		this.update = function(val, ticks, parentTick)
 		{
+			var max = 0;
+			_.each(params, function(node)
+			{
+				var minMax = node.getMinMaxTick([]);
+				max = Math.max(max, minMax[1]);
+			});
+
+			if(ticks.tick >= max)
+			{
+				return [val, ticks];
+			}
+			
 			if("needsNodes" in func)
 			{
 				if("hasRef" in func)
