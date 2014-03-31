@@ -892,6 +892,27 @@ var functions =
 		}
 	),
 	"sqr" : mff1(function (x) {return x * x;}),
+	"remove": mtf2
+	(
+		function(array, index) // The function
+		{	
+			if(index < array.length && index >= 0)
+			{
+				array.splice(index, 1);
+			}
+			// TODO version generique (ici seulement pour list de bool)
+			return array;
+		},
+		function(template) // Input and output types
+		{
+			return inOut2(mListType(template), "int", mListType(template));
+		},
+		function(listType, indexType)	// Template guess from input types
+		{
+			var template = getListTypeParam(listType);
+			return template;
+		}
+	),
 	"at": mtf2
 	(
 		function(array, index) // The function
@@ -1482,6 +1503,14 @@ function FunctionNode(func)
 			}
 			return ret;
 		};
+		this.getPathFromRoot = function()
+		{
+			return [];
+		}
+		this.getRootNode = function()
+		{
+			return this;
+		}
 		this.getType = function()
 		{
 			// TODO : comprendre pourquoi le func.type ne fonctionne pas dans le cas user defined

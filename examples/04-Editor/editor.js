@@ -46,7 +46,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 	{
 		case "TextInput" :
 			if((view == null) || (type != view.attr("modelType")))
-			{				
+			{
 				var uiId = type + uiIndex.toString();
 				var buttonIndex = uiIndex;
 				$tmp.append(enclose("<input size=\"8\" type = \"text\" id=" + uiId + " value = \"" + model.desc + "\"></input>", parentType));
@@ -107,28 +107,45 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 			return view;
 			break;
 		case "Text" :
-			var uiId = type + uiIndex.toString();
-			$tmp.append(enclose("<div class=\"text\" id=" + uiId  + "\">" + model.txt+ "</div>", parentType));			
-			var $ui = $("#" + uiId);
-			var $enclose = $("#enclose" + uiIndex.toString());
-			$enclose.attr("modelType", type);
-			$enclose.data("ui", $ui);
-			uiIndex++;
-			return $enclose;
+			if((view == null) || (type != view.attr("modelType")))
+			{
+				var uiId = type + uiIndex.toString();
+				$tmp.append(enclose("<div class=\"text\" id=" + uiId  + "\">" + model.txt+ "</div>", parentType));			
+				var $ui = $("#" + uiId);
+				var $enclose = $("#enclose" + uiIndex.toString());
+				$enclose.attr("modelType", type);
+				$enclose.data("ui", $ui);
+				uiIndex++;
+				return $enclose;
+			}
+			else
+			{
+				var $enclose = view;
+				var $ui = $enclose.children();
+				$ui.html(model.txt);
+				return view;
+			}
 			break;
 		case "Button" :
-			var uiId = type + uiIndex.toString();
-			$tmp.append(enclose("<button id=" + uiId + "></button>", parentType));
-			var $ui = $("#" + uiId);
-			var $enclose = $("#enclose" + uiIndex.toString());
-			$enclose.attr("modelType", type);
-			$enclose.data("ui", $ui);
-			$("#" + uiId).button().html(model.desc).click(function() 
+			if((view == null) || (type != view.attr("modelType")))
 			{
-				rootUi.signal("onClick", [new Store(model.desc)], path);
-			});
-			uiIndex++;
-			return $enclose;
+				var uiId = type + uiIndex.toString();
+				$tmp.append(enclose("<button id=" + uiId + "></button>", parentType));
+				var $ui = $("#" + uiId);
+				var $enclose = $("#enclose" + uiIndex.toString());
+				$enclose.attr("modelType", type);
+				$enclose.data("ui", $ui);
+				$("#" + uiId).button().html(model.desc).click(function() 
+				{
+					rootUi.signal("onClick", [new Store(model.desc)], path);
+				});
+				uiIndex++;
+				return $enclose;
+			}
+			else
+			{
+				return view;
+			}
 			break;
 		case "HGroup" :
 		case "VGroup" :
@@ -183,6 +200,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 					// requestFocus = false;
 					var newUi = buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick);
 					// var newUi = buildUi($(child), model.children[index], type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick);
+					var next = $uiChild.next();
 					if(previousType != newUi.attr("modelType"))
 					{
 						$uiChild.replaceWith(newUi);
@@ -197,7 +215,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 					// }
 
 					// newUis = newUis.add(buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick));
-					$uiChild = $uiChild.next();
+					$uiChild = next;
 				});
 				// $ui.empty();
 				// $ui.append(newUis);
@@ -244,7 +262,7 @@ localNodes =
 				if(requestFocus != null)
 				{
 					doingFocus = true;
-					requestFocus.focus();
+					// requestFocus.focus();
 					doingFocus = false;
 					requestFocus = null;
 				}

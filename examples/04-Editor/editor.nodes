@@ -137,8 +137,17 @@ functions:
 					]),
 					VGroup
 					([
-						exprToUi(param)
-						for param in expr.params
+						HGroup
+						([
+							exprToUi(param),
+							Button
+							(
+								"Remove",
+								click => expr.params = remove(expr.params, i)
+							)
+						])
+						# exprToUi(param)
+						for param, i in expr.params
 					])
 				])
 			Ref : TextInput
@@ -161,42 +170,57 @@ functions:
 	# 	type expr :
 	# 		Func :  HGroup([TextInput(expr.type, set => expr.type = text)])
 	# 		_ : TextInput("")
+	ref paramsDeclToUi(list<ParamDecl> paramsDecl)
+		VGroup
+		([
+			HGroup
+			([
+					txtIn(paramDecl.type),
+					txtIn(paramDecl.name)
+			])
+			for paramDecl in paramsDecl
+		])
 	ref Ui funcToUi(FuncDef func)
 		VGroup
 		([
 			txtIn(func.id),
 			HGroup
 			([
-				VGroup(concat
-				(
-					concat
-					(
-						[Text("params")],
-						[
-							HGroup
-							([
-									txtIn(paramDecl.type),
-									txtIn(paramDecl.name)
-							])
-							for paramDecl in func.inputs
-						]
-					),
-					[Button
+				VGroup
+				([
+					Text("params"),
+					paramsDeclToUi(func.inputs),
+					Button
 					(
 						"Add input",
 						click => 
 							func.inputs = pushBack(func.inputs, ParamDecl("name", "type"))
-					)]
-				)),
+					)
+				]),
 				exprToUi(func.output)
 			])
 		])
-	ref Ui progToUi(Program prog)
+	ref Ui structToUi(StructDef struct)
 		VGroup
 		([
-			funcToUi(func) for func in prog.functions
-			#exprToUi(func.output) for func in prog.functions
+			txtIn(struct.name),
+			paramsDeclToUi(struct.fields)
 		])
+	ref Ui progToUi(Program prog)
+		VGroup([
+				funcToUi(func) for func in prog.functions
+			])
+		# VGroup
+		# ([
+		# 	VGroup([
+		# 		funcToUi(func) for func in prog.functions
+		# 	])
+		# 	,
+		# 	VGroup
+		# 	([
+		# 		structToUi(struct) for struct in prog.structs
+		# 	])
+		# ])
 nodes:
 	var m = Just(1)
 	var uiCounter = 0

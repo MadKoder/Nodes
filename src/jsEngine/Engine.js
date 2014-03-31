@@ -359,6 +359,16 @@ function Store(v, type)
 	{
 		return mValTick(this.val);
 	}
+
+	this.getPathFromRoot = function()
+	{
+		return this.path;
+	}
+
+	this.getRootNode = function()
+	{
+		return this;
+	}
 }
 
 var subStores = [];
@@ -475,14 +485,29 @@ function FuncInput(type, source)
 
 	this.getPath = function(path)
 	{
-		var ref = this.refStack.pop();
-		this.savedStack.push(ref);
+		// var ref = this.refStack.pop();
+		// this.savedStack.push(ref);
 		
-		var ret = ref.getPath(path);
+		// var ret = ref.getPath(path);
 		
-		this.refStack.push(this.savedStack.pop());
+		// this.refStack.push(this.savedStack.pop());
 
-		return ret;		
+		// return ret;		
+
+		return this.stack[this.stack.length - 1][path[0]];
+	}
+
+	this.pathFromRootStack = [];
+	this.rootNodeStack = [];
+
+	this.getPathFromRoot = function()
+	{
+		return this.pathFromRootStack[this.pathFromRootStack.length - 1];
+	}
+
+	this.getRootNode = function()
+	{
+		return this.rootNodeStack[this.rootNodeStack.length - 1];
 	}
 
 	this.push = function(node)
@@ -490,16 +515,22 @@ function FuncInput(type, source)
 		var res = node.get();
 		this.refStack.push(node);
 		this.stack.push(res);
+		this.pathFromRootStack.push(node.getPathFromRoot());
+		this.rootNodeStack.push(node.getRootNode());
 	};
 
 	this.pushNodeAndVal = function(node, val)
 	{
 		this.refStack.push(node);
 		this.stack.push(val);
+		this.pathFromRootStack.push(node.getPathFromRoot())
+		this.rootNodeStack.push(node.getRootNode());
 	};
 	
 	this.pop = function()
 	{
+		this.rootNodeStack.pop();
+		this.pathFromRootStack.pop();
 		this.refStack.pop();
 		this.stack.pop();
 	}
@@ -556,12 +587,13 @@ function FuncInput(type, source)
 		// Dirty counter is used with recursive calls
 		// If a FuncInput is pushed more than once in a recursive call
 		// Dirty message will go back through it multiple times, but must go to higher node each time
-		var ref = this.refStack.pop();
-		this.savedStack.push(ref);
+		// var ref = this.refStack.pop();
+		// this.savedStack.push(ref);
 
-		ref.dirty(path);
+		// ref.dirty(path);
 		
-		this.refStack.push(this.savedStack.pop());
+		// this.refStack.push(this.savedStack.pop());
+		return this.rootNodeStack[this.rootNodeStack.length - 1].dirty(this.pathFromRootStack[this.pathFromRootStack.length - 1]);
 	}
 
 	this.addSink = function(sink)
@@ -606,6 +638,36 @@ function FuncInput(type, source)
 		this.refStack.push(this.savedStack.pop());
 
 		return ret;
+	}
+}
+
+function ValInput(type) 
+{
+	this.stack = [];
+	this.type = type;
+	
+	// DEBUG
+	this.id = storeId;
+	storeId++;
+
+	this.get = function()
+	{
+		return this.stack[this.stack.length - 1];
+	};
+
+	this.push = function(val)
+	{
+		this.stack.push(val);
+	};
+
+	this.pop = function()
+	{
+		this.stack.pop();
+	}
+
+	this.getType = function()
+	{
+		return this.type;
 	}
 }
 
@@ -765,7 +827,29 @@ function Cache(node)
 			//this.signalOperator = operators.signal;
 		}
 	}
+
+	this.path = [];
+
+	this.pushPath = function(path)
+	{
+		this.path = this.path.concat([path]);
+	};
 	
+	this.popPath = function()
+	{
+		this.path.pop();
+	};
+	
+	this.getPathFromRoot = function()
+	{
+		return this.path;
+	}
+
+	this.getRootNode = function()
+	{
+		return this;
+	}
+
 	this.get = function()
 	{
 		if(this.isDirty)
@@ -829,7 +913,8 @@ function Cache(node)
 
 	this.signal = function(signal, params, path, rootAndPath)
 	{
-		operators.signal(this.val, signal, params, path, new NodeAccess(this.val, this.type));
+		// operators.signal(this.val, signal, params, path, new NodeAccess(this.val, this.type));
+		operators.signal(this.val, signal, params, path, this);
 	}
 }
 
@@ -1052,7 +1137,7 @@ function Comprehension(nodeGraph, externNodes)
 		{
 			// TODO  Path ?
 			// TODO param nodes = union(this.nodes, externNodes)
-			comprehensionIndices[index] = new FuncInput("int", exprAndType.val);
+			comprehensionIndices[index] = new ValInput("int");
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
 		};
 	}, this);
@@ -1078,18 +1163,29 @@ function Comprehension(nodeGraph, externNodes)
 		hasConnections = true;
 	}
 
-	function connect(val, i)
+	function connect(val, indices)
 	{					
 		if(hasConnections)
 		{
-			val.__refs = inputs;
-			val.__referencedNodes = _.map(inputs, function() {return i;});
+			val.__refs = inputs.slice(0);
+			val.__referencedNodes = _.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];});
 		} 
 		else if(funcRef)
 		{
 			val.__refs = inputs.concat(val.__refs);
-			val.__referencedNodes = _.map(inputs, function() {return i;}).concat(val.__referencedNodes);
+			val.__referencedNodes = _.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];}).concat(val.__referencedNodes);
 		} 
+		if(hasConnections || funcRef)
+		{
+			_.each(comprehensionIndices, function(indexInput, arrayIndex)
+			{
+				if(indexInput != null)
+				{
+					val.__refs.push(indexInput);
+					val.__referencedNodes.push(indices[arrayIndex]);
+				}
+			});
+		}
 	}
 
 	this.outputList = [];
@@ -1117,7 +1213,7 @@ function Comprehension(nodeGraph, externNodes)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].push(indices[arrayIndex]);
 					}
 					inputs[arrayIndex].push(indices[arrayIndex]);					
 				}
@@ -1125,7 +1221,7 @@ function Comprehension(nodeGraph, externNodes)
 				if(when.get())
 				{
 					var ret = expr.get();
-					connect(ret, i);
+					connect(ret, indices);
 					this.outputList.push(ret);
 				}
 
@@ -1133,7 +1229,7 @@ function Comprehension(nodeGraph, externNodes)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].popVal();
+						comprehensionIndices[arrayIndex].pop();
 					}
 					inputs[arrayIndex].pop();					
 				}
@@ -1147,20 +1243,20 @@ function Comprehension(nodeGraph, externNodes)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].push(indices[arrayIndex]);
 					}
 					inputs[arrayIndex].push(indices[arrayIndex]);
 				}
 
 				var ret = expr.get(true);
 
-				connect(ret, i);
+				connect(ret, indices);
 
 				for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].popVal();
+						comprehensionIndices[arrayIndex].pop();
 					}
 					inputs[arrayIndex].pop();					
 				}
@@ -1230,7 +1326,7 @@ function Comprehension(nodeGraph, externNodes)
 					{
 						if(comprehensionIndices[arrayIndex] != undefined)
 						{
-							comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+							comprehensionIndices[arrayIndex].push(indices[arrayIndex]);
 						}
 						inputs[arrayIndex].push(indices[arrayIndex]);
 					}
@@ -1239,7 +1335,7 @@ function Comprehension(nodeGraph, externNodes)
 					{
 						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
 						var ret = pair[0];						
-						connect(ret, i);
+						connect(ret, indices);
 						this.outputList.push(ret);
 						newTicks.push(pair[1]);
 					}
@@ -1248,7 +1344,7 @@ function Comprehension(nodeGraph, externNodes)
 					{
 						if(comprehensionIndices[arrayIndex] != undefined)
 						{
-							comprehensionIndices[arrayIndex].popVal();
+							comprehensionIndices[arrayIndex].pop();
 						}
 						inputs[arrayIndex].pop();
 					}
@@ -1264,7 +1360,7 @@ function Comprehension(nodeGraph, externNodes)
 					{
 						if(comprehensionIndices[arrayIndex] != undefined)
 						{
-							comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+							comprehensionIndices[arrayIndex].push(indices[arrayIndex]);
 						}
 						inputs[arrayIndex].push(indices[arrayIndex]);
 					}
@@ -1272,13 +1368,13 @@ function Comprehension(nodeGraph, externNodes)
 					var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
 					var ret = pair[0];
 					
-					connect(ret, i);
+					connect(ret, indices);
 
 					for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 					{
 						if(comprehensionIndices[arrayIndex] != undefined)
 						{
-							comprehensionIndices[arrayIndex].popVal();
+							comprehensionIndices[arrayIndex].pop();
 						}
 						inputs[arrayIndex].pop();					
 					}
@@ -1566,6 +1662,16 @@ function StructAccess(node, path, val) {
 	{
 		return this.node.getMinMaxTick(this.path.concat(path));
 	}
+
+	this.getPathFromRoot = function()
+	{
+		return this.node.getPathFromRoot().concat(this.path);
+	}
+
+	this.getRootNode = function()
+	{
+		return this.node.getRootNode();
+	}
 }
 
 function ArrayAccess(node, type) {
@@ -1699,15 +1805,27 @@ function ArrayAccess(node, type) {
 
 	this.getPath = function(path)
 	{
-		var index = this.stack.pop();
-		this.savedStack.push(index);
+		// var index = this.stack.pop();
+		// this.savedStack.push(index);
 
-		var ret = this.node.getPath([index].concat(path));
+		// var ret = this.node.getPath([index].concat(path));
 		
-		index = this.savedStack.pop();
-		this.stack.push(index);
+		// index = this.savedStack.pop();
+		// this.stack.push(index);
 
-		return ret;
+		// return ret;
+
+		return this.node.get()[this.stack[this.stack.length - 1]][path[0]];
+	}
+
+	this.getPathFromRoot = function()
+	{
+		return this.node.getPathFromRoot().concat([this.stack[this.stack.length - 1]]);
+	}
+
+	this.getRootNode = function()
+	{
+		return this.node.getRootNode();
 	}
 }
 
@@ -3222,6 +3340,15 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				}
 				return ret;
 			};	
+			this.getPathFromRoot = function()
+			{
+				return [];
+			}
+
+			this.getRootNode = function()
+			{
+				return this;
+			}
 			this.getPath = function(path)
 			{
 				if(path.length == 1)
@@ -3477,7 +3604,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				var localNodes = {"self" : node.operators.selfStore};
 				_.each(signalGraph.params, function(param)
 				{
-					var node = new SubStore(param[1]);
+					var node = new FuncInput(param[1]);
 					localNodes[param[0]] = node;
 					inputs.push(node);
 				});
