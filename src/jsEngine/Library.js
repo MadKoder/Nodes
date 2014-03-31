@@ -1150,34 +1150,54 @@ var functions =
 			{
 				this.params = [["function" , inOut1(templates[0], mListType(templates[1]))], ["list" , mListType(templates[0])]];
 				this.needsNodes = true;
-				this.arrayInput = new FuncInput(mListType(templates[0]));
-				this.arrayAccess = new ArrayAccess(this.arrayInput);
+				this.arrayAccess = new ArrayAccess(null, mListType(templates[0]));
 				this.func = function(params) 
+				{	
+					var funcInstance = params[0];
+					var array = params[1];
+					return _(array).map(function(val)
+					{
+						return funcInstance.func([val]);
+					})
+					.flatten(true).value();
+				};
+				this.funcRef = function(params) 
 				{	
 					var funcInstance = params[0].get();
 					var array = params[1];
-					var arrayAccess = new ArrayAccess(array);
-					return _(array.get()).map(function(val, i)
-					{
-						arrayAccess.push(i);
-
-						// Il faut appeler funcInstance.func pour conserver le "this",
-						// et non pas cacher la methode func puis l'appeler seule
-						if("needsNodes" in funcInstance)
+					var arrayVal = array.get();
+					if(funcInstance.needsNodes)
+					{						
+						this.arrayAccess.pushCache(arrayVal);
+						var aa = this.arrayAccess;
+						var ret = _(arrayVal).map(function(val, i)
 						{
-							var ret = funcInstance.func([arrayAccess]);
-						}
-						else
-						{
-							var ret = funcInstance.func([arrayAccess.get()]);
-						}
+							aa.push(i);
 
+							// Il faut appeler funcInstance.func pour conserver le "this",
+							// et non pas cacher la methode func puis l'appeler seule
+							var ret = funcInstance.funcRef([aa]);
+							
+							aa.pop();
 
-						arrayAccess.pop();
+							return ret;
+						})
+						.flatten(true).value();
+
+						this.arrayAccess.popCache();
 
 						return ret;
-					})
-					.flatten(true).value();
+					}
+					else
+					{
+						return _(arrayVal).map(function(val)
+						{
+							// Il faut appeler funcInstance.func pour conserver le "this",
+							// et non pas cacher la methode func puis l'appeler seule
+							return funcInstance.func([val]);
+						})
+						.flatten(true).value();
+					}
 				};
 				this.type = mListType(templates[1]);
 				this.templates = templates;
@@ -1199,44 +1219,50 @@ var functions =
 			{
 				this.params = [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , mListType(templates[0])]];
 				this.needsNodes = true;
-				this.arrayInput = new FuncInput(mListType(templates[0]));
-				this.arrayAccess = new ArrayAccess(this.arrayInput);
+				this.arrayAccess = new ArrayAccess(null, mListType(templates[0]));
 				this.accumNode = new FuncInput(templates[1]);
-				this.func = function(params) 
+				this.funcRef = function(params) 
 				{	
-					var array = params[1];
-					var arrayVal = array.get();
-					this.arrayInput.push(array);
 					var funcInstance = params[0].get();
-					var aa = this.arrayAccess;
-					var an = this.accumNode;
-					var ret = _.reduce(arrayVal, function(accum, val, i)
-					{
-						// Il faut appeler funcInstance.func pour conserver le "this",
-						// et non pas cacher la methode func puis l'appeler seule
-						// return funcInstance.func([accum, val]);
-
-						if("needsNodes" in funcInstance)
+					if(funcInstance.needsNodes)
+					{						
+						var array = params[1];
+						var arrayVal = array.get();
+						this.arrayAccess.pushCache(arrayVal);
+						var aa = this.arrayAccess;
+						var an = this.accumNode;
+						var ret = _.reduce(arrayVal, function(accum, val, i)
 						{
+							// Il faut appeler funcInstance.func pour conserver le "this",
+							// et non pas cacher la methode func puis l'appeler seule
+							// return funcInstance.func([accum, val]);
+
 							an.pushVal(accum);
 							aa.push(i);
 
-							var res = funcInstance.func([an, aa]);
+							var res = funcInstance.funcRef([an, aa]);
 
 							aa.pop();
 							an.popVal();
 
 							return res;
-						}
-						else
-						{
-							return funcInstance.func([accum, val]);
-						}
-					});
+						});
 
-					this.arrayInput.pop();
-					
-					return ret;
+						this.arrayAccess.popCache();
+						
+						return ret;
+					}
+					else
+					{
+						var arrayVal = params[1].get();
+						return _.reduce(arrayVal, function(accum, val, i)
+						{
+							// Il faut appeler funcInstance.func pour conserver le "this",
+							// et non pas cacher la methode func puis l'appeler seule
+							// return funcInstance.func([accum, val]);
+							return funcInstance.func([accum, val]);
+						});
+					}
 				};
 				this.type = templates[1];
 				this.templates = templates;
@@ -1262,42 +1288,50 @@ var functions =
 				this.arrayInput = new FuncInput(mListType(templates[0]));
 				this.arrayAccess = new ArrayAccess(this.arrayInput);
 				this.accumNode = new FuncInput(templates[1]);
-				this.func = function(params) 
+				this.funcRef = function(params) 
 				{	
-					var array = params[1];
-					var arrayVal = array.get();
-					this.arrayInput.push(array);
 					var funcInstance = params[0].get();
-					var aa = this.arrayAccess;
-					var an = this.accumNode;
-					var ret = _.reduce(arrayVal, function(accum, val, i)
-					{
-						// Il faut appeler funcInstance.func pour conserver le "this",
-						// et non pas cacher la methode func puis l'appeler seule
-						// return funcInstance.func([accum, val]);
-
-						if("needsNodes" in funcInstance)
+					if(funcInstance.needsNodes)
+					{						
+						var array = params[1];
+						var arrayVal = array.get();
+						this.arrayAccess.pushCache(arrayVal);
+						var aa = this.arrayAccess;
+						var an = this.accumNode;
+						var ret = _.reduce(arrayVal, function(accum, val, i)
 						{
+							// Il faut appeler funcInstance.func pour conserver le "this",
+							// et non pas cacher la methode func puis l'appeler seule
+							// return funcInstance.func([accum, val]);
+
 							an.pushVal(accum);
 							aa.push(i);
 
-							var res = funcInstance.func([an, aa]);
+							var res = funcInstance.funcRef([an, aa]);
 
 							aa.pop();
 							an.popVal();
 
 							return res;
-						}
-						else
-						{
-							return funcInstance.func([accum, val]);
-						}
-					}, params[2].get());
+						}, params[2].get());
 
-					this.arrayInput.pop();
-					
-					return ret;
+						this.arrayAccess.popCache();
+						
+						return ret;
+					}
+					else
+					{
+						var arrayVal = params[1].get();
+						return _.reduce(arrayVal, function(accum, val, i)
+						{
+							// Il faut appeler funcInstance.func pour conserver le "this",
+							// et non pas cacher la methode func puis l'appeler seule
+							// return funcInstance.func([accum, val]);
+							return funcInstance.func([accum, val]);
+						}, params[2].get());
+					}
 				};
+				
 				this.type = templates[1];
 				this.templates = templates;
 			}
@@ -1325,7 +1359,7 @@ var functions =
 				this.needsNodes = true;
 				this.arrayInput = new FuncInput(mListType(templates[0]));
 				this.arrayAccess = new ArrayAccess(this.arrayInput);
-				this.func = function(params) 
+				this.funcRef = function(params) 
 				{	
 					var array = params[0];
 					var arrayLength = array.get().length;
@@ -1337,9 +1371,9 @@ var functions =
 						// Il faut appeler funcInstance.func pour conserver le "this",
 						// et non pas cacher la methode func puis l'appeler seule
 						this.arrayAccess.push(i);
-						if("needsNodes" in funcInstance)
+						if(funcInstance.needsNodes)
 						{
-							var res = funcInstance.func([this.arrayAccess, val]);
+							var res = funcInstance.funcRef([this.arrayAccess, val]);
 						}
 						else
 						{
@@ -1410,6 +1444,7 @@ function FunctionNode(func)
 		var fields = f;
 
 		this.func = func;
+		this.needsNodes = func.needsNodes;
 		_.each(fields, function(field, key)
 		{
 			var index = _.findIndex(fieldsSpec, function(fieldSpec){return fieldSpec[0] == key;});
@@ -1422,17 +1457,18 @@ function FunctionNode(func)
 		}, this);
 		this.get = function()
 		{
-			if("needsNodes" in func)
+			if(func.needsNodes)
 			{
-				if("hasRef" in func)
-				{
-					var ret = func.funcRef(params);					
-				}
-				else
-				{
-					// var ret = func.func(params.map(function(param){return param.get();}));
-					var ret = func.func(params);
-				}
+				var ret = func.funcRef(params);
+				// if("hasRef" in func)
+				// {
+				// 	var ret = func.funcRef(params);
+				// }
+				// else
+				// {
+				// 	// var ret = func.func(params.map(function(param){return param.get();}));
+				// 	var ret = func.func(params);
+				// }
 			}
 			else
 			{
@@ -1485,17 +1521,18 @@ function FunctionNode(func)
 				return [val, ticks];
 			}
 			
-			if("needsNodes" in func)
+			if(this.needsNodes)
 			{
-				if("hasRef" in func)
-				{
-					var ret = func.update(val, ticks, parentTick, params);
-				} 
-				else
-				{
-					// var ret = func.func(params.map(function(param){return param.get();}));
-					var ret = mValTick(func.func(params));
-				}
+				var ret = func.update(val, ticks, parentTick, params);
+				// if("hasRef" in func)
+				// {
+				// 	var ret = func.update(val, ticks, parentTick, params);
+				// } 
+				// else
+				// {
+				// 	// var ret = func.func(params.map(function(param){return param.get();}));
+				// 	var ret = mValTick(func.func(params));
+				// }
 			}
 			else
 			{

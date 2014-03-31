@@ -55,6 +55,11 @@ function List(val, templateType)
 	this.templateType = templateType;
 	this.tick = globalTick;
 
+	this.needsNodes =  _.any(this.list, function(elt)
+	{
+		return elt.needsNodes;
+	})
+
 	this.get = function()
     {
 		return this.list.map(function(item)
@@ -175,6 +180,8 @@ function Store(v, type)
 	storeId++;
 
 	this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
+
+	this.needsNodes = false;
 	
 	this.dirtyList = [];
 	if(type != null)
@@ -669,6 +676,11 @@ function ValInput(type)
 	{
 		return this.type;
 	}
+
+	this.addSink = function(sink)
+	{
+		// TODO ?
+	}
 }
 
 function Closure(expr, nodes, genericTypeParams) 
@@ -690,11 +702,33 @@ function Closure(expr, nodes, genericTypeParams)
 	
 	var localNodes = _.merge(localNodes, nodes);
 	var expr = makeExpr(expr.closure, localNodes, genericTypeParams);
+
+	var hasConnections = false; // If a connection is made directly in the comprehension (e.g. [Input(x, e => doAnything) for x in a])
+	var funcRef = false; // If the expression is a function that needs references (for making connections)
+	if(expr.needsNodes)
+	{
+		funcRef = true;
+	} 
+	else if(connectionSet)
+	{
+		hasConnections = true;
+	}
 	
 	this.funcSpec = {
 		params : paramSpec,
-		needsNodes : true,
+		needsNodes : funcRef || hasConnections,
 		func : function(params)	{	
+			_.each(params, function(param, index)
+			{
+				paramStores[index].pushVal(param);
+			});
+			return expr.get();
+			_.each(params, function(param, index)
+			{
+				paramStores[index].popVal();
+			});
+		},
+		funcRef : function(params)	{	
 			_.each(params, function(param, index)
 			{
 				paramStores[index].push(param);
@@ -1154,28 +1188,45 @@ function Comprehension(nodeGraph, externNodes)
 
 	var hasConnections = false; // If a connection is made directly in the comprehension (e.g. [Input(x, e => doAnything) for x in a])
 	var funcRef = false; // If the expression is a function that needs references (for making connections)
-	if("func" in expr && "hasRef" in expr.func)
+	this.needsNodes = false;
+	if(expr.needsNodes)
 	{
 		funcRef = true;
+		this.needsNodes = true;
 	} 
 	else if(connectionSet)
 	{
 		hasConnections = true;
+		this.needsNodes = true;
 	}
 
 	function connect(val, indices)
 	{					
-		if(hasConnections)
+		// if(hasConnections)
+		// {
+		// 	val.__refs = inputs.slice(0);
+		// 	val.__referencedNodes = _.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];});
+		// } 
+		// else if(funcRef)
+		// {
+		// 	val.__refs = inputs.concat(val.__refs);
+		// 	val.__referencedNodes = _.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];}).concat(val.__referencedNodes);
+		// }
+		if(funcRef)
 		{
-			val.__refs = inputs.slice(0);
-			val.__referencedNodes = _.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];});
-		} 
-		else if(funcRef)
-		{
-			val.__refs = inputs.concat(val.__refs);
-			val.__referencedNodes = _.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];}).concat(val.__referencedNodes);
-		} 
-		if(hasConnections || funcRef)
+			if("__refs" in val)
+			{
+				val.__refs = inputs.concat(val.__refs);
+				val.__referencedNodes = _.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];}).concat(val.__referencedNodes);
+			} 
+			else
+			{
+				val.__refs = inputs.slice(0);
+				val.__referencedNodes = _.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];});
+			} 
+		}
+		
+		if(funcRef)
 		{
 			_.each(comprehensionIndices, function(indexInput, arrayIndex)
 			{
@@ -1567,7 +1618,12 @@ function StructAccess(node, path, val) {
 
 	this.get = function()
 	{
-		return this.node.getPath(this.path);
+		var ret = this.node.getPath(this.path);
+		if(this.path.length > 1)
+		{
+			ret = getPath(ret, this.path.slice(1));
+		}
+		return ret;
 		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
 		// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
 		// et meme changer au cours du temps
@@ -2126,7 +2182,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			node = new nodeSpec.builder(fields, typeParams);
 		}
 
-		if("func" in node && "hasRef" in node.func)
+		if(node.needsRef)
 		{
 			connectionSet = true;
 		}
@@ -2145,6 +2201,8 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			}
 			else
 			{
+				// TODO always true ?
+				node.needsNodes = true;
 				var signals = node.fields.__signals;
 				var type =  node.getType();
 				var slots = library.nodes[type].operators.slots;
@@ -2235,10 +2293,10 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				var val = makeExpr(matchExp.val, mergedNodes, genericTypeParams);
 	
 				var hasConnections = false;
-				var funcRef = false;
-				if("func" in val && "hasRef" in val.func)
+				var needsNodes = false;
+				if(val.needsNodes)
 				{
-					funcRef = true;
+					needsNodes = true;
 				} else if(connectionSet)
 				{
 					hasConnections = true;
@@ -2249,7 +2307,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					type : type,
 					matchStore : matchStore,
 					hasConnections : hasConnections,
-					funcRef : funcRef
+					needsNodes : needsNodes
 				};
 			}, this);
 			var whatType = this.what.getType();
@@ -2263,19 +2321,37 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					var match = this.cases[i];
 					if(sameTypes(type,  match.type))
 					{
-						match.matchStore.push(this.what);
+						if(match.needsNodes)
+						{
+							match.matchStore.push(this.what);
+						}
+						else
+						{
+							match.matchStore.pushVal(this.what.get());
+						}
 						var ret = match.val.get();
-						if(match.hasConnections)
+						if(match.needsNodes)
 						{
-							ret.__referencedNodes = [this.what];
-							ret.__refs = [match.matchStore];
-						} 
-						else  if(match.funcRef)
+							if("__refs" in ret)
+							{
+								ret.__refs = [match.matchStore].concat(ret.__refs);
+								ret.__referencedNodes = [this.what].concat(ret.__referencedNodes);
+							}
+							else
+							{
+								ret.__referencedNodes = [this.what];
+								ret.__refs = [match.matchStore];
+							}
+						}
+						
+						if(match.needsNodes)
 						{
-							ret.__refs = [match.matchStore].concat(ret.__refs);
-							ret.__referencedNodes = [this.what].concat(ret.__referencedNodes);
-						} 
-						match.matchStore.pop();
+							match.matchStore.pop();
+						}
+						else
+						{
+							match.matchStore.popVal();
+						}
 						return ret;
 					}
 				}
@@ -3275,9 +3351,11 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			this.operators = library.nodes[concreteName].operators;
 			this.signals = {};
 			this.built = false;
+			this.needsNodes = false;
 			for(var i = 0; i < fieldsGraph.length; i++)
 			{
 				var field = fieldsGraph[i];
+				
 				if(_.isArray(field))
 				{
 					var fieldName = field[0];
@@ -3285,6 +3363,10 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					if(fieldVal == undefined)
 					{
 						error("Field " + fieldName + " not found in parameters of " + concreteName + " constructor");
+					}
+					if(fieldVal.needsNodes)
+					{
+						this.needsNodes = true;
 					}
 					this.fields[fieldName] = fieldVal;
 				} else if("signal" in field)
@@ -3712,22 +3794,22 @@ function FunctionInstance(classGraph)
 	// {
 		// return [];
 	// });
-	this.needsNodes = true;
+	this.needsNodes = false;
 
-	this.func = function(paramNodes) 
+	this.func = function(params) 
 	{	
-		_.each(paramNodes, function(node, i)
+		_.each(params, function(param, i)
 		{
 			// this.inputNodes[i].pushVal(node);
-			this.inputNodes[i].push(node);
+			this.inputNodes[i].pushVal(param);
 		}, this);
 		
 		var result = this.expr.get(true);
 		
-		_.each(paramNodes, function(node, i)
+		_.each(params, function(node, i)
 		{
 			// this.inputNodes[i].popVal();
-			this.inputNodes[i].pop();
+			this.inputNodes[i].popVal();
 		}, this);
 		
 		return result;
@@ -3742,14 +3824,17 @@ function FunctionInstance(classGraph)
 		
 		var result = this.expr.get(true);
 		
-		if(!("__referencedNodes" in result))
+		if("__refs" in this)
 		{
-			result.__referencedNodes = paramNodes.slice(0);
-			result.__refs = this.__refs.slice(0);
-		} else
-		{
-			result.__referencedNodes = paramNodes.concat(result.__referencedNodes);
-			result.__refs = this.__refs.concat(result.__refs);
+			if(!("__referencedNodes" in result))
+			{
+				result.__referencedNodes = paramNodes.slice(0);
+				result.__refs = this.__refs.slice(0);
+			} else
+			{
+				result.__referencedNodes = paramNodes.concat(result.__referencedNodes);
+				result.__refs = this.__refs.concat(result.__refs);
+			}
 		}
 
 		_.each(paramNodes, function(node, i)
@@ -3914,7 +3999,7 @@ function FunctionTemplate(classGraph)
 		// TODO : specifier dans code
 		if("ref" in classGraph)
 		{
-			instance.hasRef = true;
+			instance.needsNodes = true;
 		}
 
 		// instance.params = _.map(classGraph["in"], function(paramAndType){return paramAndType[1];});
@@ -4053,7 +4138,7 @@ function compileGraph(graph, lib, previousNodes)
 						// TODO : specifier dans code
 						if("ref" in funcGraph)
 						{
-							func.hasRef = true;
+							func.needsNodes = true;
 						}
 
 						if("type" in funcGraph && funcGraph.type != null)
@@ -4100,7 +4185,7 @@ function compileGraph(graph, lib, previousNodes)
 					}
 
 					// if(connections.length > beforeConnectionsLength)
-					if(func.hasRef)
+					if(func.needsNodes)
 					{
 						func.hasConnections = true;
 						func.signalsList = [];
