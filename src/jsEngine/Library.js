@@ -1444,7 +1444,7 @@ function FunctionNode(func)
 		var fields = f;
 
 		this.func = func;
-		this.needsNodes = func.needsNodes;
+		this.addsRefs = this.needsNodes = func.needsNodes;
 		_.each(fields, function(field, key)
 		{
 			var index = _.findIndex(fieldsSpec, function(fieldSpec){return fieldSpec[0] == key;});
@@ -1459,16 +1459,7 @@ function FunctionNode(func)
 		{
 			if(func.needsNodes)
 			{
-				var ret = func.funcRef(params);
-				// if("hasRef" in func)
-				// {
-				// 	var ret = func.funcRef(params);
-				// }
-				// else
-				// {
-				// 	// var ret = func.func(params.map(function(param){return param.get();}));
-				// 	var ret = func.func(params);
-				// }
+				var ret = func.funcRef(params);				
 			}
 			else
 			{
@@ -1523,16 +1514,7 @@ function FunctionNode(func)
 			
 			if(this.needsNodes)
 			{
-				var ret = func.update(val, ticks, parentTick, params);
-				// if("hasRef" in func)
-				// {
-				// 	var ret = func.update(val, ticks, parentTick, params);
-				// } 
-				// else
-				// {
-				// 	// var ret = func.func(params.map(function(param){return param.get();}));
-				// 	var ret = mValTick(func.func(params));
-				// }
+				var ret = func.update(val, ticks, parentTick, params);				
 			}
 			else
 			{

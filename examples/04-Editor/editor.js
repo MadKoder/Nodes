@@ -262,7 +262,7 @@ localNodes =
 				if(requestFocus != null)
 				{
 					doingFocus = true;
-					// requestFocus.focus();
+					requestFocus.focus();
 					doingFocus = false;
 					requestFocus = null;
 				}
