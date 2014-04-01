@@ -1190,13 +1190,16 @@ var functions =
 					}
 					else
 					{
-						return _(arrayVal).map(function(val)
+						var ret = _(arrayVal).map(function(val)
 						{
 							// Il faut appeler funcInstance.func pour conserver le "this",
 							// et non pas cacher la methode func puis l'appeler seule
 							return funcInstance.func([val]);
 						})
 						.flatten(true).value();
+						ret.__refs = [];
+						ret.__referencedNodes = [];
+						return ret;
 					}
 				};
 				this.type = mListType(templates[1]);
@@ -1677,6 +1680,9 @@ var nodes =
 					var cond = fields.first;
 					var first = fields.second;
 					var second = fields.third;
+					
+					this.type = "if";
+
 					this.get = function()
 					{
 						if(cond.get())
@@ -1728,6 +1734,20 @@ var nodes =
 						first.addSink(sink);
 						second.addSink(sink);
 					};
+
+					this.getMinMaxTick = function(path)
+					{
+						// TODO path ?
+						var maxTicks = 0, maxOfMinTicks = 0;
+						var list = [cond, first, second]
+						_.each(list, function(item){
+							var itemMinMaxTicks = item.getMinMaxTick([]);
+							maxTicks = Math.max(maxTicks, itemMinMaxTicks[1]);
+							maxOfMinTicks = Math.max(maxOfMinTicks, itemMinMaxTicks[0]);
+						});
+
+						return [maxOfMinTicks, maxTicks];
+					}
 				}
 			}
 		}

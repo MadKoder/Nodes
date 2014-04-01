@@ -68,6 +68,15 @@ function List(val, templateType)
 		});
     }
 	
+	this.getPath = function(path)
+    {
+    	// TODO use path ?
+		return this.list.map(function(item)
+		{
+			return item.get();
+		});
+    }
+	
 	this.signal = function(value)
     {
 		this.list = value;
@@ -94,6 +103,12 @@ function List(val, templateType)
 		}
 	}
 	
+	this.updatePath = function(val, ticks, parentTick, path)
+	{
+		// TODO use path ?
+		return this.update(val, ticks, parentTick);
+	}
+
 	this.getMinMaxTick = function(path)
 	{
 		var maxTicks = 0, maxOfMinTicks = 0;
@@ -118,6 +133,16 @@ function List(val, templateType)
 			{
 				item.addSink(sink);
 			});
+	}
+
+	this.getRootNode = function()
+	{
+		return this;
+	}
+	
+	this.getPathFromRoot = function()
+	{
+		return [];
 	}
 }
 
@@ -400,6 +425,10 @@ function Store(v, type)
 
 	this.getPath = function(path)
 	{
+		if(path.length == 0)
+		{
+			return this.val;
+		}
 		return getPath(this.val, this.path.concat(path));
 	}
 
@@ -514,13 +543,22 @@ function FuncInput(type, source)
 	
 	this.get = function()
 	{
-		return this.stack[this.stack.length - 1];
+		if(this.stack.length > 0)
+		{
+			return this.stack[this.stack.length - 1];
+		}
+		var path = this.pathFromRootStack[this.pathFromRootStack.length - 1];
+		if(path.length == 0)
+		{
+			return this.rootNodeStack[this.rootNodeStack.length - 1].get();
+		}
+		return this.rootNodeStack[this.rootNodeStack.length - 1].getPath(path);
 	};
 
 	this.getPath = function(path)
 	{
 
-		return this.stack[this.stack.length - 1][path[0]];
+		return this.get()[path[0]];
 	}
 	
 	this.getPathFromRoot = function()
@@ -535,8 +573,8 @@ function FuncInput(type, source)
 
 	this.push = function(node)
 	{
-		var res = node.get();
-		this.stack.push(res);
+		// var res = node.get();
+		// this.stack.push(res);
 		this.pathFromRootStack.push(node.getPathFromRoot());
 		this.rootNodeStack.push(node.getRootNode());
 	};
@@ -549,6 +587,13 @@ function FuncInput(type, source)
 	};
 	
 	this.pop = function()
+	{
+		this.rootNodeStack.pop();
+		this.pathFromRootStack.pop();
+		// this.stack.pop();
+	}
+	
+	this.popNodeAndVal = function()
 	{
 		this.rootNodeStack.pop();
 		this.pathFromRootStack.pop();
@@ -1069,6 +1114,12 @@ function Merge(what, matchesGraph, nodes)
 		return newObj;
 	}
 	
+	this.getPath = function(path)
+	{
+		// TODO path?
+		return this.get();
+	}
+
 	this.update = function(obj)
 	{
 		// TODO ameliorer
@@ -1078,6 +1129,16 @@ function Merge(what, matchesGraph, nodes)
 	this.getType = function()
 	{
 		return whatType;
+	}
+
+	this.getRootNode = function()
+	{
+		return this;
+	}
+
+	this.getPathFromRoot = function()
+	{
+		return [];
 	}
 }
 
@@ -1182,15 +1243,33 @@ function Comprehension(nodeGraph, externNodes)
 			{
 				if(indexInput != null)
 				{
-					val.__refs.push(indexInput);
-					val.__referencedNodes.push(indices[arrayIndex]);
+					val.__refs.unshift(indexInput);
+					val.__referencedNodes.unshift(indices[arrayIndex]);
+				}
+			});
+		}
+	}
+
+	function unConnect(val)
+	{					
+		if(funcRef)
+		{
+			val.__refs = val.__refs.slice(inputs.length);
+			val.__referencedNodes = val.__referencedNodes.slice(inputs.length);
+			
+			_.each(comprehensionIndices, function(indexInput, arrayIndex)
+			{
+				if(indexInput != null)
+				{
+					val.__refs.shift();
+					val.__referencedNodes.shift();
 				}
 			});
 		}
 	}
 
 	this.outputList = [];
-	this.get = function(path)
+	this.get = function()
 	{
 		var arrayVals = _.map(this.arrays, function(array, index)
 		{
@@ -1273,6 +1352,12 @@ function Comprehension(nodeGraph, externNodes)
 		return this.outputList;
 	};
 	
+	this.getPath = function(path)
+    {
+    	// TODO use path ?
+		return this.get();
+    }
+
 	this.getMinMaxTick = function(path)
 	{
 		var maxTicks = 0, maxOfMinTicks = 0;
@@ -1334,6 +1419,7 @@ function Comprehension(nodeGraph, externNodes)
 
 					if(when.get())
 					{
+						unConnect(vals[i]);
 						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
 						var ret = pair[0];						
 						connect(ret, indices);
@@ -1365,6 +1451,8 @@ function Comprehension(nodeGraph, externNodes)
 						}
 						inputs[arrayIndex].push(indices[arrayIndex]);
 					}
+
+					unConnect(vals[i]);
 
 					var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
 					var ret = pair[0];
@@ -1408,6 +1496,22 @@ function Comprehension(nodeGraph, externNodes)
 		// _.each(this.arrays, function(array){array.addSink(sink);});
 		expr.addSink(sink);
 	};
+
+	this.updatePath = function(val, ticks, parentTick, path)
+	{
+		// TODO use path ?
+		return this.update(val, ticks, parentTick);
+	}
+
+	this.getRootNode = function()
+	{
+		return this;
+	}
+
+	this.getPathFromRoot = function()
+	{
+		return [];
+	}
 }
 
 function Select(nodeGraph, externNodes)
@@ -2232,6 +2336,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		{
 			this.what = getNode(what, nodes);
 			this.addsRefs = false;
+			this.needsNodes = false;
 			this.cases = cases.map(function(matchExp){
 				var matchStore = new FuncInput(matchExp.type != "_" ? matchExp.type : this.what.getType(), this.what);
 				var mergedNodes = _.clone(nodes);
@@ -2248,6 +2353,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				if(val.needsNodes)
 				{
 					needsNodes = true;
+					this.needsNodes = true;
 					this.addsRefs = true;
 				} 
 				
@@ -2346,6 +2452,11 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					if(sameTypes(type,  match.type))
 					{
 						match.matchStore.push(this.what);
+						if(match.needsNodes)
+						{
+							upVal.__refs.shift();
+							upVal.__referencedNodes.shift();
+						}
 						var ret = match.val.update(upVal, ticks, parentTick);
 						var val = ret[0];
 						var ticks = ret[1];
@@ -2353,8 +2464,8 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 						{
 							if(match.val.addsRefs)
 							{
-								val.__refs = [match.matchStore].concat(val.__refs);
-								val.__referencedNodes = [this.what].concat(val.__referencedNodes);
+								val.__refs.unshift(match.matchStore);
+								val.__referencedNodes.unshift(this.what);
 							}
 							else
 							{
@@ -2370,6 +2481,12 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				var match = this.cases[i];
 				match.matchStore.push(this.what);
 
+				if(match.needsNodes)
+				{
+					upVal.__refs.shift();
+					upVal.__referencedNodes.shift();
+				}
+
 				var ret = match.val.update(upVal, ticks, parentTick);
 				var val = ret[0];
 				var ticks = ret[1];
@@ -2378,8 +2495,8 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				{
 					if(match.val.addsRefs)
 					{
-						val.__refs = [match.matchStore].concat(val.__refs);
-						val.__referencedNodes = [this.what].concat(val.__referencedNodes);
+						val.__refs.unshift(match.matchStore);
+						val.__referencedNodes.unshift(this.what);
 					}
 					else
 					{
@@ -3391,6 +3508,10 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			}
 			this.getPath = function(path)
 			{
+				if(path.length == 0)
+				{
+					return this.get();
+				}
 				if(path.length == 1)
 				{
 					// return struct[path[0]].get();
@@ -3544,7 +3665,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					});
 					this.selfStore.popOperators();
 					// this.selfStore.popVal();
-					this.selfStore.pop();
+					this.selfStore.popNodeAndVal();
 				}
 				else
 				{
@@ -3819,6 +3940,9 @@ function FunctionInstance(classGraph)
 			this.inputNodes[i].push(node);
 		}, this);
 		
+		val.__refs = val.__refs.slice(paramNodes.length);
+		val.__referencedNodes = val.__referencedNodes.slice(paramNodes.length);
+		
 		var res = this.expr.update(val, ticks, parentTick);
 		var val = res[0];
 		
@@ -4000,6 +4124,12 @@ function FunctionTemplate(classGraph)
 			genericTypeParams[param] = templates[index];
 		});
 		instance.expr = makeExpr(classGraph["out"].val, instance.internalNodes, genericTypeParams);
+		if(instance.expr.needsNodes)
+		{
+			instance.needsNodes = true;
+			instance.__refs = instance.inputNodes.slice(0);
+		}
+
 		if("type" in instance)
 		{
 			// Juste check

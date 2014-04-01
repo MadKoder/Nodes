@@ -21,6 +21,7 @@ structs:
 		subs :
 			Group:
 				list<Ui> children
+				bool	folded
 				subs :
 					HGroup
 					VGroup
@@ -71,6 +72,10 @@ structs:
 		list<FuncDef>	functions
 		list<StructDef>	structs
 functions:
+	ref mHGroup(list<Ui> children)
+		HGroup(children, false)
+	ref mVGroup(list<Ui> children)
+		VGroup(children, false)
 	join(list<string> strs, string sep)
 		reduce
 		(
@@ -123,9 +128,9 @@ functions:
 						_ : Ref(split(str, "."))
 	ref Ui exprToUi(Expr expr)
 		type expr :
-			Func : HGroup
+			Func : mHGroup
 				([
-					VGroup
+					mVGroup
 					([
 						txtIn(expr.type),
 						TextInput
@@ -135,14 +140,12 @@ functions:
 								(
 									expr.params,
 									strToExpr(text)
-								),
-							onBuilt =>
-								self.focus(self)
+								)
 						)
 					]),
-					VGroup
+					mVGroup
 					([
-						HGroup
+						mHGroup
 						([
 							exprToUi(param),
 							Button
@@ -173,16 +176,16 @@ functions:
 			_ : TextInput("")
 	# ref Ui exprToUi(Expr expr)
 	# 	type expr :
-	# 		Func :  HGroup([TextInput(expr.type, set => expr.type = text)])
+	# 		Func :  mHGroup([TextInput(expr.type, set => expr.type = text)])
 	# 		_ : TextInput("")
 	ref Ui typeDeclToUi(TypeDecl typeDecl)
 		type typeDecl:
-			Parametric : HGroup
+			Parametric : mHGroup
 				([
 					txtIn(typeDecl.name),
-					HGroup
+					mHGroup
 					([
-						VGroup
+						mVGroup
 						([
 							typeDeclToUi(typeParam),
 							Button
@@ -196,9 +199,9 @@ functions:
 				])
 			_ : txtIn(typeDecl.name)		
 	ref paramsDeclToUi(list<ParamDecl> paramsDecl)
-		VGroup
+		mVGroup
 		([
-			HGroup
+			mHGroup
 			([
 					typeDeclToUi(paramDecl.type),
 					txtIn(paramDecl.name)
@@ -206,12 +209,12 @@ functions:
 			for paramDecl in paramsDecl
 		])
 	ref Ui funcToUi(FuncDef func)
-		VGroup
+		mVGroup
 		([
 			txtIn(func.id),
-			HGroup
+			mHGroup
 			([
-				VGroup
+				mVGroup
 				([
 					Text("params"),
 					paramsDeclToUi(func.inputs),
@@ -230,26 +233,26 @@ functions:
 			])
 		])
 	ref Ui structToUi(StructDef struct)
-		VGroup
+		mVGroup
 		([
 			txtIn(struct.name),
 			paramsDeclToUi(struct.fields),
 			Text(if length(struct.subStructs) > 0 then "Subs :" else "_"),
-			VGroup
+			mVGroup
 			([
 				structToUi(subStruct) for subStruct in struct.subStructs
 			])
 		])
 	ref Ui progToUi(Program prog)
-		# VGroup([
+		# mVGroup([
 		# 		funcToUi(func) for func in prog.functions
 		# 	])
-		VGroup
+		mVGroup
 		([
-			VGroup([
+			mVGroup([
 				funcToUi(func) for func in prog.functions
 			]),
-			VGroup
+			mVGroup
 			([
 				structToUi(struct) for struct in prog.structs
 			])
@@ -266,7 +269,7 @@ nodes:
 	def uiView2 = UiView(ui)
 	var toto = "toto"
 	def txt = TextInput(toto, set => toto = text)
-	# cache test = RootView(VGroupView(VGroup([]), "", [], ui, [TextInputView(txt, "VGroup", [], ui)]))
+	# cache test = RootView(VGroupView(mVGroup([]), "", [], ui, [TextInputView(txt, "mVGroup", [], ui)]))
 	# def test2 = TextInputView(txt, "", [], ui)
 
 actions :
