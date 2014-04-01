@@ -290,6 +290,20 @@ function Store(v, type)
 		return getMinMaxTick(this.tickGraph, path);
 	}
 
+	this.update = function(val, ticks, parentTick)
+	{
+		return mValTick(this.val);
+	}
+
+	this.updatePath = function(val, ticks, parentTick, path)
+	{
+		if(path.length == 0)
+		{
+			return mValTick(this.val);
+		}
+		return mValTick(this.getPath(path))
+	}
+
 	this.dirty = function(path)
 	{
 		function dirtyPath(graph, path)
@@ -389,11 +403,6 @@ function Store(v, type)
 		return getPath(this.val, this.path.concat(path));
 	}
 
-	this.update = function(val, ticks, parentTick)
-	{
-		return mValTick(this.val);
-	}
-
 	this.getPathFromRoot = function()
 	{
 		return this.path;
@@ -472,18 +481,14 @@ function SubStore(type, source)
 	{
 		this.source.addSink(sink);
 	}
-
-	// this.dirty = function(path)
-	// {
-	// 	this.node.dirty(path);
-	// }
 }
 
 function FuncInput(type, source) 
 {
 	this.stack = [];
-	this.refStack = [];
 	this.savedStack = [];
+	this.pathFromRootStack = [];
+	this.rootNodeStack = [];
 	this.type = type;
 	
 	// DEBUG
@@ -512,16 +517,12 @@ function FuncInput(type, source)
 		return this.stack[this.stack.length - 1];
 	};
 
-
 	this.getPath = function(path)
 	{
 
 		return this.stack[this.stack.length - 1][path[0]];
 	}
-
-	this.pathFromRootStack = [];
-	this.rootNodeStack = [];
-
+	
 	this.getPathFromRoot = function()
 	{
 		return this.pathFromRootStack[this.pathFromRootStack.length - 1];
@@ -535,7 +536,6 @@ function FuncInput(type, source)
 	this.push = function(node)
 	{
 		var res = node.get();
-		this.refStack.push(node);
 		this.stack.push(res);
 		this.pathFromRootStack.push(node.getPathFromRoot());
 		this.rootNodeStack.push(node.getRootNode());
@@ -543,7 +543,6 @@ function FuncInput(type, source)
 
 	this.pushNodeAndVal = function(node, val)
 	{
-		this.refStack.push(node);
 		this.stack.push(val);
 		this.pathFromRootStack.push(node.getPathFromRoot())
 		this.rootNodeStack.push(node.getRootNode());
@@ -553,18 +552,7 @@ function FuncInput(type, source)
 	{
 		this.rootNodeStack.pop();
 		this.pathFromRootStack.pop();
-		this.refStack.pop();
 		this.stack.pop();
-	}
-
-	this.pushRef = function(node)
-	{
-		this.refStack.push(node);
-	};
-	
-	this.popRef = function()
-	{
-		this.refStack.pop();
 	}
 
 	this.pushVal = function(val)
@@ -606,15 +594,6 @@ function FuncInput(type, source)
 
 	this.dirty = function(path)
 	{
-		// Dirty counter is used with recursive calls
-		// If a FuncInput is pushed more than once in a recursive call
-		// Dirty message will go back through it multiple times, but must go to higher node each time
-		// var ref = this.refStack.pop();
-		// this.savedStack.push(ref);
-
-		// ref.dirty(path);
-		
-		// this.refStack.push(this.savedStack.pop());
 		return this.rootNodeStack[this.rootNodeStack.length - 1].dirty(this.pathFromRootStack[this.pathFromRootStack.length - 1].concat(path));
 	}
 
@@ -625,44 +604,20 @@ function FuncInput(type, source)
 
 	this.set = function(val, rootAndPath)
 	{
-		// var ref = this.refStack.pop();
-		// this.savedStack.push(ref);
-
-		// ref.set(val, rootAndPath);
-		
-		// this.refStack.push(this.savedStack.pop());
-
 		this.rootNodeStack[this.rootNodeStack.length - 1].setPath(val, this.pathFromRootStack[this.pathFromRootStack.length - 1])
-	}
-
-	this.update = function(val, ticks, parentTick)
-	{
-		if(this.lastIndex < this.refStack.length)
-		{
-			var ref = this.refStack.pop();
-			this.savedStack.push(ref);
-
-			return ref.update(val, ticks, parentTick);
-
-			this.refStack.push(this.savedStack.pop());
-		}
-		else
-		{
-			return mValTick(this.stack[this.stack.length - 1]);
-		}
 	}
 
 	this.getMinMaxTick = function(path)
 	{
-		var ref = this.refStack.pop();
-		this.savedStack.push(ref);
-
-		var ret = ref.getMinMaxTick(path);
-
-		this.refStack.push(this.savedStack.pop());
-
-		return ret;
+		return this.rootNodeStack[this.rootNodeStack.length - 1].getMinMaxTick(this.pathFromRootStack[this.pathFromRootStack.length - 1].concat(path))
 	}
+
+	this.update = function(val, ticks, parentTick)
+	{
+		return this.rootNodeStack[this.rootNodeStack.length - 1].updatePath(val, ticks, parentTick, this.pathFromRootStack[this.pathFromRootStack.length - 1]);
+		// return mValTick(this.stack[this.stack.length - 1]);
+	}
+
 }
 
 function ValInput(type) 
@@ -1579,6 +1534,7 @@ function typeToCompactString(type)
 }
 
 function StructAccess(node, path, val) {
+	this.id = storeId++;
     this.node = node;
     this.path = path;
     if(val == undefined)
@@ -1866,7 +1822,7 @@ function ArrayAccess(node, type) {
 
 		// return ret;
 
-		return this.node.get()[this.stack[this.stack.length - 1]][path[0]];
+		return this.get()[path[0]];
 	}
 
 	this.getPathFromRoot = function()
@@ -2414,7 +2370,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 				var match = this.cases[i];
 				match.matchStore.push(this.what);
 
-				var ret = match.val.get();
+				var ret = match.val.update(upVal, ticks, parentTick);
 				var val = ret[0];
 				var ticks = ret[1];
 						

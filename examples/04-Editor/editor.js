@@ -96,7 +96,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 			{
 				var $enclose = view;
 				var $ui = $enclose.children();
-				$ui.attr("value", model.desc);
+				$ui.val(model.desc);
 				// $ui.change(function(event) 
 				// {
 				// 	// rootUi.set("toto");
@@ -494,17 +494,36 @@ $.get("editor.nodes", function( text ) {
 		}
 	}
 
+	function buildType(type)
+	{
+		if(_.isString(type))
+		{
+			return build("TypeDecl", [type]);
+		}
+		return build("Parametric", 
+			[
+				type.base, 
+				_.map(type.templates, buildType)
+			]);
+	}
+
 	function buildStruct(struct)
 	{
 		return build("StructDef",
 		[
 			struct.name,
-			_.map(struct.fields, function(paramDecl)
+			_(struct.fields)
+				.filter(function(field)
+					{
+						return _.isArray(field);
+					})
+				.map(function(field)
 				{
-					var p = build("ParamDecl", [paramDecl[0], paramDecl[1]]);
+					var p = build("ParamDecl", [field[0], buildType(field[1])]);
 					return p;
-				}),
-			_.map(struct.subs, function(subStruct)
+				})
+				.value(),
+			_.map(struct.subStructs, function(subStruct)
 				{
 					return buildStruct(subStruct);
 				})
@@ -535,7 +554,11 @@ $.get("editor.nodes", function( text ) {
 					func.id,
 					_.map(func.in, function(paramDecl)
 						{
-							var p = build("ParamDecl", [paramDecl[0], paramDecl[1]]);
+							var p = build("ParamDecl", 
+								[
+									paramDecl[0], 
+									build("TypeDecl", [paramDecl[1]])
+								]);
 							return p;
 						}),
 					buildExpr(func.out.val)

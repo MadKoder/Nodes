@@ -38,9 +38,14 @@ structs:
 					self.set(text)
 			Text :
 				string txt
-	ParamDecl :
+	TypeDecl :
 		string	name
-		string	type
+		subs :
+			Parametric :
+				list<TypeDecl>	params
+	ParamDecl :
+		string		name
+		TypeDecl	type
 	Expr :
 		subs :
 			Func :
@@ -61,7 +66,7 @@ structs:
 	StructDef :
 		string	name
 		list<ParamDecl>	fields
-		list<StructDef>	subs
+		list<StructDef>	subStructs
 	Program :
 		list<FuncDef>	functions
 		list<StructDef>	structs
@@ -170,12 +175,32 @@ functions:
 	# 	type expr :
 	# 		Func :  HGroup([TextInput(expr.type, set => expr.type = text)])
 	# 		_ : TextInput("")
+	ref Ui typeDeclToUi(TypeDecl typeDecl)
+		type typeDecl:
+			Parametric : HGroup
+				([
+					txtIn(typeDecl.name),
+					HGroup
+					([
+						VGroup
+						([
+							typeDeclToUi(typeParam),
+							Button
+							(
+								"Remove",
+								click => typeDecl.params = remove(typeDecl.params, i)
+							)
+						])
+						for typeParam, i in typeDecl.params
+					])
+				])
+			_ : txtIn(typeDecl.name)		
 	ref paramsDeclToUi(list<ParamDecl> paramsDecl)
 		VGroup
 		([
 			HGroup
 			([
-					txtIn(paramDecl.type),
+					typeDeclToUi(paramDecl.type),
 					txtIn(paramDecl.name)
 			])
 			for paramDecl in paramsDecl
@@ -194,7 +219,11 @@ functions:
 					(
 						"Add input",
 						click => 
-							func.inputs = pushBack(func.inputs, ParamDecl("name", "type"))
+							func.inputs = pushBack
+								(
+									func.inputs, 
+									ParamDecl("name", TypeDecl("type"))
+								)
 					)
 				]),
 				exprToUi(func.output)
@@ -204,23 +233,27 @@ functions:
 		VGroup
 		([
 			txtIn(struct.name),
-			paramsDeclToUi(struct.fields)
+			paramsDeclToUi(struct.fields),
+			Text(if length(struct.subStructs) > 0 then "Subs :" else "_"),
+			VGroup
+			([
+				structToUi(subStruct) for subStruct in struct.subStructs
+			])
 		])
 	ref Ui progToUi(Program prog)
-		VGroup([
-				funcToUi(func) for func in prog.functions
-			])
-		# VGroup
-		# ([
-		# 	VGroup([
+		# VGroup([
 		# 		funcToUi(func) for func in prog.functions
 		# 	])
-		# 	,
-		# 	VGroup
-		# 	([
-		# 		structToUi(struct) for struct in prog.structs
-		# 	])
-		# ])
+		VGroup
+		([
+			VGroup([
+				funcToUi(func) for func in prog.functions
+			]),
+			VGroup
+			([
+				structToUi(struct) for struct in prog.structs
+			])
+		])
 nodes:
 	var m = Just(1)
 	var uiCounter = 0
