@@ -1168,7 +1168,7 @@ var functions =
 					var arrayVal = array.get();
 					if(funcInstance.needsNodes)
 					{						
-						this.arrayAccess.pushCache(arrayVal);
+						this.arrayAccess.pushCacheAndNode(arrayVal, array);
 						var aa = this.arrayAccess;
 						var ret = _(arrayVal).map(function(val, i)
 						{
@@ -1184,7 +1184,7 @@ var functions =
 						})
 						.flatten(true).value();
 
-						this.arrayAccess.popCache();
+						this.arrayAccess.popCacheAndNode();
 
 						return ret;
 					}
@@ -1434,7 +1434,7 @@ var functions =
 };
 
 var globalTick = 0;
-
+var funcNodeId = 0;
 function FunctionNode(func)
 {
 	this.fields = func.params;
@@ -1446,8 +1446,10 @@ function FunctionNode(func)
 		var params = Array(paramsSpec.length);
 		var fields = f;
 
+		this.id = funcNodeId++;
 		this.func = func;
-		this.addsRefs = this.needsNodes = func.needsNodes;
+		this.needsNodes = func.needsNodes;
+		this.addsRefs = func.needsNodes;
 		_.each(fields, function(field, key)
 		{
 			var index = _.findIndex(fieldsSpec, function(fieldSpec){return fieldSpec[0] == key;});
@@ -1483,24 +1485,31 @@ function FunctionNode(func)
 			})
 			return [min, max];
 		};
-		this.getPath = function(path)
+		this.getField = function(fieldName)
 		{
 			// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
 			// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
 			// et meme changer au cours du temps
-			var val = this.get();
-			// var operators = library.nodes[typeToCompactString(val.__type)].operators;
-			var type = func.type;
-			var typeParams = getTypeParams(type);
-			if(typeParams.length > 0)
-			{
-				var operators = library.nodes[getBaseType(type)].getInstance(typeParams).operators;
-				return operators.getPath(val, path);
-			}
-			var str = typeToCompactString(type);
-			var operators = library.nodes[str].operators;
-			return operators.getPath(val, path);
+			return this.get()[fieldName];
 		};
+		// this.getPath = function(path)
+		// {
+		// 	// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
+		// 	// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
+		// 	// et meme changer au cours du temps
+		// 	var val = this.get();
+		// 	// var operators = library.nodes[typeToCompactString(val.__type)].operators;
+		// 	var type = func.type;
+		// 	var typeParams = getTypeParams(type);
+		// 	if(typeParams.length > 0)
+		// 	{
+		// 		var operators = library.nodes[getBaseType(type)].getInstance(typeParams).operators;
+		// 		return operators.getPath(val, path);
+		// 	}
+		// 	var str = typeToCompactString(type);
+		// 	var operators = library.nodes[str].operators;
+		// 	return operators.getPath(val, path);
+		// };
 		this.update = function(val, ticks, parentTick)
 		{
 			var max = 0;

@@ -432,6 +432,11 @@ function Store(v, type)
 		return getPath(this.val, this.path.concat(path));
 	}
 
+	this.getField = function(fieldName)
+	{
+		return this.val[fieldName];
+	}
+
 	this.getPathFromRoot = function()
 	{
 		return this.path;
@@ -555,10 +560,10 @@ function FuncInput(type, source)
 		return this.rootNodeStack[this.rootNodeStack.length - 1].getPath(path);
 	};
 
-	this.getPath = function(path)
+	this.getField = function(fieldName)
 	{
 
-		return this.get()[path[0]];
+		return this.get()[fieldName];
 	}
 	
 	this.getPathFromRoot = function()
@@ -718,10 +723,10 @@ function Closure(expr, nodes, genericTypeParams)
 	}, this);
 	
 	var localNodes = _.merge(localNodes, nodes);
-	var expr = makeExpr(expr.closure, localNodes, genericTypeParams);
+	var builtExpr = makeExpr(expr.closure, localNodes, genericTypeParams);
 
 	var needsNodes = false; // If the expression is a function that needs references (for making connections)
-	if(expr.needsNodes)
+	if(builtExpr.needsNodes)
 	{
 		needsNodes = true;
 	}
@@ -734,7 +739,7 @@ function Closure(expr, nodes, genericTypeParams)
 			{
 				paramStores[index].pushVal(param);
 			});
-			return expr.get();
+			return builtExpr.get();
 			_.each(params, function(param, index)
 			{
 				paramStores[index].popVal();
@@ -745,13 +750,13 @@ function Closure(expr, nodes, genericTypeParams)
 			{
 				paramStores[index].push(param);
 			});
-			return expr.get();
+			return builtExpr.get();
 			_.each(params, function(param, index)
 			{
 				paramStores[index].pop();
 			});
 		},
-		type : expr.getType()
+		type : builtExpr.getType()
 	}
 	
 	this.type = {
@@ -1031,18 +1036,17 @@ function StoreFunctionTemplate(t)
 	
 }
 
-function Affectation(val, paths, setPath)
+function Affectation(val, paths)
 {
 	this.val = val;
 	this.paths = paths;
-	this.setPath = setPath;
 	this.affect = function(obj)
 	{
 		var val = this.val.get();
 		for(var j = 0; j < this.paths.length; j++)
 		{
 			var path = this.paths[j];
-			this.setPath(obj, path, val);
+			setPath(obj, path, val);
 		}
 	}
 }
@@ -1063,7 +1067,7 @@ function CondAffectation(cond, thenAffects, elseAffects) {
 	};
 }
 
-function makeAffectations(matchesGraph, nodes, setPathOperator)
+function makeAffectations(matchesGraph, nodes)
 {
 	return matchesGraph.map(function(mergeExp){
 		
@@ -1079,7 +1083,7 @@ function makeAffectations(matchesGraph, nodes, setPathOperator)
 			return new CondAffectation(cond, affects, elseAffects);
 		}
 		
-		return new Affectation(makeExpr(mergeExp.val, nodes), mergeExp.paths, setPathOperator);
+		return new Affectation(makeExpr(mergeExp.val, nodes), mergeExp.paths);
 	});
 }
 
@@ -1087,30 +1091,24 @@ function Merge(what, matchesGraph, nodes)
 {
 	this.what = compileRef(what, nodes).val;
 	var whatType = this.what.getType();
-	var setPathOperator = library.nodes[typeToCompactString(whatType)].operators.setPath;
 	
-	this.matches = makeAffectations(matchesGraph, nodes, setPathOperator);
-					
+	this.matches = makeAffectations(matchesGraph, nodes);
+	
+	// Needs nodes if any of the affection value needs nodes
+	this.needsNodes = _.any(this.matches, function(affect)
+	{
+		return affect.val.needsNodes;
+	});	
+
 	this.get = function()
 	{
 		//var obj = this.what.get();
 		// TODO methode clone sur les struct ?
 		var newObj = _.cloneDeep(this.what.get());
-		_.forEach(this.matches, function(affect){affect.affect(newObj);});
-			// var mergeWith = this.matches[i];
-			// if("cond" in mergeWith && !mergeWith.cond.get())
-			// {
-				// if("else" in mergeWith)
-				// {
-				// continue;
-			// }
-			// var val = mergeWith.val.get();
-			// // var val = mergeWith.val;
-			// for(var j = 0; j < mergeWith.paths.length; j++)
-			// {
-				// var path = mergeWith.paths[j];
-				// this.setPath(newObj, path, val);
-			// }
+		_.forEach(this.matches, function(affect)
+		{
+			affect.affect(newObj);			
+		}, this);			
 		return newObj;
 	}
 	
@@ -1674,7 +1672,7 @@ function StructAccess(node, path, val) {
 
 	this.get = function()
 	{
-		var ret = this.node.getPath(this.path);
+		var ret = this.node.getField(this.path[0]);
 		if(this.path.length > 1)
 		{
 			ret = getPath(ret, this.path.slice(1));
@@ -1695,17 +1693,7 @@ function StructAccess(node, path, val) {
 	this.set = function(val, rootAndPath, subPath)
 	{
 		var struct = this.node.get();
-		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
-		// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
-		// et meme changer au cours du temps
-		if(_.isObject(val) && "__type" in val)
-		//if(true)
-		{
-			var operators = library.nodes[val.__type].operators;
-			this.setPathOperator = operators.setPath;
-		}
-		currentPath = currentPath.concat(this.path);
-		this.setPathOperator(struct, this.path, val);
+		setPath(struct, this.path, val);
 		if(rootAndPath)
 		{
 			rootAndPath.root.dirty(rootAndPath.path.concat(this.path));
@@ -1762,13 +1750,12 @@ function StructAccess(node, path, val) {
 		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
 		// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
 		// et meme changer au cours du temps
-		if(_.isObject(val) && "__type" in val)
-		//if(true)
-		{
-			var operators = library.nodes[typeToCompactString(val.__type)].operators;
-			this.getPathOperator = operators.getPath;
-		}
-		return mValTick(this.getPathOperator(val, this.path));
+		// if(_.isObject(val) && "__type" in val)
+		// {
+		// 	var operators = library.nodes[typeToCompactString(val.__type)].operators;
+		// 	this.getPathOperator = operators.getPath;
+		// }
+		// return mValTick(this.getPathOperator(val, this.path));
 	}
 
 	this.getMinMaxTick = function(path)
@@ -1810,6 +1797,7 @@ function ArrayAccess(node, type) {
 	this.stack = [];
 	this.savedStack = [];
 	this.cacheStack = [];
+	this.nodeStack = [];
 
 	this.signal = function(signal, params, rootAndPath)
 	{
@@ -1855,6 +1843,18 @@ function ArrayAccess(node, type) {
 	this.popCache = function()
 	{
 		this.cacheStack.pop();
+	}
+
+	this.pushCacheAndNode = function(array, node)
+	{
+		this.cacheStack.push(array);
+		this.nodeStack.push(node);
+	}
+
+	this.popCacheAndNode = function()
+	{
+		this.cacheStack.pop();
+		this.nodeStack.pop();
 	}
 
 	this.push = function(index)
@@ -1916,29 +1916,29 @@ function ArrayAccess(node, type) {
 		this.stack.push(index);
 	}
 
-	this.getPath = function(path)
+	this.getField = function(fieldName)
 	{
-		// var index = this.stack.pop();
-		// this.savedStack.push(index);
-
-		// var ret = this.node.getPath([index].concat(path));
-		
-		// index = this.savedStack.pop();
-		// this.stack.push(index);
-
-		// return ret;
-
-		return this.get()[path[0]];
+		return this.get()[fieldName];
 	}
 
 	this.getPathFromRoot = function()
 	{
-		return this.node.getPathFromRoot().concat([this.stack[this.stack.length - 1]]);
+		var node = this.node;
+		if(this.nodeStack.length > 0)
+		{
+			node = this.nodeStack[this.nodeStack.length - 1];
+		}
+		return node.getPathFromRoot().concat([this.stack[this.stack.length - 1]]);
 	}
 
 	this.getRootNode = function()
 	{
-		return this.node.getRootNode();
+		var node = this.node;
+		if(this.nodeStack.length > 0)
+		{
+			node = this.nodeStack[this.nodeStack.length - 1];
+		}
+		return node.getRootNode();
 	}
 }
 
@@ -2115,6 +2115,12 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			this.getMinMaxTick = function(path)
 			{
 				return this.ref.getMinMaxTick(path);
+			}
+
+			this.dirty = function(path)
+			{
+				//TODO for each entry in the dict				
+				this.ref.dirty([]);
 			}
 		}
 
@@ -3595,24 +3601,10 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			{
 				return this;
 			}
-			this.getPath = function(path)
+			this.getField = function(fieldName)
 			{
-				if(path.length == 0)
-				{
-					return this.get();
-				}
-				if(path.length == 1)
-				{
-					// return struct[path[0]].get();
-					return this.fields[path[0]].get();
-				}
-				else
-				{
-					var subPath = path.slice(0);
-					var key = subPath.shift();
-					return this.fields[key].getPath(subPath);
-				}
-			};	
+				this.fields[fieldName].get();
+			};
 			this.update = function(val, ticks, parentTick)
 			{
 				if(val.__type == this.fields.__type) // Check if type is same (in case of a type match)
@@ -3672,50 +3664,50 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 		builder : makeBuilder(structGraph),
 		fieldsOp : fieldsOperators,
 		operators : {
-			getPath : function(struct, path)
-			{
-				if(path.length == 1)
-				{
-					// return struct[path[0]].get();
-					return struct[path[0]];
-				}
-				else
-				{
-					var subPath = path.slice(0);
-					var key = subPath.shift();
-					return fieldsOperators[key].getPath(struct[key], subPath);
-				}
-			},
-			setPath : function(struct, path, val)
-			{
-				if(path.length == 1)
-				{
-					struct[path[0]] = val;
-				}
-				else
-				{
-					var subPath = path.slice(0);
-					var key = subPath.shift();
-					fieldsOperators[key].setPath(struct[key], subPath, val);
-				}
-			},
-			update : function(struct, path, tick)
-			{
-				if(struct == null)
-				{
-					if(path.length == 1)
-					{
-						// return struct[path[0]].get();
-						return fieldsOperators[path[0]].update(null, tick);
-					}
-					else
-					{
-						var subPath = path.slice(0);
-						var key = subPath.shift();
-						return fieldsOperators[key].update(null, subPath, tick);
-					}
-				}
-			},
+			// getPath : function(struct, path)
+			// {
+			// 	if(path.length == 1)
+			// 	{
+			// 		// return struct[path[0]].get();
+			// 		return struct[path[0]];
+			// 	}
+			// 	else
+			// 	{
+			// 		var subPath = path.slice(0);
+			// 		var key = subPath.shift();
+			// 		return fieldsOperators[key].getPath(struct[key], subPath);
+			// 	}
+			// },
+			// setPath : function(struct, path, val)
+			// {
+			// 	if(path.length == 1)
+			// 	{
+			// 		struct[path[0]] = val;
+			// 	}
+			// 	else
+			// 	{
+			// 		var subPath = path.slice(0);
+			// 		var key = subPath.shift();
+			// 		fieldsOperators[key].setPath(struct[key], subPath, val);
+			// 	}
+			// },
+			// update : function(struct, path, tick)
+			// {
+			// 	if(struct == null)
+			// 	{
+			// 		if(path.length == 1)
+			// 		{
+			// 			// return struct[path[0]].get();
+			// 			return fieldsOperators[path[0]].update(null, tick);
+			// 		}
+			// 		else
+			// 		{
+			// 			var subPath = path.slice(0);
+			// 			var key = subPath.shift();
+			// 			return fieldsOperators[key].update(null, subPath, tick);
+			// 		}
+			// 	}
+			// },
 			slots : {},
 			signal : function(struct, id, params, path, node, callFromSlot)
 			{

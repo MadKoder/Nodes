@@ -44,7 +44,7 @@ functions:
 		Vec2(v0.x - v1.x, v0.y - v1.y)
 	accumState(dict<string, State> accum, dict<string, State> state) 		merge(accum, state)
 	getStateSet(Obj obj) 		obj.stateSet
-	list<T> getTypeAndAccumState<T>(Obj obj) type obj :
+	ref list<T> getTypeAndAccumState<T>(Obj obj) type obj :
 		T  : [obj]
 		Group : flatMap
 			(
