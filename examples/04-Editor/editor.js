@@ -144,6 +144,9 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 			}
 			else
 			{
+				var $enclose = view;
+				var $ui = $enclose.children();
+				$ui.html(model.desc);
 				return view;
 			}
 			break;
@@ -224,6 +227,14 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 				// 	$ui.append(newUi);
 				// })
 				
+			}
+			if(model.folded)
+			{
+				$ui.hide();
+			}
+			else
+			{
+				$ui.show();
 			}
 			return $ui;
 			break;

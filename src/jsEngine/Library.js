@@ -612,7 +612,7 @@ function getListTypeParam(type)
 	return getTypeParams(type)[0];
 }
 
-function getDictTypeParams(type)
+function getDictTypeParam(type)
 {
 	checkDictType(type);
 	return getTypeParams(type)[0];
@@ -1406,8 +1406,8 @@ var functions =
 		{
 			var dst = params[0];
 			var src = params[1];
-			var srcParams = getDictTypeParams(src.getType());
-			var dstParams = getDictTypeParams(dst.getType());
+			var srcParams = getDictTypeParam(src.getType());
+			var dstParams = getDictTypeParam(dst.getType());
 			checkSameTypes(srcParams[0], dstParams[0]);
 			checkSameTypes(srcParams[1], dstParams[1]);			
 			return srcParams;

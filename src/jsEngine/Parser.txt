@@ -110,6 +110,19 @@ Affectation =
 		return affect;
 	}
 
+AccessAffectation = 
+	_ slot:Var _ "[" _ indexOrKey:Val _ "]" _ "=" _ val:Val 
+    {
+		var affect = 
+		{
+            "param": val,
+            "slots": [slot],
+            indexOrKey : indexOrKey,
+            "type": "AccessAffectation"
+        };
+		return affect;
+	}
+
 VarOrDestructVar = 
 	Var
 	/ DestructVar
@@ -453,6 +466,7 @@ Actions "Actions" =
 
 Action "Action" = 
   Affectation 
+  / AccessAffectation
   / Foreach
   / ForAction
   / MatchAction
@@ -656,7 +670,7 @@ Var =
 			finalPath = finalPath.concat(subPath);
 		return finalPath;
 	}
-	
+  
 IfAction =
 	"if" _ param:Expression  _ "then" _ action:Action _ elseAction:("else" _ action:Action {return action;})?
 	{
@@ -714,14 +728,23 @@ PrimaryExpression =
 	/ Comprehension 
 	/ Array 
 	/ Dict
+	/ ArrayDictAccess
 	/ Var
 	/ Message 
 	/ number 
 	/ "(" __ expression:Expression __ ")" { return expression; }
 	/ array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
 	/ number
-	/ v:Var { return v;}
 	/ String
+
+ArrayDictAccess =
+	_ id:Var _ "[" _ indexOrKey:Val _ "]" _
+    {
+		return {
+            access: id,
+            indexOrKey : indexOrKey
+        };
+	}
 
 FunctionCall = 
 	id:Id _ typeParams:TypeParams? _ calls:FuncCalls
@@ -949,15 +972,6 @@ Expression =
 / MatchType 
 / LogicalORExpression
 
-Var = 
-	start:Id subPath:(SubPath)?{
-		var finalPath = [start];
-		if(subPath != null)
-			finalPath = finalPath.concat(subPath);
-		return finalPath;
-	}
-  / Dereference
-  
 Id = 
 	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
 		return name.length == 1 ?
@@ -967,7 +981,6 @@ Id =
 	
 SubPath = 
 	StructPath
-	/ ArrayPath
 	
 StructPath =
 	"." path:Id subPath:(SubPath)? {
@@ -976,17 +989,6 @@ StructPath =
 			finalPath = finalPath.concat(subPath);
 		return finalPath;
 	}
-	
-ArrayPath =
-	"[" index:Val "]" subPath:(SubPath)? {
-		var finalPath = [{index:index}];
-		if(subPath != null)
-			finalPath = finalPath.concat(subPath);
-		return finalPath;
-	}
-
-Dereference =
-  _ "*" _ id:Id {return "*" + id;}
 
 UnaryExpression
   = PrimaryExpression

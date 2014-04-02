@@ -20,8 +20,8 @@ structs:
 	Ui : 
 		subs :
 			Group:
-				list<Ui> children
-				bool	folded
+				list<Ui> children	
+				bool	folded			
 				subs :
 					HGroup
 					VGroup
@@ -39,6 +39,8 @@ structs:
 					self.set(text)
 			Text :
 				string txt
+	UiStore :
+		bool	folded
 	TypeDecl :
 		string	name
 		subs :
@@ -112,7 +114,7 @@ functions:
 		type m :
 			Just<T> : m.x
 			_ :  y
-	strToExpr(string str)
+	Expr strToExpr(string str)
 		let :
 			funcMatch = maybeAt(matchNewFuncStr(str), 0)
 			intMatch = maybeAt(findAllMatches(re("^(\\d.*)$"), str), 0)
@@ -122,41 +124,68 @@ functions:
 				# Just<regmatch> : Func(group1(funcMatch.x), [Ref([param]) for param in split(group2(funcMatch.x), ",")])
 				Just<regmatch> : Func(group1(funcMatch.x), [])
 				_ :  type intMatch :
-					Just<regMatch> : IntExpr(strToInt(group1(intMatch.x)))
+					Just<regmatch> : IntExpr(strToInt(group1(intMatch.x)))
 					_ :  type strMatch :
-						Just<regMatch> : StrExpr(group1(strMatch.x))
+						Just<regmatch> : StrExpr(group1(strMatch.x))
 						_ : Ref(split(str, "."))
-	ref Ui exprToUi(Expr expr)
-		type expr :
-			Func : mHGroup
+	ref Ui exprToUi(Expr expr, int viewId)
+		let
+			stored = expr.__views[viewId]
+		in type expr :
+			Func : mVGroup
 				([
-					mVGroup
-					([
-						txtIn(expr.type),
-						TextInput
-						(
-							"i",
-							set => expr.params = pushBack
+					Button
+					(
+						type stored :
+							Just<UiStore> : if stored.x.folded then "Unfold" else "Fold"
+							_ : "Fold"
+						,
+						click => expr.__views[viewId] = type stored :
+							Just<UiStore> : stored.x \ folded = if stored.x.folded then false else true
+							_ : UiStore(true)
+					),
+					HGroup
+					(
+						[
+							mVGroup
+							([
+								txtIn(expr.type),
+								TextInput
 								(
-									expr.params,
-									strToExpr(text)
+									"i",
+									set => 
+										loc newExpr = strToExpr(text)
+										loc newUi = exprToUi(newExpr, viewId)
+										# globalFocus = newUi.__id
+										# newExpr.__views[viewId] = newUi
+										expr.params = pushBack
+											(
+												expr.params,
+												newExpr
+											)
+									# ,	onBuilt =>
+									# 	self.focus(self)
 								)
-						)
-					]),
-					mVGroup
-					([
-						mHGroup
-						([
-							exprToUi(param),
-							Button
-							(
-								"Remove",
-								click => expr.params = remove(expr.params, i)
-							)
-						])
-						# exprToUi(param)
-						for param, i in expr.params
-					])
+							]),
+							mVGroup
+							([
+								mHGroup
+								([
+									exprToUi(param, viewId),
+									Button
+									(
+										"Remove",
+										click => expr.params = remove(expr.params, i)
+									)
+								])
+								# exprToUi(param)
+								for param, i in expr.params
+							])
+						],
+						type stored :
+							Just<UiStore> : stored.x.folded
+							_ : false
+					)
 				])
 			Ref : TextInput
 				(
@@ -178,7 +207,7 @@ functions:
 	# 	type expr :
 	# 		Func :  mHGroup([TextInput(expr.type, set => expr.type = text)])
 	# 		_ : TextInput("")
-	ref Ui typeDeclToUi(TypeDecl typeDecl)
+	ref Ui typeDeclToUi(TypeDecl typeDecl, int viewId)
 		type typeDecl:
 			Parametric : mHGroup
 				([
@@ -187,7 +216,7 @@ functions:
 					([
 						mVGroup
 						([
-							typeDeclToUi(typeParam),
+							typeDeclToUi(typeParam, viewId),
 							Button
 							(
 								"Remove",
@@ -198,17 +227,17 @@ functions:
 					])
 				])
 			_ : txtIn(typeDecl.name)		
-	ref paramsDeclToUi(list<ParamDecl> paramsDecl)
+	ref paramsDeclToUi(list<ParamDecl> paramsDecl, int viewId)
 		mVGroup
 		([
 			mHGroup
 			([
-					typeDeclToUi(paramDecl.type),
+					typeDeclToUi(paramDecl.type, viewId),
 					txtIn(paramDecl.name)
 			])
 			for paramDecl in paramsDecl
 		])
-	ref Ui funcToUi(FuncDef func)
+	ref Ui funcToUi(FuncDef func, int viewId)
 		mVGroup
 		([
 			txtIn(func.id),
@@ -217,7 +246,7 @@ functions:
 				mVGroup
 				([
 					Text("params"),
-					paramsDeclToUi(func.inputs),
+					paramsDeclToUi(func.inputs, viewId),
 					Button
 					(
 						"Add input",
@@ -229,32 +258,32 @@ functions:
 								)
 					)
 				]),
-				exprToUi(func.output)
+				exprToUi(func.output, viewId)
 			])
 		])
-	ref Ui structToUi(StructDef struct)
+	ref Ui structToUi(StructDef struct, int viewId)
 		mVGroup
 		([
 			txtIn(struct.name),
-			paramsDeclToUi(struct.fields),
+			paramsDeclToUi(struct.fields, viewId),
 			Text(if length(struct.subStructs) > 0 then "Subs :" else "_"),
 			mVGroup
 			([
-				structToUi(subStruct) for subStruct in struct.subStructs
+				structToUi(subStruct, viewId) for subStruct in struct.subStructs
 			])
 		])
-	ref Ui progToUi(Program prog)
+	ref Ui progToUi(Program prog, int viewId)
 		# mVGroup([
 		# 		funcToUi(func) for func in prog.functions
 		# 	])
 		mVGroup
 		([
 			mVGroup([
-				funcToUi(func) for func in prog.functions
+				funcToUi(func, viewId) for func in prog.functions
 			]),
 			mVGroup
 			([
-				structToUi(struct) for struct in prog.structs
+				structToUi(struct, viewId) for struct in prog.structs
 			])
 		])
 nodes:
@@ -263,10 +292,11 @@ nodes:
 	var program = Program :
 		[]
 		[]
-	cache ui = progToUi(program)
+	cache ui = progToUi(program, 0)
+	cache ui1 = progToUi(program, 1)
 	cache view = ui
 	def uiView = UiView(ui)
-	def uiView2 = UiView(ui)
+	def uiView2 = UiView(ui1)
 	var toto = "toto"
 	def txt = TextInput(toto, set => toto = text)
 	# cache test = RootView(VGroupView(mVGroup([]), "", [], ui, [TextInputView(txt, "mVGroup", [], ui)]))

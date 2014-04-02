@@ -1087,7 +1087,7 @@ function Merge(what, matchesGraph, nodes)
 {
 	this.what = compileRef(what, nodes).val;
 	var whatType = this.what.getType();
-	var setPathOperator = library.nodes[whatType].operators.setPath;
+	var setPathOperator = library.nodes[typeToCompactString(whatType)].operators.setPath;
 	
 	this.matches = makeAffectations(matchesGraph, nodes, setPathOperator);
 					
@@ -1661,9 +1661,10 @@ function StructAccess(node, path, val) {
 	this.updateOperator = operators.update;
 	
 	var fields = typeObj.fields;
+	var hiddenFields = typeObj.hiddenFields;
 	try
 	{
-		this.type = getFieldType(fields, path);
+		this.type = getFieldType(fields.concat(hiddenFields), path);
 	}
 	catch(err)
 	{
@@ -1757,6 +1758,7 @@ function StructAccess(node, path, val) {
 			return [val, ticks];
 		} 	
 		var val = this.node.get();
+		return mValTick(getPath(val, this.path));
 		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
 		// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
 		// et meme changer au cours du temps
@@ -2072,6 +2074,56 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 		}
 		return {val : new Store(expr, type), type : type};
 		// return expr;
+	} else if("access" in expr)
+	{
+		function DictAccess(ref, key, dictTypeParam)
+		{
+			this.ref = ref;
+			this.key = key;
+			this.type = dictTypeParam;
+			this.justBuilder = library.nodes.Just.getInstance([this.type]).builder; 
+			this.noneBuilder = library.nodes.None.getInstance([this.type]).builder; 
+			
+			this.get = function()
+			{
+				var keyVal = this.key.get();
+				var dict = this.ref.get();
+				var val = dict[keyVal];
+				if(val != undefined)
+				{
+					// TODO : optim
+					return (new this.justBuilder({x: new Store(val, this.type)})).get(); 
+				}
+				return (new this.noneBuilder()).get(); 
+			}
+
+			this.getType = function()
+			{
+				return this.type;
+			}
+
+			this.getPathFromRoot = function()
+			{
+				return [];
+			}
+
+			this.getRootNode = function()
+			{
+				return this;
+			}
+
+			this.getMinMaxTick = function(path)
+			{
+				return this.ref.getMinMaxTick(path);
+			}
+		}
+
+		var ref = makeExpr(expr.access, nodes);
+		var indexOrKey = makeExpr(expr.indexOrKey, nodes);
+		var dictTypeParam = getDictTypeParam(ref.getType());
+		// TODO For array
+		// TODO check type of ref, type of indexKey
+		return {val : new DictAccess(ref, indexOrKey, dictTypeParam), type : mt("Maybe", [dictTypeParam])};
 	} else if("array" in expr)
 	{
 		var l = expr.array.map(
@@ -2364,7 +2416,12 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					needsNodes : needsNodes
 				};
 			}, this);
-			var whatType = this.what.getType();
+
+			this.type = this.cases[0].val.getType();
+			for(i = 1; i < this.cases.length; i++)
+			{
+				this.type = getCommonSuperClass(this.type, this.cases[i].val.getType());
+			}
 						
 			this.get = function()
 			{
@@ -2512,7 +2569,12 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			
 			this.getType = function()
 			{
-				return whatType;
+				return this.type;
+			}
+
+			this.getMinMaxTick = function(path)
+			{
+				return this.what.getMinMaxTick(path);
 			}
 		}
 
@@ -3311,7 +3373,33 @@ function makeAction(actionGraph, nodes, connections)
 			}
 		}
 
-		var node = new library.actions[type](slots, param);
+		if(type == "AccessAffectation")
+		{
+			function AccessAffectation(slots, param, key) {
+			    this.slots = slots;
+			    this.param = param;
+			    this.id = nodeId;
+			    this.key = key;
+			    nodeId++;
+				this.signal = function(rootAndPath)
+			    {
+					var val = this.param.get();
+					var keyVal = this.key.get();						
+					for(var i = 0; i < this.slots.length; i++)
+					{
+						var slot = this.slots[i];
+						var dict = slot.get();
+						dict[keyVal] = val;
+						slot.dirty([]);
+					}
+			    };
+			}
+			var node = new AccessAffectation(slots, param, makeExpr(actionGraph.indexOrKey, localNodes));
+		}
+		else
+		{
+			var node = new library.actions[type](slots, param);
+		}
 
 		return node;
 	}
@@ -3378,7 +3466,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	}
 
 	var fieldsOperators = {};
-	var concreteFieldsGraph = fieldsGraph;
+	var concreteFieldsGraph = _.clone(fieldsGraph);
 	for(var i = 0; i < fieldsGraph.length; i++)
 	{
 		var fieldType = fieldsGraph[i][1];
@@ -3420,7 +3508,8 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 		function builder(fields) 
 		{	
 			this.fields = {
-				__type : type
+				__type : type,
+				__views : {}
 			};
 			this.operators = library.nodes[concreteName].operators;
 			this.signals = {};
@@ -3471,7 +3560,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			{
 				var maxTicks = 0, maxOfMinTicks = 0;
 				_.each(this.fields, function(field, key){
-					if((key != "__type") && (key != "__signals"))
+					if((key != "__type") && (key != "__signals") && (key != "__views"))
 					{
 						var itemMinMaxTicks = field.getMinMaxTick([]);
 						maxTicks = Math.max(maxTicks, itemMinMaxTicks[1]);
@@ -3485,7 +3574,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			{
 				var ret = _.mapValues(this.fields, function(field, key){
 					// TODO : ameliorer
-					return ((key == "__type") || (key == "__signals")) ? field :  field.get();
+					return ((key == "__type") || (key == "__signals") || (key == "__views")) ? field :  field.get();
 				});
 				ret.__id = structId++;
 				if("__signals" in this.fields && "onBuilt" in this.fields.__signals)
@@ -3535,7 +3624,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 						{
 							val.__signals = field;
 						}
-						else if((key != "__type") &&  (key != "__id"))
+						else if((key != "__type") &&  (key != "__id") && (key != "__views"))
 						{
 							var res = field.update(val[key], (subTicks != undefined && (key in subTicks)) ? subTicks[key] : {tick : parentTick}, ticks.tick);
 							val[key] = res[0];
@@ -3557,7 +3646,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			{
 				_.each(this.fields, function(field, key)
 				{
-					if((key != "__type") && (key != "__signals"))
+					if((key != "__type") && (key != "__signals") && (key != "__views"))
 					{
 						field.addSink(sink);
 					}
@@ -3576,8 +3665,10 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 		return builder;
 	}
 	
+	// concreteFieldsGraph.push(["__views", mt("Dict", ["int"])]);
 	_.merge(node, {
 		fields : concreteFieldsGraph,
+		hiddenFields : [["__views", mt("dict", ["UiView"])]],
 		builder : makeBuilder(structGraph),
 		fieldsOp : fieldsOperators,
 		operators : {
@@ -3848,7 +3939,8 @@ function StructTemplate(classGraph, tp, superClassName, inheritedFields)
 		var instance = {};
 		this.cache[key] = instance;
 		library.nodes[concreteName] = instance;
-		makeStruct(this.classGraph, this.inheritedFields, superConcreteName, false, typeParamsInstances);
+		// We clone because fields will be instantiated, and we want to keep template version
+		makeStruct(_.clone(this.classGraph, true), this.inheritedFields, superConcreteName, false, typeParamsInstances);
 		
 		return instance;
 	}
