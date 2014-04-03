@@ -83,8 +83,10 @@ functions:
 		HGroup(children, false)
 	ref mVGroup(list<Ui> children)
 		VGroup(children, false)
-	ref mButton(string desc)
+	ref mButton2(string desc)
 		Button(desc, "")
+	ref mButton(string desc)
+		mButton2(desc, click => loc a = 1)
 	join(list<string> strs, string sep)
 		reduce
 		(

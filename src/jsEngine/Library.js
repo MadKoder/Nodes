@@ -1471,11 +1471,12 @@ function FunctionNode(func)
 				// Setup signals for this function
 				if(this.hasSignals)
 				{
-					ret.__signals = _.clone(ret.__signals);
-					_.each(this.signals, function(signal, key)
-					{
-						ret.__signals[key] = signal;
-					});
+					ret.__signals = this.signals;
+					// ret.__signals = _.clone(ret.__signals);
+					// _.each(this.signals, function(signal, key)
+					// {
+					// 	ret.__signals[key] = signal;
+					// });
 				}
 			}
 			else
@@ -1488,7 +1489,15 @@ function FunctionNode(func)
 		};
 		this.getSignals = function()
 		{
-			return this.signals;
+			this.hasSignals = true;
+			var oldSignals = func.expr.getSignals();
+			// this.signals = _.clone(oldSignals);
+			_.each(oldSignals, function(signal, key)
+			{
+				this.signals[key] = _.clone(signal);
+				signal = [];
+			}, this);
+			return this.signals;		
 		}
 		this.getMinMaxTick = function(path)
 		{
@@ -1553,11 +1562,12 @@ function FunctionNode(func)
 			if(this.hasSignals)
 			{
 				var newVal = ret[0];
-				newVal.__signals = _.clone(newVal.__signals);
-				_.each(this.signals, function(signal, key)
-				{
-					newVal.__signals[key] = signal;
-				});
+				newVal.__signals = this.signals;
+				// newVal.__signals = _.clone(newVal.__signals);
+				// _.each(this.signals, function(signal, key)
+				// {
+				// 	newVal.__signals[key] = signal;
+				// });
 			}
 			return ret;
 		};

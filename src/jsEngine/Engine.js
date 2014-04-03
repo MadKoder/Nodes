@@ -2340,7 +2340,7 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					else
 					{
 						// Case of a function that return a structure (FunctionNode)
-						node.hasSignals = true;
+						// node.addSignals();
 						signals[connection.signal] = [action];
 					}
 				});
