@@ -83,10 +83,10 @@ functions:
 		HGroup(children, false)
 	ref mVGroup(list<Ui> children)
 		VGroup(children, false)
-	ref mButton2(string desc)
+	ref txtButton(string desc)
 		Button(desc, "")
-	ref mButton(string desc)
-		mButton2(desc, click => loc a = 1)
+	ref imgButton(string image)
+		Button("", image)
 	join(list<string> strs, string sep)
 		reduce
 		(
@@ -145,7 +145,7 @@ functions:
 				([
 					mVGroup
 					([
-						mButton
+						txtButton
 						(
 							type stored :
 								Just<UiStore> : if stored.x.folded then "Unfold" else "Fold"
@@ -187,9 +187,9 @@ functions:
 							mHGroup
 							([
 								exprToUi(param, viewId, focusCounter),
-								mButton
+								imgButton
 								(
-									"Remove",
+									"remove.png",
 									click => expr.params = remove(expr.params, i)
 								)
 							])
@@ -231,7 +231,7 @@ functions:
 						mVGroup
 						([
 							typeDeclToUi(typeParam, viewId, focusCounter),
-							mButton
+							txtButton
 							(
 								"Remove",
 								click => typeDecl.params = remove(typeDecl.params, i)
@@ -261,7 +261,7 @@ functions:
 				([
 					Text("params"),
 					paramsDeclToUi(func.inputs, viewId, focusCounter),
-					mButton
+					txtButton
 					(
 						"Add input",
 						click => 
@@ -309,9 +309,13 @@ nodes:
 	vat focusCounter = 1
 	cache ui = progToUi(program, 0, focusCounter)
 	cache ui1 = progToUi(program, 1, focusCounter)
+	# cache ui2 = progToUi(program, 2, focusCounter)
+	# cache ui3 = progToUi(program, 3, focusCounter)
 	cache view = ui
 	def uiView = UiView(ui)
 	def uiView2 = UiView(ui1)
+	# def uiView3 = UiView(ui2)
+	# def uiView4 = UiView(ui3)
 	var toto = "toto"
 	def txt = TextInput(toto, set => toto = text)
 	# cache test = RootView(VGroupView(mVGroup([]), "", [], ui, [TextInputView(txt, "mVGroup", [], ui)]))

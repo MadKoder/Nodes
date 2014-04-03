@@ -6,7 +6,15 @@ function check(test, str)
 
 function mValTick(val, subs)
 {
-	return [val, {tick : globalTick, subs : subs}];
+	var minTick = globalTick;
+	if(subs)
+	{
+		_.each(subs, function(sub)
+		{
+			minTick = Math.min(minTick, sub.tick);
+		});
+	}
+	return [val, {tick : globalTick, min : minTick, subs : subs}];
 }
 
 function typeToString(type)
@@ -1471,12 +1479,7 @@ function FunctionNode(func)
 				// Setup signals for this function
 				if(this.hasSignals)
 				{
-					ret.__signals = this.signals;
-					// ret.__signals = _.clone(ret.__signals);
-					// _.each(this.signals, function(signal, key)
-					// {
-					// 	ret.__signals[key] = signal;
-					// });
+					ret.__signals = this.signals;					
 				}
 			}
 			else
@@ -1491,7 +1494,6 @@ function FunctionNode(func)
 		{
 			this.hasSignals = true;
 			var oldSignals = func.expr.getSignals();
-			// this.signals = _.clone(oldSignals);
 			_.each(oldSignals, function(signal, key)
 			{
 				this.signals[key] = _.clone(signal);
@@ -1512,62 +1514,41 @@ function FunctionNode(func)
 		};
 		this.getField = function(fieldName)
 		{
-			// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
-			// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
-			// et meme changer au cours du temps
 			return this.get()[fieldName];
 		};
-		// this.getPath = function(path)
-		// {
-		// 	// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
-		// 	// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
-		// 	// et meme changer au cours du temps
-		// 	var val = this.get();
-		// 	// var operators = library.nodes[typeToCompactString(val.__type)].operators;
-		// 	var type = func.type;
-		// 	var typeParams = getTypeParams(type);
-		// 	if(typeParams.length > 0)
-		// 	{
-		// 		var operators = library.nodes[getBaseType(type)].getInstance(typeParams).operators;
-		// 		return operators.getPath(val, path);
-		// 	}
-		// 	var str = typeToCompactString(type);
-		// 	var operators = library.nodes[str].operators;
-		// 	return operators.getPath(val, path);
-		// };
 		this.update = function(val, ticks, parentTick)
 		{
-			var max = 0;
-			_.each(params, function(node)
-			{
-				var minMax = node.getMinMaxTick([]);
-				max = Math.max(max, minMax[1]);
-			});
-
-			if(ticks.tick >= max)
-			{
-				return [val, ticks];
-			}
-			
 			if(this.needsNodes)
 			{
 				var ret = func.update(val, ticks, parentTick, params);				
 			}
 			else
 			{
+				// var minMax = [0, 0];
+				// function upMinMax(old, current)
+				// {
+				// 	return [Math.min(old[0], current[0]), Math.max(old[1], current[1])];
+				// }
+				var max = 0;
+				_.each(params, function(node)
+				{
+					var minMax = node.getMinMaxTick([]);
+					// min = Math.min(min, minMax[0]);
+					max = Math.max(max, minMax[1]);
+				});
+
+				if(ticks.tick >= max)
+				{
+					return [val, ticks];
+				}
+
 				var ret = mValTick(func.func(params.map(function(param){return param.get();})));
 			}
 
 			// Setup signals for this function
 			if(this.hasSignals)
 			{
-				var newVal = ret[0];
-				newVal.__signals = this.signals;
-				// newVal.__signals = _.clone(newVal.__signals);
-				// _.each(this.signals, function(signal, key)
-				// {
-				// 	newVal.__signals[key] = signal;
-				// });
+				ret[0].__signals = this.signals;				
 			}
 			return ret;
 		};
@@ -1740,7 +1721,8 @@ var nodes =
 					this.update = function(val, ticks, parentTick)
 					{
 						// If condition didn't change, update result
-						if(ticks.tick >= cond.getMinMaxTick([])[1])
+						var minMax = cond.getMinMaxTick([]);
+						if(ticks.tick >= minMax[1])
 						{
 							if(cond.get())
 							{

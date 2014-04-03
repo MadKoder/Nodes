@@ -140,12 +140,21 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 			if((view == null) || (type != view.attr("modelType")))
 			{
 				var uiId = type + uiIndex.toString();
-				$tmp.append(enclose("<button id=" + uiId + "><img src = \"../../../images/remove.png\"></button>", parentType));
+				$tmp.append(enclose("<button id=" + uiId + "></button>", parentType));
 				var $ui = $("#" + uiId);
+				if(model.image.length > 0)
+				{
+					$ui.append("<img width = 20 src = \"../../../images/" + model.image + "\">")
+					$ui.width(20);
+				}
+				else
+				{
+					$ui.html(model.desc);
+				}
 				var $enclose = $("#enclose" + uiIndex.toString());
 				$enclose.attr("modelType", type);
 				$enclose.data("ui", $ui);
-				$("#" + uiId).button()
+				$ui.button()
 				.click(function() 
 				{
 					rootUi.signal("onClick", [new Store(model.desc)], path);

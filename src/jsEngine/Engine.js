@@ -523,6 +523,8 @@ function FuncInput(type, source)
 	this.savedStack = [];
 	this.pathFromRootStack = [];
 	this.rootNodeStack = [];
+	this.pathFromRoot = null;
+	this.rootNode = null;
 	this.type = type;
 	
 	// DEBUG
@@ -552,56 +554,59 @@ function FuncInput(type, source)
 		{
 			return this.stack[this.stack.length - 1];
 		}
-		var path = this.pathFromRootStack[this.pathFromRootStack.length - 1];
+		var path = this.pathFromRoot;
 		if(path.length == 0)
 		{
-			return this.rootNodeStack[this.rootNodeStack.length - 1].get();
+			return this.rootNode.get();
 		}
-		return this.rootNodeStack[this.rootNodeStack.length - 1].getPath(path);
+		return this.rootNode.getPath(path);
 	};
 
 	this.getField = function(fieldName)
 	{
-
 		return this.get()[fieldName];
 	}
 	
 	this.getPathFromRoot = function()
 	{
-		return this.pathFromRootStack[this.pathFromRootStack.length - 1];
+		return this.pathFromRoot;
 	}
 
 	this.getRootNode = function()
 	{
-		return this.rootNodeStack[this.rootNodeStack.length - 1];
+		return this.rootNode;
 	}
 
 	this.push = function(node)
 	{
-		// var res = node.get();
-		// this.stack.push(res);
-		this.pathFromRootStack.push(node.getPathFromRoot());
-		this.rootNodeStack.push(node.getRootNode());
+		this.pathFromRootStack.push(this.pathFromRoot);
+		this.rootNodeStack.push(this.rootNode);
+
+		this.pathFromRoot = node.getPathFromRoot();
+		this.rootNode = node.getRootNode();
 	};
 
 	this.pushNodeAndVal = function(node, val)
 	{
 		this.stack.push(val);
-		this.pathFromRootStack.push(node.getPathFromRoot())
-		this.rootNodeStack.push(node.getRootNode());
+
+		this.pathFromRootStack.push(this.pathFromRoot);
+		this.rootNodeStack.push(this.rootNode);
+
+		this.pathFromRoot = node.getPathFromRoot();
+		this.rootNode = node.getRootNode();
 	};
 	
 	this.pop = function()
 	{
-		this.rootNodeStack.pop();
-		this.pathFromRootStack.pop();
-		// this.stack.pop();
+		this.rootNode = this.rootNodeStack.pop();
+		this.pathFromRoot = this.pathFromRootStack.pop();
 	}
 	
 	this.popNodeAndVal = function()
 	{
-		this.rootNodeStack.pop();
-		this.pathFromRootStack.pop();
+		this.rootNode = this.rootNodeStack.pop();
+		this.pathFromRoot = this.pathFromRootStack.pop();
 		this.stack.pop();
 	}
 
@@ -629,12 +634,13 @@ function FuncInput(type, source)
 	{
 		var val = this.get();
 
-		var operator = this.operatorStack.pop();
-		this.savedStack.push(operator);
+		var operator = this.operatorStack[this.operatorStack.length - 1];
+		// var operator = this.operatorStack.pop();
+		// this.savedStack.push(operator);
 
 		operator.signal(val, signal, params, path, this, callFromSlot);
 		
-		this.operatorStack.push(this.savedStack.pop());
+		// this.operatorStack.push(this.savedStack.pop());
 	};
 	
 	this.getType = function()
@@ -644,7 +650,7 @@ function FuncInput(type, source)
 
 	this.dirty = function(path)
 	{
-		return this.rootNodeStack[this.rootNodeStack.length - 1].dirty(this.pathFromRootStack[this.pathFromRootStack.length - 1].concat(path));
+		return this.rootNode.dirty(this.pathFromRoot.concat(path));
 	}
 
 	this.addSink = function(sink)
@@ -654,22 +660,21 @@ function FuncInput(type, source)
 
 	this.set = function(val, rootAndPath)
 	{
-		this.rootNodeStack[this.rootNodeStack.length - 1].setPath(val, this.pathFromRootStack[this.pathFromRootStack.length - 1])
+		this.rootNode.setPath(val, this.pathFromRoot)
 	}
 
 	this.getMinMaxTick = function(path)
 	{
-		return this.rootNodeStack[this.rootNodeStack.length - 1].getMinMaxTick(this.pathFromRootStack[this.pathFromRootStack.length - 1].concat(path))
+		return this.rootNode.getMinMaxTick(this.pathFromRoot.concat(path))
 	}
 
 	this.update = function(val, ticks, parentTick)
 	{
-		var path = this.pathFromRootStack[this.pathFromRootStack.length - 1];
-		if(path.length == 0)
+		if(this.pathFromRoot.length == 0)
 		{
-			return this.rootNodeStack[this.rootNodeStack.length - 1].update(val, ticks, parentTick);
+			return this.rootNode.update(val, ticks, parentTick);
 		}
-		return this.rootNodeStack[this.rootNodeStack.length - 1].updatePath(val, ticks, parentTick, this.pathFromRootStack[this.pathFromRootStack.length - 1]);
+		return this.rootNode.updatePath(val, ticks, parentTick, this.pathFromRoot);
 		// return mValTick(this.stack[this.stack.length - 1]);
 	}
 
@@ -3991,17 +3996,29 @@ function FunctionInstance(classGraph)
 
 	this.update = function(val, ticks, parentTick, paramNodes) 
 	{	
-		var max = 0;
-		_.each(paramNodes, function(node)
+		var nbParams = paramNodes.length;
+		var tick = ticks.tick;
+		for(var i = 0; i < nbParams; ++i)
 		{
-			var minMax = node.getMinMaxTick([]);
-			max = Math.max(max, minMax[1]);
-		});
+			if(tick < paramNodes[i].getMinMaxTick([])[1])
+			{
+				break;
+			}
+		}
 
-		if(ticks.tick >= max)
+		if(i == nbParams)
 		{
 			return [val, ticks];
 		}
+		// var max = _.max(paramNodes, function(node)
+		// {
+		// 	return node.getMinMaxTick([])[1];
+		// });
+
+		// if(ticks.tick >= max)
+		// {
+		// 	return [val, ticks];
+		// }
 
 		_.each(paramNodes, function(node, i)
 		{
