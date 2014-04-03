@@ -140,12 +140,13 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 			if((view == null) || (type != view.attr("modelType")))
 			{
 				var uiId = type + uiIndex.toString();
-				$tmp.append(enclose("<button id=" + uiId + "></button>", parentType));
+				$tmp.append(enclose("<button id=" + uiId + "><img src = \"../../../images/remove.png\"></button>", parentType));
 				var $ui = $("#" + uiId);
 				var $enclose = $("#enclose" + uiIndex.toString());
 				$enclose.attr("modelType", type);
 				$enclose.data("ui", $ui);
-				$("#" + uiId).button().html(model.desc).click(function() 
+				$("#" + uiId).button()
+				.click(function() 
 				{
 					rootUi.signal("onClick", [new Store(model.desc)], path);
 				});
@@ -290,170 +291,6 @@ localNodes =
 			}
 
 			this.dirty();
-		}
-	},
-	RootView :
-	{
-		"fields" : [["child", "UiView"]],
-		"builder" : function(fields) 
-		{	
-			var childNode = fields.child;
-
-			childNode.addSink(this);
-			var $ui = $("#ui" + mainUiIndex);
-			mainUiIndex++;
-
-			this.get = function()
-			{
-				return null;
-			}
-
-			this.sinks = [];
-			this.dirty = function()
-			{
-				$ui.empty();
-				var child = childNode.get();
-				$ui.append(child);
-
-
-				_.each(this.sinks, function(sink)
-				{
-					sink.dirty()
-				});			
-			}
-
-			this.dirty();
-
-			this.getType = function()
-			{
-				return "RootView";
-			}
-
-			this.addSink = function(sink)
-			{
-				this.sinks.push(sink);
-			}
-		}
-	},
-	"TextInputView" : 
-	{
-		superClass : "UiView",
-		"fields" : [["ui", "TextInput"], ["parentType", "string"], ["path", mListType("string")], ["rootUi", "Ui"]],
-		"builder" : function(fields) 
-		{	
-			var uiNode = fields.ui;
-			var parentType = fields.parentType.get();
-			var path = fields.path.get();
-			var rootUi = fields.rootUi;
-
-			uiNode.addSink(this);
-			
-			// if(!("__focusSlotPushed" in model.__signals))
-			// {
-			// 	model.__signals.__focusSlotPushed = true;
-			// 	model.__signals.focus.push({
-			// 		signal : function()
-			// 		{
-			// 			// $("#" + uiId).focus();
-			// 		}
-			// 	});
-			// }
-			
-			this.sinks = [];
-	
-			this.dirty = function()
-			{
-				_.each(this.sinks, function(sink)
-				{
-					sink.dirty()
-				});
-			}
-
-			this.dirty();
-
-			this.get = function()
-			{
-				var ui = fields.ui.get();
-				var uiId = "TextInput" + uiIndex.toString();
-				var buttonIndex = uiIndex;
-				$tmp.append(enclose("<input size=\"8\" type = \"text\" id=" + uiId + " value = \"" + ui.desc + "\"></input>", parentType));
-				var $ui = $("#" + uiId);
-				var $enclose = $("#enclose" + uiIndex.toString());
-				$ui.change(function(event) 
-				{
-					// rootUi.set("toto");
-					uiNode.signal("onChange",  [new Store($(this).val())], []);
-					// code.p.dirty([]);
-				});
-				uiIndex++;
-				this.enclose = $enclose;
-				return this.enclose;
-			}
-			this.getType = function()
-			{
-				return "TextInputView";
-			}
-
-			this.addSink = function(sink)
-			{
-				this.sinks.push(sink);
-			}
-		}
-	},
-	"VGroupView" : 
-	{
-		superClass : "UiView",
-		"fields" : [["ui", "VGroup"], ["parentType", "string"], ["path", mListType("string")], ["rootUi", "Ui"], ["children", mListType("UiView")]],
-		"builder" : function(fields) 
-		{	
-			var uiNode = fields.ui;
-			var parentType = fields.parentType.get();
-			var path = fields.path.get();
-			var rootUi = fields.rootUi;
-			var childrenNode = fields.children;
-
-			uiNode.addSink(this);
-			childrenNode.addSink(this);
-
-			this.sinks = [];
-			this.dirty = function()
-			{
-				_.each(this.sinks, function(sink)
-				{
-					sink.dirty()
-				});
-			}
-
-			this.get = function()
-			{
-				var children = childrenNode.get();
-				var uiId = "VGroupView" + uiIndex.toString();
-				// $tmp.append(enclose("<div id=" + uiId + "></div>", parentType));
-				var uiClass = "vGroup";
-				$tmp.append((parentType == "HGroup") ? 
-					"<div class=\"hGroupElem " + uiClass + "\" id=" + uiId + "></div>" :
-					"<div class=\"vGroupElem " + uiClass + "\" id=" + uiId + "></div>"
-				);
-				var $ui = $("#" + uiId);
-				$ui.empty();
-				uiIndex++;
-				_.each(children, function(child, index)
-				{
-					$ui.append(child);
-				});
-				this.enclose = $ui;
-				return this.enclose;
-			}
-
-			this.getType = function()
-			{
-				return "VGroupView";
-			}
-
-			this.addSink = function(sink)
-			{
-				this.sinks.push(sink);
-			}
 		}
 	}
 }

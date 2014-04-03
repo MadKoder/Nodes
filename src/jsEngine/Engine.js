@@ -664,6 +664,11 @@ function FuncInput(type, source)
 
 	this.update = function(val, ticks, parentTick)
 	{
+		var path = this.pathFromRootStack[this.pathFromRootStack.length - 1];
+		if(path.length == 0)
+		{
+			return this.rootNodeStack[this.rootNodeStack.length - 1].update(val, ticks, parentTick);
+		}
 		return this.rootNodeStack[this.rootNodeStack.length - 1].updatePath(val, ticks, parentTick, this.pathFromRootStack[this.pathFromRootStack.length - 1]);
 		// return mValTick(this.stack[this.stack.length - 1]);
 	}
@@ -2316,7 +2321,10 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			{
 				// TODO always true ?
 				node.needsNodes = true;
-				var signals = node.fields.__signals;
+				var type = node.getType();
+				var test = library.nodes[type];
+				// var signals = node.fields.__signals;
+				var signals = node.getSignals();
 				var type =  node.getType();
 				var slots = library.nodes[type].operators.slots;
 
@@ -2325,7 +2333,16 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 					var mergedNodes = _.clone(nodes);
 					_.merge(mergedNodes, slots[connection.signal].localNodes);
 					var action = makeAction(connection.action, mergedNodes);
-					signals[connection.signal].push(action);
+					if(connection.signal in signals)
+					{
+						signals[connection.signal].push(action);
+					}
+					else
+					{
+						// Case of a function that return a structure (FunctionNode)
+						node.hasSignals = true;
+						signals[connection.signal] = [action];
+					}
 				});
 				connectionSet = true;
 			}
@@ -2392,6 +2409,8 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 	{
 		function MatchType(what, cases)
 		{
+			this.id = storeId++;
+
 			this.what = getNode(what, nodes);
 			this.addsRefs = false;
 			this.needsNodes = false;
@@ -2581,6 +2600,16 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			this.getMinMaxTick = function(path)
 			{
 				return this.what.getMinMaxTick(path);
+			}
+
+			this.getRootNode = function()
+			{
+				return this;
+			}
+
+			this.getPathFromRoot = function()
+			{
+				return [];
 			}
 		}
 
@@ -3590,7 +3619,11 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				});
 
 				return [maxOfMinTicks, maxTicks];
-			}
+			};
+			this.getSignals = function()
+			{
+				return this.fields.__signals;
+			};
 			this.get = function()
 			{
 				var ret = _.mapValues(this.fields, function(field, key){
@@ -3679,50 +3712,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 		builder : makeBuilder(structGraph),
 		fieldsOp : fieldsOperators,
 		operators : {
-			// getPath : function(struct, path)
-			// {
-			// 	if(path.length == 1)
-			// 	{
-			// 		// return struct[path[0]].get();
-			// 		return struct[path[0]];
-			// 	}
-			// 	else
-			// 	{
-			// 		var subPath = path.slice(0);
-			// 		var key = subPath.shift();
-			// 		return fieldsOperators[key].getPath(struct[key], subPath);
-			// 	}
-			// },
-			// setPath : function(struct, path, val)
-			// {
-			// 	if(path.length == 1)
-			// 	{
-			// 		struct[path[0]] = val;
-			// 	}
-			// 	else
-			// 	{
-			// 		var subPath = path.slice(0);
-			// 		var key = subPath.shift();
-			// 		fieldsOperators[key].setPath(struct[key], subPath, val);
-			// 	}
-			// },
-			// update : function(struct, path, tick)
-			// {
-			// 	if(struct == null)
-			// 	{
-			// 		if(path.length == 1)
-			// 		{
-			// 			// return struct[path[0]].get();
-			// 			return fieldsOperators[path[0]].update(null, tick);
-			// 		}
-			// 		else
-			// 		{
-			// 			var subPath = path.slice(0);
-			// 			var key = subPath.shift();
-			// 			return fieldsOperators[key].update(null, subPath, tick);
-			// 		}
-			// 	}
-			// },
 			slots : {},
 			signal : function(struct, id, params, path, node, callFromSlot)
 			{
@@ -3799,9 +3788,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	});
 	
 	
-	//node.operators.selfStore.signalOperator = node.operators
-	// library.nodes[concreteName] = node;
-	
 	// Why do we need to use the same store.
 	// Problem with this code is the type, because operators are only those of the root type
 	node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new FuncInput(type);
@@ -3824,7 +3810,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				localNodes[param[0]] = node;
 				inputs.push(node);
 			});
-			// slotGraph.params = [["self", concreteName]].concat(slotGraph.params);
 			node.operators.slots[field.slot] = {
 				action : makeAction(slotGraph.action, localNodes),
 				inputs : inputs
@@ -3838,22 +3823,10 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				{
 					var node = this.selfStore.get();
 					var slots = node.__signals[this.id];
-					// _.each(node.__signals.__refs, function(ref, i)
-					// {
-					// 	// ref.pushVal(node.__referencedNodes[i].get());
-					// 	//ref.push(node.__referencedNodes[i]);
-					// 	ref.push(node.__signals.__referencedNodes[i]);
-					// })
 					for(var i = 0; i < slots.length; i++)
 					{
-						// slots[i].signal(rootAndPath);
-						slots[i].signal(null);
+						slots[i].signal();
 					}
-					// _.each(node.__signals.__refs, function(ref, i)
-					// {
-					// 	// ref.popVal();
-					// 	ref.pop();
-					// })
 				};
 			}
 			var signalGraph = field;
@@ -3865,7 +3838,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				localNodes[param[0]] = node;
 				inputs.push(node);
 			});
-			// node.operators.signals[signalGraph.signal] = {};
 			node.operators.slots[signalGraph.signal] =  {
 				action : new StructSignal(signalGraph.signal),
 				inputs : inputs,

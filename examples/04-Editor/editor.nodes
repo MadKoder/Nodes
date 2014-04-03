@@ -27,6 +27,7 @@ structs:
 					VGroup
 			Button :
 				string desc
+				string image
 				signal click(string what)
 				slot onClick(string what):
 					self.click(what)
@@ -82,6 +83,8 @@ functions:
 		HGroup(children, false)
 	ref mVGroup(list<Ui> children)
 		VGroup(children, false)
+	ref mButton(string desc)
+		Button(desc, "")
 	join(list<string> strs, string sep)
 		reduce
 		(
@@ -140,7 +143,7 @@ functions:
 				([
 					mVGroup
 					([
-						Button
+						mButton
 						(
 							type stored :
 								Just<UiStore> : if stored.x.folded then "Unfold" else "Fold"
@@ -182,7 +185,7 @@ functions:
 							mHGroup
 							([
 								exprToUi(param, viewId, focusCounter),
-								Button
+								mButton
 								(
 									"Remove",
 									click => expr.params = remove(expr.params, i)
@@ -226,7 +229,7 @@ functions:
 						mVGroup
 						([
 							typeDeclToUi(typeParam, viewId, focusCounter),
-							Button
+							mButton
 							(
 								"Remove",
 								click => typeDecl.params = remove(typeDecl.params, i)
@@ -256,7 +259,7 @@ functions:
 				([
 					Text("params"),
 					paramsDeclToUi(func.inputs, viewId, focusCounter),
-					Button
+					mButton
 					(
 						"Add input",
 						click => 

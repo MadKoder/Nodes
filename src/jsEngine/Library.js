@@ -1450,6 +1450,8 @@ function FunctionNode(func)
 		this.func = func;
 		this.needsNodes = func.needsNodes;
 		this.addsRefs = func.needsNodes;
+		this.signals = {};
+		this.hasSignals = false;
 		_.each(fields, function(field, key)
 		{
 			var index = _.findIndex(fieldsSpec, function(fieldSpec){return fieldSpec[0] == key;});
@@ -1464,16 +1466,30 @@ function FunctionNode(func)
 		{
 			if(func.needsNodes)
 			{
-				var ret = func.funcRef(params);				
+				var ret = func.funcRef(params);
+				
+				// Setup signals for this function
+				if(this.hasSignals)
+				{
+					ret.__signals = _.clone(ret.__signals);
+					_.each(this.signals, function(signal, key)
+					{
+						ret.__signals[key] = signal;
+					});
+				}
 			}
 			else
 			{
 				var ret = func.func(params.map(function(param){return param.get();}));
 			}
 			
-			this.tick = globalTick;
+			this.tick = globalTick;			
 			return ret;
 		};
+		this.getSignals = function()
+		{
+			return this.signals;
+		}
 		this.getMinMaxTick = function(path)
 		{
 			var min = 0, max = 0;
@@ -1531,6 +1547,17 @@ function FunctionNode(func)
 			else
 			{
 				var ret = mValTick(func.func(params.map(function(param){return param.get();})));
+			}
+
+			// Setup signals for this function
+			if(this.hasSignals)
+			{
+				var newVal = ret[0];
+				newVal.__signals = _.clone(newVal.__signals);
+				_.each(this.signals, function(signal, key)
+				{
+					newVal.__signals[key] = signal;
+				});
 			}
 			return ret;
 		};
