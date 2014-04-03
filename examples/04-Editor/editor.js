@@ -34,6 +34,7 @@ function enclose(str, parentType)
 var $tmp = $("#tmp");
 var doingFocus;
 var requestFocus;
+var focusCounter = 0;
 
 var modelToUi = {};
 function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
@@ -44,6 +45,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 	var type = model.__type;
 	switch(type)
 	{
+		case "FocusTextInput" :
 		case "TextInput" :
 			if((view == null) || (type != view.attr("modelType")))
 			{
@@ -61,6 +63,14 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 					doingFocus = true;
 					// $ui.focus();
 					doingFocus = false;
+				}
+				if(type == "FocusTextInput")
+				{
+					if(model.focusCounter > focusCounter)
+					{
+						requestFocus = $ui;
+						focusCounter = model.focusCounter;
+					}
 				}
 				if(requestFocus == model.__id)
 				{

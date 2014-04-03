@@ -3444,7 +3444,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 		concreteName = makeConcreteName(name, typeParamsInstances);
 	}
 
-	var fieldsGraph = inheritedFields.concat(structGraph.fields ? structGraph.fields : []);
+	var signalSlotAndFieldGraph = inheritedFields.concat(structGraph.fields ? structGraph.fields : []);
 	
 	if(isGroup)
 	{
@@ -3470,6 +3470,21 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	{
 		library.nodes[concreteName] = node;
 	}
+
+	var fieldsGraph = [];
+	var signalAndSlotsGraph = [];
+	_.each(signalSlotAndFieldGraph, function(item)
+	{
+		// A field
+		if(_.isArray(item))
+		{
+			fieldsGraph.push(item);
+		}
+		else
+		{
+			signalAndSlotsGraph.push(item);
+		}
+	});
 
 	var fieldsOperators = {};
 	var concreteFieldsGraph = _.clone(fieldsGraph);
@@ -3522,9 +3537,9 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			this.built = false;
 			this.needsNodes = false;
 			this.addsRefs = false;
-			for(var i = 0; i < fieldsGraph.length; i++)
+			for(var i = 0; i < signalSlotAndFieldGraph.length; i++)
 			{
-				var field = fieldsGraph[i];
+				var field = signalSlotAndFieldGraph[i];
 				
 				if(_.isArray(field))
 				{
@@ -3795,70 +3810,67 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	if(superClassName)
 		library.nodes[superClassName].subClasses.push(concreteName);
 	
-	for(var i = 0; i < fieldsGraph.length; i++)
+	for(var i = 0; i < signalAndSlotsGraph.length; i++)
 	{
-		var field = fieldsGraph[i];
-		if(!_.isArray(field))
+		var field = signalAndSlotsGraph[i];
+		if("slot" in field)
 		{
-			if("slot" in field)
+			var slotGraph = field;
+			var localNodes = {"self" : node.operators.selfStore};
+			var inputs = [];
+			_.each(slotGraph.params, function(param)
 			{
-				var slotGraph = field;
-				var localNodes = {"self" : node.operators.selfStore};
-				var inputs = [];
-				_.each(slotGraph.params, function(param)
+				var node = new FuncInput(param[1]);
+				localNodes[param[0]] = node;
+				inputs.push(node);
+			});
+			// slotGraph.params = [["self", concreteName]].concat(slotGraph.params);
+			node.operators.slots[field.slot] = {
+				action : makeAction(slotGraph.action, localNodes),
+				inputs : inputs
+			};
+		} else
+		{
+			function StructSignal(id) {
+				this.id = id;
+				this.selfStore = node.operators.selfStore;
+				this.signal = function(rootAndPath)
 				{
-					var node = new FuncInput(param[1]);
-					localNodes[param[0]] = node;
-					inputs.push(node);
-				});
-				slotGraph.params = [["self", concreteName]].concat(slotGraph.params);
-				node.operators.slots[field.slot] = {
-					action : makeAction(slotGraph.action, localNodes),
-					inputs : inputs
-				};
-			} else
-			{
-				function StructSignal(id) {
-					this.id = id;
-					this.selfStore = node.operators.selfStore;
-					this.signal = function(rootAndPath)
+					var node = this.selfStore.get();
+					var slots = node.__signals[this.id];
+					// _.each(node.__signals.__refs, function(ref, i)
+					// {
+					// 	// ref.pushVal(node.__referencedNodes[i].get());
+					// 	//ref.push(node.__referencedNodes[i]);
+					// 	ref.push(node.__signals.__referencedNodes[i]);
+					// })
+					for(var i = 0; i < slots.length; i++)
 					{
-						var node = this.selfStore.get();
-						var slots = node.__signals[this.id];
-						// _.each(node.__signals.__refs, function(ref, i)
-						// {
-						// 	// ref.pushVal(node.__referencedNodes[i].get());
-						// 	//ref.push(node.__referencedNodes[i]);
-						// 	ref.push(node.__signals.__referencedNodes[i]);
-						// })
-						for(var i = 0; i < slots.length; i++)
-						{
-							// slots[i].signal(rootAndPath);
-							slots[i].signal(null);
-						}
-						// _.each(node.__signals.__refs, function(ref, i)
-						// {
-						// 	// ref.popVal();
-						// 	ref.pop();
-						// })
-					};
-				}
-				var signalGraph = field;
-				var inputs = [];
-				var localNodes = {"self" : node.operators.selfStore};
-				_.each(signalGraph.params, function(param)
-				{
-					var node = new FuncInput(param[1]);
-					localNodes[param[0]] = node;
-					inputs.push(node);
-				});
-				// node.operators.signals[signalGraph.signal] = {};
-				node.operators.slots[signalGraph.signal] =  {
-					action : new StructSignal(signalGraph.signal),
-					inputs : inputs,
-					localNodes : localNodes
+						// slots[i].signal(rootAndPath);
+						slots[i].signal(null);
+					}
+					// _.each(node.__signals.__refs, function(ref, i)
+					// {
+					// 	// ref.popVal();
+					// 	ref.pop();
+					// })
 				};
 			}
+			var signalGraph = field;
+			var inputs = [];
+			var localNodes = {"self" : node.operators.selfStore};
+			_.each(signalGraph.params, function(param)
+			{
+				var node = new FuncInput(param[1]);
+				localNodes[param[0]] = node;
+				inputs.push(node);
+			});
+			// node.operators.signals[signalGraph.signal] = {};
+			node.operators.slots[signalGraph.signal] =  {
+				action : new StructSignal(signalGraph.signal),
+				inputs : inputs,
+				localNodes : localNodes
+			};
 		}
 	}
 }
