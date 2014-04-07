@@ -19,6 +19,8 @@ structs:
 			None
 	Ui : 
 		bool	visible
+		signal 	mouseEnter
+		signal 	mouseLeave
 		subs :
 			Group:
 				list<Ui> children	
@@ -46,6 +48,7 @@ structs:
 	UiStore :
 		bool	visible
 		int 	focusCounter
+		bool	hover
 	TypeDecl :
 		string	name
 		subs :
@@ -67,27 +70,28 @@ structs:
 						int x
 					StrExpr :
 						string str
-	Slot :
+	Action :
 		subs :
-			SlotCall
+			Seq :
+				list<Action>	actions
 			RefSlot :
 				list<string>	path
-			Action :
-				string	type 
-				list<Slot>	slots
-				list<Expr>	params
+			SignalNode :
+				list<string>	path
+				string			slot 
+				list<Expr>		params
 	MemberDef:
 		subs :
 			FieldDef :
 				string		name
 				TypeDecl	type
 			SlotDef :
-				string		name
-				Action		action
+				string			name
+				list<ParamDecl>	params
+				Action			action
 			SignalDef :
 				string			name
 				list<ParamDecl>	params
-	
 	FuncDef :
 		string	id
 		list<ParamDecl>	inputs
@@ -165,44 +169,59 @@ functions:
 			Func : mHGroup
 				([
 					mVGroup
-					([
-						txtButton
-						(
-							type stored :
-								Just<UiStore> : if stored.x.visible then "Fold" else "Unfold"
-								_ : "Fold"
-							,
-							click => expr.__views[viewId] = type stored :
-								Just<UiStore> : stored.x \ visible = if stored.x.visible then false else true
-								_ : UiStore(false, 0)
-						),
-						txtIn(expr.type),
-						FocusTextInput
-						(
-							true,
-							"",
-							type stored :
-								Just<UiStore> : stored.x.focusCounter
-								_ : 0
-							,set => 
-								loc newExpr = strToExpr(text)
-								type newExpr do :
-									Func => 
-										newExpr.__views[viewId] = UiStore(true, focusCounter)
-										focusCounter = focusCounter + 1
-								# loc newUi = exprToUi(newExpr, viewId, focusCounter)
-								# loc a = newUi.__id
-								# globalFocus = newUi.__id
-								# newExpr.__views[viewId] = newUi
-								expr.params = pushBack
-									(
-										expr.params,
-										newExpr
-									)
-							# ,	onBuilt =>
-							# 	self.focus(self)
-						)
-					]),
+					(
+						[
+							Button
+							(
+								# type stored :
+								# 	Just<UiStore> : stored.x.hover
+								# 	_ : false
+								true
+								,type stored :
+									Just<UiStore> : if stored.x.visible then "Fold" else "Unfold"
+									_ : "Fold"
+								,
+								"",
+								click => expr.__views[viewId] = type stored :
+									Just<UiStore> : stored.x \ visible = if stored.x.visible then false else true
+									_ : UiStore(false, 0, false)
+							),
+							txtIn(expr.type),
+							FocusTextInput
+							(
+								true,
+								"",
+								type stored :
+									Just<UiStore> : stored.x.focusCounter
+									_ : 0
+								,set => 
+									loc newExpr = strToExpr(text)
+									type newExpr do :
+										Func => 
+											newExpr.__views[viewId] = UiStore(true, focusCounter, false)
+											focusCounter = focusCounter + 1
+									# loc newUi = exprToUi(newExpr, viewId, focusCounter)
+									# loc a = newUi.__id
+									# globalFocus = newUi.__id
+									# newExpr.__views[viewId] = newUi
+									expr.params = pushBack
+										(
+											expr.params,
+											newExpr
+										)
+								# ,	onBuilt =>
+								# 	self.focus(self)
+							)
+						],
+						mouseEnter =>
+							expr.__views[viewId] = type stored :
+								Just<UiStore> : stored.x \ hover = true
+								_ : UiStore(true, 0, true)
+						,mouseLeave =>
+							expr.__views[viewId] = type stored :
+								Just<UiStore> : stored.x \ hover = false
+								_ : UiStore(true, 0, false)
+					),
 					VGroup
 					(
 						type stored :
@@ -210,14 +229,33 @@ functions:
 							_ : true
 						,[
 							mHGroup
-							([
-								exprToUi(param, viewId, focusCounter),
-								imgButton
-								(
-									"remove.png",
-									click => expr.params = remove(expr.params, i)
-								)
-							])
+							(
+								[
+									exprToUi(param, viewId, focusCounter),
+									Button
+									(
+										let 
+											paramStored = param.__views[viewId]
+										in type paramStored :
+											Just<UiStore> : paramStored.x.hover
+											_ : false
+										,
+										"",
+										"remove.png",
+										click => expr.params = remove(expr.params, i)
+									)
+								],
+								mouseEnter =>
+									loc paramStored = param.__views[viewId]
+									param.__views[viewId] = type paramStored :
+										Just<UiStore> : paramStored.x \ hover = true
+										_ : UiStore(true, 0, true)
+								,mouseLeave =>
+									loc paramStored = param.__views[viewId]
+									param.__views[viewId] = type paramStored :
+										Just<UiStore> : paramStored.x \ hover = false
+										_ : UiStore(true, 0, false)
+							)
 							# exprToUi(param)
 							for param, i in expr.params
 						]
@@ -291,6 +329,32 @@ functions:
 				)
 			)
 		)
+	ref Ui actionToUi(Action action, int viewId, int focusCounter)
+		type action :
+			Seq : mVGroup
+				([
+					# Text(true, "Seq")
+					actionToUi(subAction, viewId, focusCounter)
+					for subAction in action.actions
+				])
+			SignalNode : mHGroup
+				(
+					concat
+					(
+						pushBack
+						(
+							[
+								txtIn(subPath)
+								for subPath in action.path
+							],
+							txtIn(action.slot)
+						),
+						[
+							exprToUi(expr, viewId, focusCounter)
+							for expr in action.params
+						]
+					)
+				)
 	ref classMemberToUi(list<MemberDef> membersDef, int viewId, int focusCounter)
 		mVGroup
 		(	
@@ -322,6 +386,28 @@ functions:
 									]
 								)
 							)
+						SlotDef :	mVGroup
+							([
+								mHGroup
+								(
+									concat
+									(
+										[
+											Text(true, "slot :"),
+											txtIn(memberDef.name)
+										],
+										[
+											mHGroup
+											([
+													typeDeclToUi(paramDecl.type, viewId, focusCounter),
+													txtIn(paramDecl.name)
+											])
+											for paramDecl in memberDef.params
+										]
+									)
+								),
+								actionToUi(memberDef.action, viewId, focusCounter)
+							])
 					for memberDef in membersDef
 				],
 				txtButton
@@ -359,7 +445,7 @@ functions:
 				classMemberToUi(struct.members, viewId, focusCounter),
 				mHGroup
 				([
-					Text(true, if length(struct.subStructs) > 0 then "Subs :" else "_"),
+					Text(true, if length(struct.subStructs) > 0 then "Subs :" else ""),
 					Button
 					(
 						length(struct.subStructs) > 0,
@@ -370,7 +456,7 @@ functions:
 						"",
 						click => struct.__views[viewId] = type stored :
 							Just<UiStore> : stored.x \ visible = if stored.x.visible then false else true
-							_ : UiStore(false, 0)
+							_ : UiStore(false, 0, false)
 					)
 				]),
 				VGroup
@@ -382,9 +468,6 @@ functions:
 				)
 			])
 	ref Ui progToUi(Program prog, int viewId, int focusCounter)
-		# mVGroup([
-		# 		funcToUi(func) for func in prog.functions
-		# 	])
 		mVGroup
 		([
 			mVGroup([
@@ -408,7 +491,7 @@ nodes:
 	# cache ui3 = progToUi(program, 3, focusCounter)
 	cache view = ui
 	def uiView = UiView(ui)
-	def uiView2 = UiView(ui1)
+	# def uiView2 = UiView(ui1)
 	# def uiView3 = UiView(ui2)
 	# def uiView4 = UiView(ui3)
 	var toto = "toto"

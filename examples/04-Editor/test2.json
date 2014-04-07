@@ -66,10 +66,9 @@
     ],
     "actions": [
         {
-            "type": "Seq",
             "slots": [
                 {
-                    "param": {
+                    "set": {
                         "merge": [
                             "program"
                         ],
@@ -104,8 +103,7 @@
                         [
                             "program"
                         ]
-                    ],
-                    "type": "Send"
+                    ]
                 }
             ],
             "id": [
@@ -229,7 +227,6 @@
                             {
                                 "slot": "onClick",
                                 "action": {
-                                    "type": "Seq",
                                     "slots": [
                                         {
                                             "signal": "click",
@@ -245,10 +242,6 @@
                                     ]
                                 },
                                 "params": [
-                                    [
-                                        "self",
-                                        "Button"
-                                    ],
                                     [
                                         "what",
                                         "string"

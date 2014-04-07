@@ -109,7 +109,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 				$ui.button()
 				.click(function() 
 				{
-					rootUi.signal("onClick", [new Store(model.desc)], path);
+					rootUi.signal("click", [new Store(model.desc)], path);
 				});
 				uiIndex++;
 				if(model.visible)
@@ -160,6 +160,16 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 					test = $ui.data();					
 					var a = test;
 				});
+				$ui.hover(
+					function()
+					{
+						rootUi.signal("mouseEnter",  [], path);
+					},
+					function()
+					{
+						rootUi.signal("mouseLeave",  [], path);
+					}
+				);
 			} else if((ticks.subs == undefined) || (ticks.subs.children == undefined) || (ticks.subs.children.subs == undefined))
 			{
 				var $ui = view;
@@ -354,6 +364,25 @@ $.get("editor.nodes", function( text ) {
 		})
 	}
 
+	function buildAction(action)
+	{
+		if("set" in action) 
+		{}
+		else if("var" in action) // Signal node
+		{
+			return build("SignalNode", 
+				[
+					action["var"],
+					action.signal,
+					_.map(action.params, buildExpr)
+				]);
+		}
+		else // seq
+		{
+			return build("Seq", [_.map(action.slots, buildAction)]);
+		}
+	}
+
 	function buildStruct(struct)
 	{
 		return build("StructDef",
@@ -370,7 +399,8 @@ $.get("editor.nodes", function( text ) {
 					return p;
 				})
 				.value()
-				.concat(
+				.concat
+				(
 					_(struct.fields)
 					.filter(function(field)
 						{
@@ -380,7 +410,21 @@ $.get("editor.nodes", function( text ) {
 					{
 						return build("SignalDef", [field.signal, buildParamsDef(field.params)]);
 					})
-					.value()),
+					.value()
+					.concat
+					(
+						_(struct.fields)
+						.filter(function(field)
+							{
+								return !(_.isArray(field)) && ("slot" in field);
+							})
+						.map(function(field)
+						{
+							return build("SlotDef", [field.slot, buildParamsDef(field.params), buildAction(field.action)]);
+						})
+						.value()
+					)
+				),
 			_.map(struct.subs, function(subStruct)
 				{
 					return buildStruct(subStruct);
@@ -426,12 +470,12 @@ $.get("editor.nodes", function( text ) {
 	// $ui.empty();
 	// buildUi(ui, $ui, "", [], code.ui);
 
-	var tick   = Bacon.interval(20);
+	// var tick   = Bacon.interval(20);
 	//code.tick.signal();
-	tick.onValue(function(t)
-	{
+	// tick.onValue(function(t)
+	// {
 		// code.tick.signal();
-	});
+	// });
 }
 , "text" // Commenter pour lire du json
 );

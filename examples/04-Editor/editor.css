@@ -28,7 +28,7 @@ input
 	/*border-style: solid;*/
 	/*border-width: 1px;*/
 	background-color: lightgreen;
-	border-style: none;
+	border-style: solid;
 	/*border-left: solid;
 	border-right: solid;*/
 	border-width: 1px;
@@ -60,7 +60,7 @@ button
 	flex-direction: row;
 	align-items : center;
 	background-color: lightblue;
-	border-style: none;
+	border-style: solid;
 	/*border-bottom: solid;
 	border-top : solid;*/
 	border-width: 1px;
