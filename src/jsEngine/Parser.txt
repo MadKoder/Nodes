@@ -101,9 +101,8 @@ Affectation =
     {
 		var affect = 
 		{
-            "param": val,
-            "slots": [slot],
-            "type": "Send"
+            "set": val,
+            "slots": [slot]
         };
 		if(loc != null)
 			affect.loc = true;
@@ -115,10 +114,9 @@ AccessAffectation =
     {
 		var affect = 
 		{
-            "param": val,
+            "accessSet": val,
             "slots": [slot],
-            indexOrKey : indexOrKey,
-            "type": "AccessAffectation"
+            indexOrKey : indexOrKey
         };
 		return affect;
 	}
@@ -476,7 +474,6 @@ Action "Action" =
   / Update
   /  _ "(" _ actions:Actions _ ")" _ 
   	{return  {
-			type : "Seq",
 			slots : actions
 		};}
   / IfAction 
@@ -689,9 +686,8 @@ IfAction =
 Params "params"
   =
   slot:Var _ "=" _ val:Expression  {return {
-            "param": val,
-            "slots": [slot],
-            "type": "Send"
+            "set": val,
+            "slots": [slot]
         };}
   / _ fields:FieldList {return {fields : fields};}
   / _ expr:ExpressionList {return {params : expr};} 

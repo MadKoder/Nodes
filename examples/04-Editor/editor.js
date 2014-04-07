@@ -51,19 +51,9 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 			{
 				var uiId = type + uiIndex.toString();
 				var buttonIndex = uiIndex;
-				$tmp.append(enclose("<input size=\"8\" type = \"text\" id=" + uiId + " value = \"" + model.desc + "\"></input>", parentType));
+				$tmp.append("<input size=\"8\" type = \"text\" id=" + uiId + " value = \"" + model.desc + "\"></input>");
 				var $ui = $("#" + uiId);
-				var $enclose = $("#enclose" + uiIndex.toString());
-				$enclose.attr("modelType", type);
-				$enclose.data("ui", $ui);
-				$ui = $enclose.data("ui");
-				// if(model.desc== "i")
-				if(true)
-				{
-					doingFocus = true;
-					// $ui.focus();
-					doingFocus = false;
-				}
+				$ui.attr("modelType", type);
 				if(type == "FocusTextInput")
 				{
 					if(model.focusCounter > focusCounter)
@@ -72,75 +62,39 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 						focusCounter = model.focusCounter;
 					}
 				}
-				if(requestFocus == model.__id)
-				{
-					requestFocus = $ui;
-				}
-				// modelToUi[model.__id] = $ui;
-				if(!("__focusSlotPushed" in model.__signals))
-				{
-					model.__signals.__focusSlotPushed = true;
-					model.__signals.focus.push({
-						signal : function()
-						{
-							// var a = "a";
-							// $("#" + uiId).focus();
-							var slots = library.nodes["TextInput"].operators.slots;
-							var slot = slots["focus"];
-							var model = slot.inputs[0].get();
-							requestFocus = model.__id;
-						}
-					});
-				}
 				$ui.change(function(event) 
 				{
-					if(!doingFocus)
-					{
-						rootUi.signal("onChange",  [new Store($(this).val())], path);
-						// $(this).focus();
-					}
+					rootUi.signal("onChange",  [new Store($(this).val())], path);
 				});
 				uiIndex++;
-				return $enclose;
+				return $ui;
 			} else
 			{
-				var $enclose = view;
-				var $ui = $enclose.children();
+				var $ui = view;
 				$ui.val(model.desc);
-				// $ui.change(function(event) 
-				// {
-				// 	// rootUi.set("toto");
-				// 	rootUi.signal("onChange",  [new Store($(this).val())], path);
-				// 	// code.p.dirty([]);
-				// });
+				return view;
 			}
-			return view;
-			break;
 		case "Text" :
 			if((view == null) || (type != view.attr("modelType")))
 			{
 				var uiId = type + uiIndex.toString();
-				$tmp.append(enclose("<div class=\"text\" id=" + uiId  + "\">" + model.txt+ "</div>", parentType));			
+				$tmp.append("<div class=\"text\" id=" + uiId  + ">" + model.txt+ "</div>");
 				var $ui = $("#" + uiId);
-				var $enclose = $("#enclose" + uiIndex.toString());
-				$enclose.attr("modelType", type);
-				$enclose.data("ui", $ui);
+				$ui.attr("modelType", type);
 				uiIndex++;
-				return $enclose;
+				return $ui;
 			}
 			else
 			{
-				var $enclose = view;
-				var $ui = $enclose.children();
+				var $ui = view;
 				$ui.html(model.txt);
 				return view;
 			}
-			break;
 		case "Button" :
 			if((view == null) || (type != view.attr("modelType")))
 			{
 				var uiId = type + uiIndex.toString();
-				$tmp.append(enclose("<button id=" + uiId + "></button>", parentType));
+				$tmp.append("<button id=" + uiId + "></button>");
 				var $ui = $("#" + uiId);
 				if(model.image.length > 0)
 				{
@@ -151,22 +105,35 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 				{
 					$ui.html(model.desc);
 				}
-				var $enclose = $("#enclose" + uiIndex.toString());
-				$enclose.attr("modelType", type);
-				$enclose.data("ui", $ui);
+				$ui.attr("modelType", type);
 				$ui.button()
 				.click(function() 
 				{
 					rootUi.signal("onClick", [new Store(model.desc)], path);
 				});
 				uiIndex++;
-				return $enclose;
+				if(model.visible)
+				{
+					$ui.show();
+				}
+				else
+				{
+					$ui.hide();
+				}
+				return $ui;
 			}
 			else
 			{
-				var $enclose = view;
-				var $ui = $enclose.children();
+				var $ui = view;
 				$ui.html(model.desc);
+				if(model.visible)
+				{
+					$ui.show();
+				}
+				else
+				{
+					$ui.hide();
+				}
 				return view;
 			}
 			break;
@@ -248,13 +215,13 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 				// })
 				
 			}
-			if(model.folded)
+			if(model.visible)
 			{
-				$ui.hide();
+				$ui.show();
 			}
 			else
 			{
-				$ui.show();
+				$ui.hide();
 			}
 			return $ui;
 			break;
@@ -374,6 +341,19 @@ $.get("editor.nodes", function( text ) {
 			]);
 	}
 
+	function buildParamsDef(paramsDef)
+	{
+		return _.map(paramsDef, function(paramDecl)
+		{
+			var p = build("ParamDecl", 
+				[
+					paramDecl[0], 
+					build("TypeDecl", [paramDecl[1]])
+				]);
+			return p;
+		})
+	}
+
 	function buildStruct(struct)
 	{
 		return build("StructDef",
@@ -386,11 +366,22 @@ $.get("editor.nodes", function( text ) {
 					})
 				.map(function(field)
 				{
-					var p = build("ParamDecl", [field[0], buildType(field[1])]);
+					var p = build("FieldDef", [field[0], buildType(field[1])]);
 					return p;
 				})
-				.value(),
-			_.map(struct.subStructs, function(subStruct)
+				.value()
+				.concat(
+					_(struct.fields)
+					.filter(function(field)
+						{
+							return !(_.isArray(field)) && ("signal" in field);
+						})
+					.map(function(field)
+					{
+						return build("SignalDef", [field.signal, buildParamsDef(field.params)]);
+					})
+					.value()),
+			_.map(struct.subs, function(subStruct)
 				{
 					return buildStruct(subStruct);
 				})
@@ -419,15 +410,7 @@ $.get("editor.nodes", function( text ) {
 				prog.get().functions.push(build("FuncDef",
 				[
 					func.id,
-					_.map(func.in, function(paramDecl)
-						{
-							var p = build("ParamDecl", 
-								[
-									paramDecl[0], 
-									build("TypeDecl", [paramDecl[1]])
-								]);
-							return p;
-						}),
+					buildParamsDef(func.in),
 					buildExpr(func.out.val)
 				]));
 				

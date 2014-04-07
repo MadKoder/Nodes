@@ -49,10 +49,20 @@ function getTypeParams(type)
 	return [];
 }
 
-function List(val, templateType)
+function List(val)
 {
 	this.list = val;
-	this.templateType = templateType;
+	this.typeParam = null;
+	_.each(this.list, function(item)
+	{
+		if(this.typeParam == null)
+		{
+			this.typeParam = item.getType();
+		} else
+		{
+			this.typeParam = getCommonSuperClass(this.typeParam, item.getType())
+		}
+	}, this);
 	this.tick = globalTick;
 
 	this.needsNodes =  _.any(this.list, function(elt)
@@ -123,7 +133,7 @@ function List(val, templateType)
 
 	this.getType = function()
 	{
-		return mListType(this.templateType);
+		return mListType(this.typeParam);
 	}
 
 
@@ -1798,7 +1808,12 @@ function ArrayAccess(node, type) {
 	var templates = getTypeParams(nodeType);
 	check(baseType in library.nodes, "Node type " + baseType + " not found in library");
 	// TODO generic management
-	var elemType = library.nodes[getBaseType(templates[0])];
+	var baseType = getBaseType(templates[0]);
+	if(!(baseType in library.nodes))
+	{
+		error("Type "+baseType+" not found in library.");
+	}
+	var elemType = library.nodes[baseType];
 	var operators = elemType.operators;
 
 	this.id = storeId;
@@ -2150,9 +2165,8 @@ function makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef)
 			}
 		);
 		var templateType = undefined;
-		if(expr.array.length > 0)
-			templateType = makeExprAndType(expr.array[0], nodes).type;
-		return {val : new List(l, templateType), type : mListType(templateType)};
+		var listNode = new List(l);
+		return {val : listNode, type : listNode.getType()};
 	} else if("dict" in expr)
 	{
 		var d = _.mapValues(expr.dict, function(val)
@@ -3149,8 +3163,7 @@ function makeAction(actionGraph, nodes, connections)
 			var action = makeAction
 			(
 				{
-					type : "Send",
-					param : actionGraph["with"],
+					set : actionGraph["with"],
 					slots : [actionGraph["update"]]
 				},
 				localNodes
@@ -3165,8 +3178,7 @@ function makeAction(actionGraph, nodes, connections)
 					"if" : condVal["if"],
 					"then" : 
 					{
-						type : "Send",
-						param : condVal.val,
+						set : condVal.val,
 						slots : [actionGraph["update"]]
 					}
 				},
@@ -3281,16 +3293,6 @@ function makeAction(actionGraph, nodes, connections)
 		return [];
 	}
 	
-	// TODO action avec parametres
-	if("inParams" in actionGraph)
-	{
-		//TODO manage multiple params
-		// var inParam = actionGraph.inParams[0];
-		// var paramId = inParam[0];
-		// nodes[paramId] = new ActionParam(inParam[1]);
-		//actionGraph = concatActions([paramId], actionGraph);
-	}
-	
 	// TODO gere action avec juste un local (sert a  rien mais bon ...)
 	// genre a : loc b=c
 	function makeLocals(actionGraph, nodes)
@@ -3301,7 +3303,7 @@ function makeAction(actionGraph, nodes, connections)
 			if(_.isObject(slot) && "loc" in slot)
 			{
 				var subSlot = slot.slots[0];
-				var type = makeExprAndType(slot.param, mergedNodes).val.getType();
+				var type = makeExprAndType(slot.set, mergedNodes).val.getType();
 				if(_.isObject(subSlot) && "destruct" in subSlot)
 				{
 					var templates = getTypeParams(type);
@@ -3341,10 +3343,17 @@ function makeAction(actionGraph, nodes, connections)
 		type = "while";
 		paramGraph = actionGraph["while"];
 	}
-	else
+	else if("accessSet" in actionGraph)
 	{
-		type = getBaseType(actionGraph.type);
-		paramGraph = actionGraph.param;
+		type = "accessSet";
+		paramGraph = actionGraph.accessSet;
+	} else if("set" in actionGraph)
+	{
+		type = "set";
+		paramGraph = actionGraph.set;
+	} else // seq
+	{
+		type = "seq";
 	}
 	
 	var param = null;
@@ -3352,7 +3361,7 @@ function makeAction(actionGraph, nodes, connections)
 	{
 		// FIXME : type
 		// Si l'action est une affectation et que le parametre est une reference, il devra etre clone
-		var cloneIfRef =  (type == "Send");
+		var cloneIfRef =  (type == "set");
 		param = makeExpr(paramGraph, localNodes, {}, cloneIfRef);
 	}
 	
@@ -3389,31 +3398,9 @@ function makeAction(actionGraph, nodes, connections)
 		}
 	} else
 	{
-		var slots = null;
-		if("slots" in actionGraph)
-		{
-			slots = compileSlots(actionGraph.slots, localNodes, connections);
-			if(type == "Seq" && slots.length == 1)
-			{
-				return slots[0];
-			}
-		} else
-		{
-			// Envoi d'un signal a un node
-			if(actionGraph.type in localNodes)
-			{
-				if(param != null)
-				{
-					slots = compileSlots([actionGraph.type], localNodes, connections);	
-					type = "Signal";
-				} else
-				{
-					return compileRef(type, localNodes).val;
-				}
-			}
-		}
-
-		if(type == "AccessAffectation")
+		var slots = compileSlots(actionGraph.slots, localNodes, connections);
+		
+		if(type == "accessSet")
 		{
 			function AccessAffectation(slots, param, key) {
 			    this.slots = slots;
@@ -3436,9 +3423,16 @@ function makeAction(actionGraph, nodes, connections)
 			}
 			var node = new AccessAffectation(slots, param, makeExpr(actionGraph.indexOrKey, localNodes));
 		}
-		else
+		else if(type == "set")
 		{
-			var node = new library.actions[type](slots, param);
+			var node = new Send(slots, param);
+		} else // Seq
+		{
+			if(slots.length == 1)
+			{
+				return slots[0];
+			}
+			var node = new Seq(slots);
 		}
 
 		return node;

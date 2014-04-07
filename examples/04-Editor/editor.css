@@ -43,11 +43,15 @@ input
 	/*float : left;*/
 	/*display: flex;*/
 	vertical-align: middle;
-	border-left: solid;
-	border-right: solid;
+	/*border-left: solid;
+	border-right: solid;*/
 	border-width: 1px;
 }
 .vGroupElem
+{
+	margin : auto;
+}
+button
 {
 	margin : auto;
 }

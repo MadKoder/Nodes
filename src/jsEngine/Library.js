@@ -7,7 +7,7 @@ function check(test, str)
 function mValTick(val, subs)
 {
 	var minTick = globalTick;
-	if(subs)
+	if(subs != undefined)
 	{
 		_.each(subs, function(sub)
 		{
@@ -805,7 +805,8 @@ var functions =
 		function(a, v) // The function
 		{	
 			// TODO optim
-			var newA = _.cloneDeep(a);
+			// var newA = _.cloneDeep(a);
+			var newA = _.clone(a);
 			newA.unshift(v);
 			return newA;
 		},
@@ -826,7 +827,8 @@ var functions =
 		function(a, v) // The function
 		{	
 			// TODO optim
-			var newA = _.cloneDeep(a);
+			// var newA = _.cloneDeep(a);
+			var newA = _.clone(a);
 			newA.push(v);
 			return newA;
 		},
@@ -1728,7 +1730,7 @@ var nodes =
 							{
 								if(ticks.tick >= first.getMinMaxTick([])[1])
 								{
-									return mValTick(val, ticks);
+									return mValTick(val, ticks.subs);
 								}
 								else
 								{
@@ -1739,7 +1741,7 @@ var nodes =
 							{
 								if(ticks.tick >= second.getMinMaxTick([])[1])
 								{
-									return mValTick(val, ticks);
+									return mValTick(val, ticks.subs);
 								}
 								else
 								{
@@ -2060,7 +2062,7 @@ function Signal(slots, param) {
     };
 }
 
-function Seq(slots, param) {
+function Seq(slots) {
     this.slots = slots;
     this.signal = function(rootAndPath)
     {
