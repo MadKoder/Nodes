@@ -1,0 +1,1243 @@
+start "start" = 
+  "functions " _ func:Function {return func;}
+/ "actions " _ id:Var _ params:("(" _ params:ParamsDecl _")" {return params})? _ action:Action
+	{
+		var a = action;
+		a.id = id;
+		if(params != null)
+		{
+			a.inParams = params;
+		}
+		return a;
+	}
+/ "nodes " _ node:Node {return node;}
+/ "events " _ event:Event {return event;}
+/ "structs " _ struct:Struct
+	{
+		return struct;
+	}
+/ "trees " _ tree:Tree
+	{
+		return tree;
+	}
+	
+Node =
+	defVarCache:DefVarCache? _ typeAndId:MaybeTypeAndId _ 
+		val:("=" _ val:Val {return val;})? _
+	{
+		var node;
+		if(val == null)
+		{
+			node = {
+				type : typeAndId.type
+			};
+		}  else
+		{
+			node = {
+				val : val
+			};
+			if(typeAndId.type != null)
+				node.type = typeAndId.type;
+		}
+		if(defVarCache == null || defVarCache == "def")
+		{
+			node.def = typeAndId.id;
+		}
+		else if(defVarCache == "var")
+		{
+			node.var = typeAndId.id;
+		}
+		else
+		{
+			node.cache = typeAndId.id;
+		}
+		return node;
+	}
+	
+Connections = 
+   head:Connection _ tail:(_ "," _ (c:Connection) {return c})* 
+   {
+      return [head].concat(tail);
+   }
+   
+Connection =
+	_ signal:Id _ "=>" _ action:Action  _ 
+	{
+		var ret = {
+			action : action
+		};
+		if(signal)
+		{
+			ret.signal = signal;
+		}
+		return ret;
+	}
+	
+Event =
+	cond:Val _ action:Action
+	{
+		return {
+			"when" : cond,
+			"do" : action
+		};
+	}
+
+Slots = IdList 
+
+IdList = 
+   head:Id _ tail:(_ "," _ (slot:Id) {return slot})* 
+   {
+      return [head].concat(tail);
+   }
+
+ParamsDecl =
+	head:ParamDecl tail:( _ "," _ (p:ParamDecl) {return p})* {return [head].concat(tail);}
+	
+ParamDecl = 
+	typeAndId:TypeAndId {return [ typeAndId.id, typeAndId.type];}
+
+Affectation = 
+	loc:("loc")? _ slot:VarOrDestructVar _ "=" _ val:Val 
+    {
+		var affect = 
+		{
+            "set": val,
+            "slots": [slot]
+        };
+		if(loc != null)
+			affect.loc = true;
+		return affect;
+	}
+
+AccessAffectation = 
+	_ slot:Var _ "[" _ indexOrKey:Val _ "]" _ "=" _ val:Val 
+    {
+		var affect = 
+		{
+            "accessSet": val,
+            "slots": [slot],
+            indexOrKey : indexOrKey
+        };
+		return affect;
+	}
+
+VarOrDestructVar = 
+	Var
+	/ DestructVar
+	
+DestructVar = 
+	"(" _ vars:Vars _ ")"
+	{
+		return {
+			destruct : vars
+		};
+	}
+	
+Vars =  
+	head:Var tail:( _ "," _ (struct:Var) {return struct})* 
+	{
+		return [head].concat(tail);
+	}
+	
+DefVarCache = 
+  "def"
+  / "var"
+  / "cache"
+
+Function =
+	ref:("ref")? _ typeAndId:MaybeTypeAndId _ typeParams:("<" _ t:IdList _ ">" _ {return t;})? _
+	"(" params:ParamsDecl ")" 
+	_ body:FuncBody?
+	{
+		var func = {
+			id : typeAndId.id, 
+			in: params, 
+			out : {
+				type : typeAndId.type, 
+			}
+		};
+		if(body != null)
+		{
+			func.nodes = body.nodes;
+			func.out.val = body.val;
+		}
+		if(typeParams != null)
+		{
+			func.typeParams = typeParams;
+		};
+		if("type" in typeAndId)
+		{
+			func.type = typeAndId.type;
+		}
+		if(ref != null)
+		{
+			func.ref = true;
+		}
+		return func;
+	}
+
+FuncBody =
+	_ val:Val {return {nodes : [], val : val};}
+	/ _  "(" _ nodes:(nodes:Nodes _ "," {return nodes;})? _ val:Val _ ")"
+		{return {nodes : nodes ? nodes : [], val : val};}
+	
+TypeAndId =
+  type:Type _ id:Id { return {type:type, id:id};}
+ 
+MaybeTypeAndId =
+  TypeAndId
+  / id:Id {return {type:null, id:id};}
+  
+MaybeTypeAndIds =
+	head:MaybeTypeAndId tail:( _ "," _ (type:MaybeTypeAndId) {return type})* 
+	{
+		return [head].concat(tail);
+	}
+
+Type =
+	base:Id _ params:("<" _ t:Templates _ ">" _ {return t;})?
+	{
+		if(params != null)
+		{
+			return {
+				base : base,
+				params : params
+			}
+		}
+		return base
+	}
+	
+Templates =  
+	head:Type tail:( _ "," _ (type:Type) {return type})* 
+	{
+		return [head].concat(tail);
+	}
+
+lines = (_ v:Val _ LineTerminatorSequence {return v;})+
+
+Tree =  
+	_ id:Id  _ "(" _ fields:(fields:FieldsDef _ "," {return fields;})? _ 
+	"groups" _ "(" _ groups:Structs _ ")"  _
+	"," _ "leaves" _ "(" _ leaves:Structs _ ")"  _
+	")"
+	{
+		var ret = {
+			name : id,
+			groups : groups,
+			leaves : leaves
+		}
+		if(fields != null)
+		{
+			ret.fields = fields
+		}
+		return ret;
+
+	}
+	
+Structs =  
+	head:Struct tail:( _ "," _ (struct:Struct) {return struct})* 
+	{
+		return [head].concat(tail);
+	}
+	
+Struct = 
+	_ id:Id _ typeParams:("<" _ t:IdList _ ">" {return t;})? _ fieldsAndSubs:("(" _ fieldsAndSubs:FieldsAndSubs _ ")" {return fieldsAndSubs;})?
+	{
+		var ret = {
+			name : id
+		}
+		if(fieldsAndSubs != null)
+		{
+					ret.fields = fieldsAndSubs.fields;
+					ret.subs = fieldsAndSubs.subs;
+		}
+		if(typeParams != null)
+		{
+			ret.typeParams = typeParams;
+		}
+		return ret;
+	}
+	
+FieldsAndSubs = 
+	fields:FieldsDef _ subs:("," _ "subs" _ "(" _ structs:Structs _ ")" {return structs;})?
+	{
+		return {
+			fields : fields,
+			subs : subs != null ? subs : []
+		};
+	}
+	/ _ "subs" _ "(" _ structs:Structs _ ")"
+	{
+		return {
+			fields : [],
+			subs : structs
+		};
+	}
+
+
+FieldsDef =  
+	head:FieldDef tail:( _ "," _ field:FieldDef {return field})* 
+	{
+		// le [].concat.apply(head, tail) effectue un flatten sur tail
+		// car le deuxieme param de apply est la liste des arguments
+		//return [].concat.apply(head, tail);
+		return [head].concat(tail);
+
+	}
+
+FieldDef = 
+	SlotDef
+	/ SignalDef
+	/ !"subs" _ type:Type _ id:Id _ 
+	{
+		return [id, type];
+	}
+	
+	
+SlotDef = 
+	_ "slot" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _ action:Action
+	{
+		return {
+			slot : id,
+			action : action,
+			params : (params != null) ? params : []
+		};
+	}
+	
+SignalDef = 
+	_ "signal" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _
+	{
+		return {
+			signal : id,
+			params : (params != null) ? params : []
+		};
+	}
+
+Closure = 
+	params:MaybeTypeAndIds _ "->" _ val:Val
+	{
+		return{
+			"closure" : val,
+			"params" : params
+		};
+	}
+
+Select =
+	"select " _ id:Var _ path:("along " _ path:Id {return path;})? _ "(" _ matches:SelectMatches _ ")" _
+	{
+		var ret = {
+			select : id,
+			matches : matches
+		};
+		if(path)
+		{
+			ret.path = path;
+		};
+		return ret;
+	}
+
+SelectMatches = 
+	head:SelectMatch _ tail:(_ "," _ s:SelectMatch {return s})* 
+	{
+		return [head].concat(tail);
+	}
+		
+SelectMatch =
+	_ selector:Selector _ ":" _ val:Val 
+	{
+		var ret = {
+			selector : selector,
+			val : val
+		};
+		return ret;
+	}
+  
+Selector =
+	type:Id _ id:(Id)?  
+	{
+		var ret = {
+			type : type,
+		};
+		if(id)
+		{
+			ret.id = id
+		}
+		return ret;
+	}
+	
+Dict = 
+	"{" _ head:DictEntry? tail:( _ "," _ (i:DictEntry) {return i})* _ "}"
+	{
+		var val = {};
+		if(head)
+		{
+			val[head[0]] = head[1];
+			for(var i = 0; i < tail.length; i++)
+			{
+				val[tail[i][0]] = tail[i][1];
+			}
+		}
+		
+		return {
+			dict : val
+		};
+	}
+
+DictEntry = 
+	id:Id _ ":" _ val:Val
+	{
+		return [id, val]
+	}
+
+Array = 
+	"[" _ head:Val tail:( _ "," _ (i:Val) {return i})* _ "]"
+	{
+		return {
+			array : [head].concat(tail)
+		};
+	}
+
+Range = 
+	"[" start:Int".." stop:Int"]" {
+		return {
+			"type" : "range",
+			"params" : [start, stop]
+		};
+	}
+
+Comprehension = 
+	"[" _ val:Val _ "for " _ it:CompIterators _ when:("when " _ test:Val {return test})? _ "]" 
+	{
+		var res = {
+			"comp" : val,
+			"it" : it
+		};
+		if(when != null)
+		{
+			res["when"] = when;
+		}
+		return res;
+
+	}
+
+CompIterators = 
+	head:CompIterator _ tail:( _ "," _ (i:CompIterator) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+	
+CompIterator = 
+	it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Val
+	{
+		var res = {
+			"for" : it,
+			"in" : array,
+		}
+		if(index != null)
+		{
+			res["index"] = index;
+		}
+		return res;
+	}
+
+
+IdOrDestructId = 
+	Id
+	/ DestructId
+	
+DestructId = 
+	"(" _ ids:Ids _ ")"
+	{
+		return {
+			destruct : ids
+		};
+	}
+	
+Ids = 
+	head:Id _ tail:( _ "," _ (i:Id) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+Actions "Actions" = 
+   head:Action tail:( _ "," _ (i:Action) {return i})* {return [head].concat(tail);}
+
+Action "Action" = 
+  Affectation 
+  / AccessAffectation
+  / Foreach
+  / ForAction
+  / MatchAction
+  / MatchTypeAction
+  / SelectAction
+  / SlotCall
+  / Update
+  /  _ "(" _ actions:Actions _ ")" _ 
+  	{return  {
+			slots : actions
+		};}
+  / IfAction 
+  / "while" _ param:Expression  _ "do" _ action:Action _ 
+	{
+		return {
+			while:param, 
+			do:action};
+	}  
+  / id:Id _ params:("("_ params:ExpressionList? _ ")" {return params;})? 
+	{ 
+		return {
+			signal : id,
+			params : params != null ? params : [],
+		};
+	}
+
+ForAction =
+	_ "for" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ 
+	array:Val _ "do" _ action:Action
+	{
+		var res =  {
+			"for" : it,
+			"in" : array,
+			"do" : action
+		};
+		if(index != null)
+		{
+			res["index"] = index;
+		};
+		return res;
+	}
+	
+MatchAction =
+	"match" _ what:Val _ "do" _ "("_ cases:ActionCases elseCase:ElseActionCase? _")"
+	{
+		var ret = {
+			match : what,
+			cases : cases
+		};
+		if(elseCase)
+		{
+			ret.else = elseCase;
+		}
+		return ret;
+	}
+
+ActionCases =
+	head:ActionCase _ tail:( _ "," _ (i:ActionCase) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+ActionCase =
+	vals:Vals _ "=>" _ action:Action
+	{
+		return {
+			vals : vals, 
+			action : action
+		};
+	}
+
+ElseActionCase =
+	(",")? _ "_" _ "=>" _ action:Action
+	{
+		return action;
+	}
+
+
+MatchTypeAction = 
+	"type" _ id:Var _ "do" _ "(" _ matchCases:TypeActionCases _ ")" 
+	{
+		return {
+			matchType : id,
+			cases : matchCases
+		};
+	}
+		
+TypeActionCases = 
+	head:TypeActionCase _ tail:( _ "," _ (i:TypeActionCase) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+	
+TypeActionCase = 
+	type:Id _ "=>" _ action:Action
+	{
+		return {
+			type : type,
+			action : action
+		}
+	}
+
+Update =
+	"update" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ array:Val _
+	"with" _ val:ValOrCondUpdate _ filter:("filter " _ test:Val {return test})?
+	{
+		var res = {
+			"update" : it,
+			"in" : array			
+		}
+		if("cond" in val)
+		{
+			res["condWith"] = val.cond;
+		}
+		else
+		{
+			res["with"] = val.val;
+		}
+		if(index != null)
+		{
+			res["index"] = index;
+		}
+		if(filter != null)
+		{
+			res["filter"] = filter;
+		}
+		return res;
+	}
+
+ValOrCondUpdate =
+	cond:CondUpdate {return {cond : cond};}
+	/ val:Val {return {val : val};}
+
+CondUpdate =
+	_ val:Val _ "if" _ cond:Val 
+	{
+		return {
+			"val" : val,
+			"if" : cond
+		};
+	}
+
+SelectAction =
+	_ "select" _ it:Var _ "apply" _ "(" _ actions:SelectorActions _ ")"
+	{
+		var res =  {
+			"select" : it,
+			"apply" : actions
+		};
+		return res;
+	}
+	
+SelectorActions = 
+	head:SelectorAction _ tail:(_ "," _ s:SelectorAction {return s})* 
+   {
+      return [head].concat(tail);
+   }
+		
+SelectorAction =
+	selector:Selector _ ":" _ ("(")?_ val:SelectorAffectations _ (")")?
+	{
+		var ret = {
+			selector : selector,
+			affectations : val
+		};
+		return ret;
+	}
+	
+SelectorAffectations =
+	head:MergeAffectation _ tail:( _ "," _ (i:MergeAffectation) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+	
+Foreach =
+	_ "foreach " _ id:Var _ signal:Id _ params:("(" _ params:ExpressionList? _ ")" {return params})?
+	{
+		return {
+			foreach : id,
+			signal : signal,
+			params : params != null ? params : []
+		};
+	}
+  
+SlotCall =
+	_ id:Id _ path:StructPath _ "(" _ params:ExpressionList? _ ")" _
+	{
+		var varPath = [id].concat(path.slice(0, path.length - 1));
+		return {
+			signal : path.pop(),
+			params : params != null ? params : [],
+			var : varPath
+		};
+	}
+
+Var = 
+	start:Id subPath:(SubPath)?{
+		var finalPath = [start];
+		if(subPath != null)
+			finalPath = finalPath.concat(subPath);
+		return finalPath;
+	}
+  
+IfAction =
+	"if" _ param:Expression  _ "then" _ action:Action _ elseAction:("else" _ action:Action {return action;})?
+	{
+		var graph =
+		{
+			if:param, 
+			then:action
+		};
+		if(elseAction != null)
+		{
+			graph["else"] = elseAction;
+		}
+		return graph;
+	}
+
+Params "params"
+  =
+  slot:Var _ "=" _ val:Expression  {return {
+            "set": val,
+            "slots": [slot]
+        };}
+  / _ fields:FieldList {return {fields : fields};}
+  / _ expr:ExpressionList {return {params : expr};} 
+  / _ fields:FieldList _ "," expr:ExpressionList {return {params : expr, fields : fields};}
+
+ExpressionList
+ = headExpr:Val tailExpr:( _ "," _ (i:Val) {return i})* {return [headExpr].concat(tailExpr);}
+
+
+FieldList
+  = head:Field tail:( _ "," _ (f:Field) {return f})* 
+    {
+      var fields = {};
+      fields[head[0]] = head[1];
+      for(var i = 0; i < tail.length; i++) fields[tail[i][0]] = tail[i][1];
+      return fields;
+    }
+
+Field
+  = id:Id _ ":" _ val:AdditiveExpression {return [id, val];}
+
+Val = 
+	!Connection exp:Expression {return exp;}
+	/ !Connection exp:PrimaryExpression {return exp;}
+	
+PrimaryExpression = 
+	"true" {return true;}
+	/ "false" {return false;}
+	/ "[]" { return {array : []};}
+	/ FunctionCall
+	/ Closure
+	/ Range
+	/ Select
+	/ Comprehension 
+	/ Array 
+	/ Dict
+	/ ArrayDictAccess
+	/ Var
+	/ Message 
+	/ number 
+	/ "(" __ expression:Expression __ ")" { return expression; }
+	/ array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
+	/ number
+	/ String
+
+ArrayDictAccess =
+	_ id:Var _ "[" _ indexOrKey:Val _ "]" _
+    {
+		return {
+            access: id,
+            indexOrKey : indexOrKey
+        };
+	}
+
+FunctionCall = 
+	id:Id _ typeParams:TypeParams? _ calls:FuncCalls
+	{	
+		var ret = id;
+		for(var i = 0; i < calls.length; i++)
+		{
+			ret = {
+				type : ret
+			};
+			var call = calls[i];
+			if("params" in call) ret["params"] = call["params"];
+			if("fields" in call) ret["fields"] = call["fields"];
+			if("connections" in call) ret["connections"] = call["connections"];
+		}
+		if(typeParams)
+		{
+			ret.typeParams = typeParams;
+		}
+		return ret;
+	}
+	
+TypeParams =
+	"<" _ types:Ids _ ">"
+	{
+		return types;
+	}
+	
+FuncCalls = 
+	head:FuncCall _ tail:( _ (i:FuncCall) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+FuncCall = 
+	"(" _ connections:(Connections) _ ")"
+	{
+		return {
+			connections : connections
+		};
+	}
+	/ "(" _ params:(Params) _ "," _ connections:(Connections) _ ")"
+	{
+		var ret = {
+			connections : connections
+		};
+		if("params" in params) ret["params"] = params["params"];
+		if("fields" in params) ret["fields"] = params["fields"];
+		return ret;
+	}
+	/ "(" _ params:(Params)? _ ")"
+	{
+		var ret = {};
+		if(params != null)
+		{
+			if("params" in params) ret["params"] = params["params"];
+			if("fields" in params) ret["fields"] = params["fields"];
+		}
+		return ret;
+	}
+	
+String = 
+	"\"" text:([^"\\] / dq:('\\' c:. {return c;}))* "\"" 
+	{
+		return {
+			string : text.join("")};
+	}
+
+IfExpression = 
+	_ "if " _ cond:Val _ "then " _ t:Val _ "else " _ e:Val
+	{
+		return {
+          type:     "if",
+          params : [cond, t, e]
+        };
+	}
+
+Merge = 
+	id:Var _ "\\" _ affectations:MergeAffectations
+	{
+		return {
+			merge : id,
+			with : affectations
+		};
+	}
+		
+MergeAffectations =
+	head:MergeAffectation _ tail:( _ "\\" _ (i:MergeAffectation) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+	
+MergeAffectation = 
+	"if " _ cond:Val _ "then " _ affectations:UncondAffectations _ elseAffectations:("else " _ affectation:UncondAffectations {return affectation})?
+	{
+		var aff = {
+			"cond" : cond,
+			"affectations" : affectations
+		}
+		
+		if(elseAffectations != null)
+		{
+			aff["else"] = elseAffectations;
+		}
+		return aff;
+	}
+	/ UncondAffectation
+	/ "(" _ aff:MergeAffectation _ ")" {return aff;}
+
+
+UncondAffectations =
+	head:UncondAffectation _ tail:( _ "," _ (i:UncondAffectation) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+	
+UncondAffectation =
+	paths:MergePaths _ "=" _ val:Val
+	{
+		return {
+			paths : paths,
+			val : val
+		};
+	}
+	
+MergePaths = 
+	head:Var _ tail:( _ "," _ (i:Var) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+Match =
+	"match" _ what:Val _ "("_ cases:Cases elseCase:ElseCase _")"
+	{
+		return {
+			match : what,
+			cases : cases,
+			else : elseCase
+		}
+	}
+
+Cases =
+	head:Case _ tail:( _ "," _ (i:Case) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+Case =
+	vals:Vals _ ":" _ out:Val
+	{
+		return {
+			vals : vals, 
+			out : out
+		};
+	}
+	
+ElseCase =
+	(",")? _ "_" _ ":" _ out:Val
+	{
+		return out;
+	}
+	
+Vals =
+	!("_"!Id) head:Val _ tail:( _ "," _ (i:Val) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+MatchType = 
+	"type" _ id:Id _ "(" _ matchCases:TypeCases _ ")" 
+	{
+		return {
+			matchType : id,
+			cases : matchCases
+		};
+	}
+		
+TypeCases = 
+	head:TypeCase _ tail:( _ "," _ (i:TypeCase) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+	
+TypeCase = 
+	type:Type _ ":" _ val:Val
+	{
+		return {
+			type : type,
+			val : val
+		}
+	}
+
+Let = "let" _ what:OneOrMoreNode  _ "in" _ val:Val
+{
+	return {
+		let : what,
+		in : val
+	}
+} 
+
+OneOrMoreNode =
+	node:Node {return [node]}
+	/ "(" _ nodes:Nodes _ ")" {return nodes;}
+
+Nodes = 
+	head:Node _ tail:( _ "," _ (i:Node) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+Message = 
+	"<-" _ id:Id _ params:("(" _ params:ExpressionList _ ")" {return params})?
+	{
+		return {
+			msg : id,
+			params : params != null ? params :  []
+		};
+	}
+
+Expression =
+  IfExpression 
+/ Let
+/ Merge 
+/ Match 
+/ MatchType 
+/ LogicalORExpression
+
+Id = 
+	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
+		return name.length == 1 ?
+			name[0] :
+			name[0] + name[1].join(""); 
+	}
+	
+SubPath = 
+	StructPath
+	
+StructPath =
+	"." path:Id subPath:(SubPath)? {
+		var finalPath = [path];
+		if(subPath != null)
+			finalPath = finalPath.concat(subPath);
+		return finalPath;
+	}
+
+UnaryExpression
+  = PrimaryExpression
+  / operator:UnaryOperator __ expression:UnaryExpression {
+      return {
+          type:     operator == "-" ? "neg" : operator,
+          params : [expression]
+      };
+    }
+
+UnaryOperator
+  = "-"
+  /  "!"
+
+MultiplicativeExpression
+  = head:UnaryExpression
+    tail:(__ MultiplicativeOperator __ AdditiveExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+  
+      }
+      return result;
+    }
+
+MultiplicativeOperator
+  = operator:("*" / "/" / "%") !"=" { return operator; }
+  
+AdditiveExpression
+  =  head:MultiplicativeExpression
+    tail:(__ AdditiveOperator __ AdditiveExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+AdditiveOperator
+  = "+" !("+" / "=") { return "+"; }
+  / "-" !("-" / "=") { return "-"; }
+ 
+ShiftExpression
+  = head:AdditiveExpression
+    tail:(__ ShiftOperator __ AdditiveExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1] == "<<" ? "LShift" : "RShift",
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+ShiftOperator
+  = "<<"
+  / ">>"
+
+RelationalExpression
+  = head:ShiftExpression
+    tail:(__ RelationalOperator __ ShiftExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+RelationalOperator
+  = "<="
+  / ">="
+  / "<"
+  / ">"
+
+EqualityExpression
+  = head:RelationalExpression
+    tail:(__ EqualityOperator __ RelationalExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1] == "==" ? "==" : "!=",
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+
+EqualityOperator
+  = "==="
+  / "!=="
+  / "=="
+  / "!="
+
+BitwiseANDExpression
+  = head:EqualityExpression
+    tail:(__ BitwiseANDOperator __ EqualityExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     "BinaryExpression",
+          operator: tail[i][1],
+          left:     result,
+          right:    tail[i][3]
+        };
+      }
+      return result;
+    }
+
+
+BitwiseANDOperator
+  = "&" !("&" / "=") { return "&"; }
+
+BitwiseXORExpression
+  = head:BitwiseANDExpression
+    tail:(__ BitwiseXOROperator __ BitwiseANDExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     "BinaryExpression",
+          operator: tail[i][1],
+          left:     result,
+          right:    tail[i][3]
+        };
+      }
+      return result;
+    }
+
+BitwiseXOROperator
+  = "^" !("^" / "=") { return "^"; }
+
+BitwiseORExpression
+  = head:BitwiseXORExpression
+    tail:(__ BitwiseOROperator __ BitwiseXORExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     "BinaryExpression",
+          operator: tail[i][1],
+          left:     result,
+          right:    tail[i][3]
+        };
+      }
+      return result;
+    }
+
+
+BitwiseOROperator
+  = "|" !("|" / "=") { return "|"; }
+
+LogicalANDExpression
+  = head:BitwiseORExpression
+    tail:(__ LogicalANDOperator __ BitwiseORExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+LogicalANDOperator
+  = "&&" !"=" { return "&&"; }
+
+LogicalORExpression
+  = head:LogicalANDExpression
+    tail:(__ LogicalOROperator __ LogicalANDExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+LogicalOROperator
+  = "||" !"=" { return "||"; }
+
+number "number"
+  = literal:(HexIntegerLiteral / DecimalLiteral) {
+      return literal;
+    }
+
+DecimalLiteral
+  = parts:(SignedInteger"." DecimalDigits? ExponentPart?) {
+      return parseFloat(parts.join(""));    }
+  / parts:("." DecimalDigits ExponentPart?) { return parseFloat(parts.join("")); }
+  / parts:(SignedInteger ExponentPart?) { return parseFloat(parts.join("")); }
+
+Int = int:DecimalIntegerLiteral {return parseInt(int);}
+
+DecimalIntegerLiteral
+  = "0" / parts:(NonZeroDigit DecimalDigits?) {return parts.join("");}
+
+DecimalDigits
+  = d:DecimalDigit+ {return d.join("");}
+
+DecimalDigit
+  = [0-9]
+
+NonZeroDigit
+  = [1-9]
+
+ExponentPart
+  = ExponentIndicator SignedInteger
+
+ExponentIndicator
+  = [eE]
+
+SignedInteger
+  = parts:([-+]? DecimalDigits) {return parts.join("");}
+
+HexIntegerLiteral
+  = "0" [xX] digits:HexDigit+ { return parseInt("0x" + digits); }
+
+HexDigit
+  = [0-9a-fA-F]
+
+IdentifierStart
+  = "$"
+  / "_"
+
+_
+  = (WhiteSpace)*
+
+__
+  = (WhiteSpace)*
+
+WhiteSpace "whitespace"
+  = [\t\v\f \u00A0\uFEFF]
+  / Zs
+
+// Separator, Space
+Zs = [\u0020\u00A0\u1680\u180E\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000]
+
+
+LineTerminatorSequence "end of line"
+  = "\n"
+  / "\r\n"
+  / "\r"
+  / "\u2028" // line separator
+  / "\u2029" // paragraph separator
