@@ -25,7 +25,18 @@ function typeToString(type)
 	{
 		return baseType;
 	}
-	return baseType + "<" + _.each(typeParams, typeToString).join(",") + ">";
+	return baseType + "<" + _.map(typeParams, typeToString).join(",") + ">";
+}
+
+function typeToJson(type)
+{
+	var baseType = getBaseType(type);
+	var typeParams = getTypeParams(type);
+	if(typeParams.length == 0)
+	{
+		return "\"" + baseType + "\"";
+	}
+	return "{\nbase : \"" + baseType + "\",\nparams : [" + _.map(typeParams, typeToJson).join(",") + "\n]}";
 }
 
 // function isSubType(checkedType, refType)
@@ -352,11 +363,11 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 			var inAndOutTypes = getInAndOutTypes(templates[0]);
 			return {
 				params : [["first" , inAndOutTypes.inputs[0]], ["second" , inAndOutTypes.inputs[1]]],
-				func : function(params) 
+				getStr : function(params) 
 				{	
 					return func2(params[0], params[1]);
 				},
-				type : inAndOutTypes.output
+				type : inAndOutTypes.output				
 			}
 		}
 	}
@@ -378,28 +389,6 @@ function maf2(func2)
 			return(getCommonSuperClass(x, y));
 		}
 	)
-}
-
-function mtf2(func2, getInAndOutTypes, getTemplateFunc)
-{
-	return {
-		guessTypeParams : function(params)
-		{
-			return [getTemplateFunc(params[0].getType(), params[1].getType())];
-		},		
-		build : function(templates)
-		{
-			var inAndOutTypes = getInAndOutTypes(templates[0]);
-			return {
-				params : [["first" , inAndOutTypes.inputs[0]], ["second" , inAndOutTypes.inputs[1]]],
-				func : function(params) 
-				{	
-					return func2(params[0], params[1]);
-				},
-				type : inAndOutTypes.output
-			}
-		}
-	}
 }
 
 function mt2f2(func2, getInAndOutTypes, guessTypeParamsFunc)
@@ -709,7 +698,7 @@ var functions =
 		inOut2("int", "int", mt("list", ["int"]))
 	),
 	"neg" : mff1(function (x) {return -x;}),
-	"+" : maf2(function (x, y) {return x + y;}),
+	"+" : maf2(function (x, y) {return x + "+" + y;}),
 	"-" : maf2(function (x, y){return x - y;}),
     "*" : maf2(function (x, y) {return x * y;}),
     "/" : maf2(function (x, y) {return x / y;}),
@@ -1443,6 +1432,15 @@ var functions =
 	}
 };
 
+function Func(func)
+{
+	this.func = func;
+	this.get = function()
+	{
+		return this.func();
+	}
+}
+
 var globalTick = 0;
 var funcNodeId = 0;
 function FunctionNode(func)
@@ -1471,7 +1469,29 @@ function FunctionNode(func)
 			{
 				field.setTemplateParams(func.templates);
 			}
+			src
 		}, this);
+		this.str = "";
+
+		var index
+		var paramsVar = _.map(fields, function(field)
+		{
+			// this.str += field.getStr();
+			return field.getStr();
+		}, this);
+		// newVar(func.getStr(paramsVar), func.type);
+		// this.str += newVar(func.getStr(paramsVar));
+		this.str += func.getStr(paramsVar);
+		this.varName = getVar();
+		this.getStr = function()
+		{
+			return this.str;
+		}
+		this.getVar = function()
+		{
+			return this.varName;
+		}
+
 		this.get = function()
 		{
 			if(func.needsNodes)

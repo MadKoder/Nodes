@@ -49,12 +49,14 @@ function getTypeParams(type)
 	return [];
 }
 
+var src = "";
 var currentVarIndex = -1;
 var currentVarType = null;
 function newVar(val, type)
 {
 	currentVarIndex++;
 	currentVarType = type;
+	// src += "var __v" + currentVarIndex.toString() + " = " + val + ";\n";
 	return "var __v" + currentVarIndex.toString() + " = " + val + ";\n";
 }
 
@@ -1643,7 +1645,7 @@ function getNode(name, nodes)
 	var node = nodes[name];
 	if(node == undefined)
 	{
-		throw "Node " + name + " not found!";
+		throw "Var " + name + " not found!";
 	}
 
 	return node;
@@ -1693,7 +1695,7 @@ function StructAccess(node, path, val) {
     }
 	var baseType = getBaseType(nodeType);
 	var templates = getTypeParams(nodeType);
-	check(baseType in library.nodes, "Node type " + baseType + " not found in library");
+	check(baseType in library.nodes, "Var type " + baseType + " not found in library");
 	var typeObj = (templates.length > 0) ? 
 		library.nodes[baseType].getInstance(templates) :
 		library.nodes[baseType];
@@ -1830,7 +1832,7 @@ function ArrayAccess(node, type) {
     }
 	var baseType = getBaseType(nodeType);
 	var templates = getTypeParams(nodeType);
-	check(baseType in library.nodes, "Node type " + baseType + " not found in library");
+	check(baseType in library.nodes, "Var type " + baseType + " not found in library");
 	// TODO generic management
 	var baseType = getBaseType(templates[0]);
 	if(!(baseType in library.nodes))
@@ -2052,12 +2054,11 @@ function compileRef(ref, nodes, promiseAllowed)
 		}
 		var node = getNode(sourceNode, nodes);
 		var path = split.slice(1);
-		var compiledPath = path.map(function(p) {
-			// Si ce n'est pas une chaine, ce n'est pas un champ de struct, c'est donc un index de tableau
-			if(!isString(p))
-				return makeExpr(p.index, nodes).val;
-			return p;
-		});
+		var compiledPath = _.reduce(path, function(step)
+			{
+				return step + ",";
+			}, "[");
+		compiledPath += "]";
 		// If reference is an action, no type...
 		// TODO : make another function for resolving references to actions ?
 		if("getType" in node)
@@ -2067,10 +2068,10 @@ function compileRef(ref, nodes, promiseAllowed)
 		//var type = undefined;
 		if(split.length > 1)
 		{
-			return {val : new StructAccess(getNode(sourceNode, nodes), compiledPath), type : type};
+			return new Var("new StructAccess(" + node.getVar() + ", " + compiledPath + ");", type);
 		} else
 		{
-			return {val : node, type : type};
+			return new Var(node.getVar() + ".get()", type);
 		}
 	}
 }
@@ -2090,6 +2091,49 @@ function Cloner(ref)
 		// TODO listes, autres ...
 		return this.ref.get();
 		//return _.cloneDeep(this.ref.get());
+	}
+}
+
+// function Var(valStr, type, beforeStr)
+// {
+// 	currentVarIndex++;
+// 	this.varName = "__v" + currentVarIndex.toString();
+// 	this.type = type;
+// 	this.str = "var __v" + currentVarIndex.toString() + " = " + valStr + ";\n";
+// 	if(beforeStr != undefined)
+// 	{
+// 		this.str = beforeStr + this.str;
+// 	}
+
+// 	this.getStr = function()
+// 	{
+// 		return this.str;
+// 	}
+
+// 	this.getVar = function()
+// 	{
+// 		return this.varName;
+// 	}
+
+// 	this.getType = function()
+// 	{
+// 		return this.type;
+// 	}
+// }
+
+function Var(valStr, type)
+{
+	this.type = type;
+	this.str = valStr;
+
+	this.getStr = function()
+	{
+		return this.str;
+	}
+
+	this.getType = function()
+	{
+		return this.type;
 	}
 }
 
@@ -2122,8 +2166,11 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		{
 			type = "bool";
 		}
+		// newVar("new Store(" + expr.toString() + ", \"" + type + "\")", type);
+		// newVar(expr.toString(), type);
+		// return new Var("new Store(" + expr.toString() + ", \"" + type + "\")", type);
+		return new Var(expr.toString(), type);
 		// return new Store(expr, type);
-		return newVar("new Store(" + expr.toString() + ", \"" + type + "\")", type);
 		// return newVar(expr.toString(), type);
 		// return newVar(type) + " = " + expr.toString + ";";
 		// return expr;
@@ -2185,6 +2232,26 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		return {val : new DictAccess(ref, indexOrKey, dictTypeParam), type : mt("Maybe", [dictTypeParam])};
 	} else if("array" in expr)
 	{
+		var typeParam = null;
+		var str = _.reduce(expr.array, function(accum, elt, index)
+		{
+			var expr = makeExpr(elt, nodes);
+
+			if(typeParam == null)
+			{
+				typeParam = expr.getType();
+			} else
+			{
+				typeParam = getCommonSuperClass(typeParam, expr.getType())
+			}
+
+			if(index == 0)
+			{
+				return accum + expr.getStr();
+			}
+			return accum + "," + expr.getStr();
+		}, "[");
+		str += "]";
 		var l = expr.array.map(
 			function(element, index)
 			{
@@ -2194,7 +2261,19 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		);
 		var templateType = undefined;
 		var listNode = new List(l);
-		return {val : listNode, type : listNode.getType()};
+		
+		_.each(this.list, function(item)
+		{
+			if(this.typeParam == null)
+			{
+				this.typeParam = item.getType();
+			} else
+			{
+				this.typeParam = getCommonSuperClass(this.typeParam, item.getType())
+			}
+		}, this);
+		// return {val : listNode, type : listNode.getType()};
+		return new Var(str, mListType(typeParam));
 	} else if("dict" in expr)
 	{
 		var d = _.mapValues(expr.dict, function(val)
@@ -2218,7 +2297,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		return {val : new Dict(d, valType), type : {base : "dict", params : ["string", valType]}};
 	} else  if("string" in expr)
 	{
-		return {val : new Store(expr.string, "string"), type : "string"};
+		return new Var("\"" + expr.string + "\"", "string");
 	} else if("type" in expr)
 	{
 		if(expr.type == undefined)
@@ -2394,9 +2473,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			}
 
 		}
-		// TODO type ?
-		// return {val : node, type : node.getType()};
-		return {val : node, type : expr.type};
+		return node;
 	} else if("merge" in expr)
 	{
 		// TODO type avec template
@@ -2702,18 +2779,6 @@ function makeNode(nodeGraph, nodes, connectionsGraph)
 			var node = makeExpr(nodeGraph, nodes);
 		}
 		
-		if("var" in nodeGraph)
-		{
-			// TODO : virer les dependances du node
-			// node = new Store(node.get(), node.getType());
-			// var src = node;
-			// src += "new Store(x.get(), x.getType());\n";
-			node += newVar("new Store(" + getVar() + ".get(), " + getVar() + ".getType())");			
-			// node = src;
-		} else if("cache" in nodeGraph)
-		{
-			node = new Cache(node);
-		}
 		
 		if("slots" in nodeGraph)
 		{
@@ -4286,8 +4351,8 @@ function compileGraph(graph, lib, previousNodes)
 	library = lib;
 	connections = [];
 	connectionsAllowed = false;
+	src = "";
 
-	var src = "";
 	//return;
 	
 	if("structsAndFuncs" in graph)
@@ -4542,12 +4607,59 @@ function compileGraph(graph, lib, previousNodes)
 			//try
 			{
 				connectionSet = false;
-				var node = "function(){\n" + makeNode(nodeGraph, nodes, connectionsGraph) + "return " + getVar() + ";\n}()";
+				// src +=  "var " + id + " = function(){\n"
+				// var node = makeNode(nodeGraph, nodes, connectionsGraph);
+				// src += node.getStr();
+				// src += "return " + node.getVar() + ";\n}();\n";
+				var node = makeNode(nodeGraph, nodes, connectionsGraph);
+				if("var" in nodeGraph)
+				{
+					// TODO : virer les dependances du node
+					src += "var " + id + " = (function(){\n";
+					src += "return new Store(" + node.getStr() + ", " + typeToJson(node.getType()) + ")\n})();\n";
+					
+					// src += "var " + id + " = (function(){\n" + node.getStr();
+					// src += "\nreturn new Store(" + node.getVar() + ", \"" + node.getType() + "\")\n})();";
+					
+					// new Var(valStr, node.getType(), node.getStr());
+					// src +=  "var " + id + " = new Store(" + node.getVar() + ".get(), " + node.getVar() + ".getType())";
+					// node = new Store(node.get(), node.getType());
+					// var src = node;
+					// src += "new Store(x.get(), x.getType());\n";
+					// newVar("new Store(" + getVar() + ".get(), " + getVar() + ".getType())");
+
+					// node = src;
+				} else if("cache" in nodeGraph)
+				{
+					node = new Cache(node);
+				} else
+				{
+					src +=  "var " + id + " = {\nget : function(){\n"
+					// src += node.getStr();
+					// src += "return " + node.getVar() + ";\n}\n};\n";
+					src += "return " + node.getStr() + ";\n}};\n";
+				}
+				function Node(id, type)
+				{
+					this.id = id;
+					this.type = type;
+
+					this.getType = function()
+					{
+						return this.type;
+					}
+
+					this.getVar = function()
+					{
+						return this.id;
+					}
+				}
+				nodes[id] = new Node(id, node.getType());
+				
 				// nodes[id] = node;
 				// src += "var " + id + " = " + node.getSrc();
 				// src += node;
 				// src += "var " + id + " = " + getVar() + ";";
-				src += "var " + id + " = " + node + ";";
 			}
 			// catch(err) // For release version only
 			// {

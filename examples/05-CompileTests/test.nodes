@@ -1,2 +1,3 @@
 nodes:
-	def a = 2+1
+	def a = [1, 2, 3]
+	var b = a

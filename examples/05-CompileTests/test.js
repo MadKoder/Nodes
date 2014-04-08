@@ -33,7 +33,7 @@ $.get("test.nodes", function( text ) {
 	$.globalEval(src)
 	// eval(src);
 	// $("#test").html(code.a.get());
-	$("#test").html(a.get());
+	$("#test").html(b.get());
 }
 , "text" // Commenter pour lire du json
 );
