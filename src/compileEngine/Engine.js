@@ -1196,6 +1196,7 @@ function cartesianProductOf(arrays) {
 	}, [ [] ]);
 };
 
+var compIndex = 0;
 function ComprehensionNode(nodeGraph, externNodes)
 {
 	this.nodes = {};
@@ -1212,9 +1213,10 @@ function ComprehensionNode(nodeGraph, externNodes)
 
 	// TODO replace SubStores by FuncInput (for reccursion)
 	// And cleanup SubStores of push, pop, dirty ...
+	this.compIndex = compIndex;
 	var beforeStr = "";
-	var arraysStr = "var arrays = [";
-	var inputStr = "var inputs = [";
+	var arraysStr = "var arrays" + compIndex.toString() + " = [";
+	var inputStr = "var inputs" + compIndex.toString() + " = [";
 	var varStr = "";
 	_.forEach(iterators, function(iterator, index)
 	{
@@ -1231,7 +1233,7 @@ function ComprehensionNode(nodeGraph, externNodes)
 		var inputGraph = iterator["for"];
 		inputs[index] = new ArrayAccess(this.arrays[index]);
 		beforeStr += expr.getBeforeStr();
-		varStr += "var " + inputGraph + " = new ArrayAccess(arrays[" + index.toString() + "], " + typeToJson(inputType) + ");\n";
+		varStr += "var " + inputGraph + " = new ArrayAccess(arrays" + compIndex.toString() + "[" + index.toString() + "], " + typeToJson(inputType) + ");\n";
 		inputStr += inputGraph + ", ";
 		if(_.isString(inputGraph))
 		{
@@ -1278,15 +1280,18 @@ function ComprehensionNode(nodeGraph, externNodes)
 		this.addsRefs = true;
 	} 
 
+	compIndex++;
+	
 	this.getBeforeStr = function()
 	{
 		return beforeStr + arraysStr + varStr + inputStr + expr.getBeforeStr() +
-		"var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
+		"var comp" + this.compIndex.toString() + " = " + expr.getStr() + ";\n";
+		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
 	}
 
 	this.getStr = function()
 	{
-		return "new Comprehension(comp , inputs, [undefined], arrays, false);" 
+		return "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", [undefined], arrays" + this.compIndex.toString() + ", false)" 
 	}
 
 	this.getType = function()
@@ -2151,10 +2156,18 @@ function Cloner(ref)
 // 	}
 // }
 
-function Var(valStr, type)
+function Var(valStr, type, beforeStr)
 {
 	this.type = type;
 	this.str = valStr;
+	if(beforeStr != undefined)
+	{
+		this.beforeStr = beforeStr;
+	}
+	else
+	{
+		this.beforeStr = "";
+	}
 
 	this.getStr = function()
 	{
@@ -2168,7 +2181,7 @@ function Var(valStr, type)
 
 	this.getBeforeStr = function()
 	{
-		return "";
+		return this.beforeStr;
 	}
 }
 
@@ -2268,9 +2281,11 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 	} else if("array" in expr)
 	{
 		var typeParam = null;
+		var beforeStr = "";
 		var str = _.reduce(expr.array, function(accum, elt, index)
 		{
 			var expr = makeExpr(elt, nodes);
+			beforeStr += expr.getBeforeStr();
 
 			if(typeParam == null)
 			{
@@ -2308,7 +2323,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			}
 		}, this);
 		// return {val : listNode, type : listNode.getType()};
-		return new Var(str, mListType(typeParam));
+		return new Var("new List(" + str + ")", mListType(typeParam), beforeStr);
 	} else if("dict" in expr)
 	{
 		var d = _.mapValues(expr.dict, function(val)
@@ -4634,6 +4649,7 @@ function compileGraph(graph, lib, previousNodes)
 					// src += "var " + id + " = (function(){\n";
 					// src += "return new Store(" + node.getStr() + ", " + typeToJson(node.getType()) + ")\n})();\n";
 
+					src += node.getBeforeStr();
 					src += "var " + id + " = new Store(" + node.getStr() + ".get(), " + typeToJson(node.getType()) + ");\n";
 					
 					// src += "var " + id + " = (function(){\n" + node.getStr();

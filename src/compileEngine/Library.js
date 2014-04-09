@@ -1427,12 +1427,18 @@ var functions =
 	}
 };
 
-function Func(func)
+function Func(func, type)
 {
 	this.func = func;
+	this.type = type;
 	this.get = function()
 	{
 		return this.func();
+	}
+
+	this.getType = function()
+	{
+		return this.type;
 	}
 }
 
@@ -1482,7 +1488,8 @@ function FunctionNode(func)
 		this.str += func.getStr(paramsVar);
 		this.varName = getVar();
 
-		this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
+		// this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
+		this.str = "new Func(function(){ return " + this.str + ";}, " + typeToJson(func.type) + ")"
 		
 		this.getBeforeStr = function()
 		{
