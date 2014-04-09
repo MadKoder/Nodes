@@ -30,12 +30,12 @@ $.get("test.nodes", function( text ) {
 	var src = compileGraph(codeGraph, library);
 
 	$tmp.append("<div id=\"test\"></div>");
+	var $test = $("#test");
 	$.globalEval(src)
 	// eval(src);
 	// $("#test").html(code.a.get());
-	tick.signal();
 	// tick.signal();
-	$("#test").html(b.get());
+	$test.html(a.get());
 }
 , "text" // Commenter pour lire du json
 );

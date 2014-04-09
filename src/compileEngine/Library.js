@@ -312,7 +312,7 @@ function mf2(func2, inAndOutTypes)
 		params : [["first", inAndOutTypes.inputs[0]], ["second", inAndOutTypes.inputs[1]]],
 		getStr : function(params) 
 		{	
-			return func2(params[0], params[1]);
+			return func2(params[0] + ".get()", params[1] + ".get()");
 		},
 		type : inAndOutTypes.output
 	}
@@ -365,7 +365,7 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 				params : [["first" , inAndOutTypes.inputs[0]], ["second" , inAndOutTypes.inputs[1]]],
 				getStr : function(params) 
 				{	
-					return func2(params[0], params[1]);
+					return func2(params[0] + ".get()", params[1] + ".get()");
 				},
 				type : inAndOutTypes.output				
 			}
@@ -633,13 +633,28 @@ function getFuncType(funcProto, templateParams)
 		return funcProto.getType();
 }
 
+function pushFront(a, v)
+{	
+	// TODO optim
+	var newA = _.clone(a);
+	newA.unshift(v);
+	return newA;
+};
+
+function pushBack(a, v)
+{	
+	var newA = _.clone(a);
+	newA.push(v);
+	return newA;
+}
+
 var functions = 
 {
 	"head" : mluf1
 	(
 		function(list) // The function
 		{	
-			return _.head(list);
+			return "_.head(" + list + ")";
 		},
 		function(template) // Output type
 		{
@@ -650,14 +665,14 @@ var functions =
 	(
 		function(list) // The function
 		{	
-			return _.tail(list);
+			return "_.tail(" + list + ")";
 		}
 	),
 	flatten : mtf1
 	(
 		function(list) // The function
 		{	
-			return _.flatten(list, true);
+			return "_.flatten(" + list + ", true)";
 		},
 		function(template) // Input and output types
 		{
@@ -668,22 +683,6 @@ var functions =
 			return getListTypeParam(getListTypeParam(paramType));
 		}
 	),
-	eq : mtf2
-	(
-		function(first, second) // The function
-		{	
-			return first == second;
-		},
-		function(template) // Input and output types
-		{
-			return inOut2(template, template, "bool");
-		},
-		function(firstType, secondType)	// Template guess from input types
-		{
-			checkSameTypes(firstType, secondType);
-			return firstType;
-		}
-	),
 	range : mf2
 	(
 		function (start, stop) 
@@ -692,20 +691,20 @@ var functions =
 		},
 		inOut2("int", "int", mt("list", ["int"]))
 	),
-	"neg" : mff1(function (x) {return -x;}),
+	"neg" : mff1(function (x) {return "-" + x;}),
 	"+" : maf2(function (x, y) {return x + "+" + y;}),
-	"-" : maf2(function (x, y){return x - y;}),
-    "*" : maf2(function (x, y) {return x * y;}),
-    "/" : maf2(function (x, y) {return x / y;}),
+	"-" : maf2(function (x, y){return x + "-" + y;}),
+    "*" : maf2(function (x, y) {return x + "*" + y;}),
+    "/" : maf2(function (x, y) {return x + "/" + y;}),
 	"<" : mcf2(function (x, y) {return x + "<"  + y;}),
-	">" : mcf2(function (x, y) {return x > y;}),
-	"<=" : mcf2(function (x, y) {return x <= y;}),
-	">=" : mcf2(function (x, y) {return x >= y;}),
+	">" : mcf2(function (x, y) {return x + ">" + y;}),
+	"<=" : mcf2(function (x, y) {return x + "<=" + y;}),
+	">=" : mcf2(function (x, y) {return x + ">=" + y;}),
 	"==" : 	mtf2
 	(
 		function(first, second) // The function
 		{	
-			return first == second;
+			return first + "==" + second;
 		},
 		function(template) // Input and output types
 		{
@@ -722,7 +721,7 @@ var functions =
 	(
 		function(first, second) // The function
 		{	
-			return first != second;
+			return first + "!=" + second;
 		},
 		function(template) // Input and output types
 		{
@@ -735,42 +734,41 @@ var functions =
 			return firstType;
 		}
 	),
-	"eq" : mcf2(function (x, y) {return x == y;}),
-	"||" : mbf2(function (x, y) {return x || y;}),
-	"&&" : mbf2(function (x, y) {return x && y;}),
+	"||" : mbf2(function (x, y) {return x + "||" + y;}),
+	"&&" : mbf2(function (x, y) {return x + "&&" + y;}),
 	"!" : mf1
 	(
-		function (x) {return !x;},
+		function (x) {return "!" + x;},
 		inOut1("bool", "bool")
 	),
 	"mod" :  mf2
 	(
 		function (x, y) 
 		{
-			return (x + y) % y; // We don't want negative number
+			return "(" + x + "+" + y + ") %" + y; // We don't want negative number
 		},
 		inOut2("int", "int", "int")
 	),
-	"min" : mff2(function (x, y) {return x > y ? y : x;}), 
-	"max" : mff2(function (x, y) {return x < y ? y : x;}), 
-	"clamp" : mff3(function (x, min, max) {return x < min ? min : x > max ? max : x}),
+	"min" : mff2(function (x, y) {return x + ">" + y + "?" + y + ":" + x;}), 
+	"max" : mff2(function (x, y) {return x + "<" + y + "?" + y + ":" + x;}), 
+	"clamp" : mff3(function (x, min, max) {return x + "<" + min + "?" + min + ":" + x + ">"  + max + "?" + max + ":" + x}),
 	"abs" : mff1(function (x) 
 	{
-		return Math.abs(x);
+		return "Math.abs(" + x + ")";
 	}),
 	"round" : mff1(function (x) 
 	{
-		return Math.floor(x + .5);
+		return "Math.floor(" + x + " + .5)";
 	}),
 	"floor" : mf1(
-		function (x){return Math.floor(x);},
+		function (x){return "Math.floor(" + x + ")";},
 		inOut1("float", "int")
 	), 
 	"concat" : mtf2
 	(
 		function(first, second) // The function
 		{	
-			return first.concat(second);
+			return first + ".concat(" + second + ")";
 		},
 		function(template) // Input and output types
 		{
@@ -788,11 +786,7 @@ var functions =
 	(
 		function(a, v) // The function
 		{	
-			// TODO optim
-			// var newA = _.cloneDeep(a);
-			var newA = _.clone(a);
-			newA.unshift(v);
-			return newA;
+			return "pushFront(" + a + ", " + v + ")";
 		},
 		function(template) // Input and output types
 		{
@@ -810,11 +804,7 @@ var functions =
 	(
 		function(a, v) // The function
 		{	
-			// TODO optim
-			// var newA = _.cloneDeep(a);
-			var newA = _.clone(a);
-			newA.push(v);
-			return newA;
+			return "pushBack(" + a + ", " + v + ")";
 		},
 		function(template) // Input and output types
 		{
@@ -830,11 +820,11 @@ var functions =
 	),
 	"popBack" : mllf1(function (a)
 		{
-			return _.initial(a);
+			return "_.initial(" + a + ")";
 		}),
 	"slice" : mtf3
 		(
-			function (a, start, stop) {return a.slice(start, stop);},
+			function (a, start, stop) {return a + ".slice(" + start + ", " + stop + ")";},
 			function(template) // Input and output types
 			{
 				return inOut3
@@ -856,7 +846,7 @@ var functions =
 	(
 		function(list) // The function
 		{	
-			return list.length;
+			return list + ".length";
 		},
 		function(template) // Output type
 		{
@@ -867,7 +857,7 @@ var functions =
 	(
 		function(list) // The function
 		{	
-			return _.any(list);
+			return "_.any(" + list + ")";
 		},
 		function(template) // Output type
 		{
@@ -878,7 +868,7 @@ var functions =
 	(
 		function(list) // The function
 		{	
-			return !(_.any(list));
+			return "!(_.any(" + list + "))";
 		},
 		function(template) // Output type
 		{
@@ -1475,13 +1465,24 @@ function FunctionNode(func)
 		this.beforeStr = "";
 		this.str = "";
 
-		var index
-		var paramsVar = _.map(fields, function(field)
+		if("getBeforeStr" in func)
+		{
+			this.beforeStr = func.getBeforeStr();
+		}
+		var inputStr = "";
+		if("inputNodes" in func)
+		{
+			_.each(func.inputNodes, function(input, i)
+			{
+				inputStr += "var " + input.getStr() + " = " + params[i].getStr() + ";";
+			});
+		}
+		var paramsVar = _.map(params, function(param)
 		{
 			// this.str += field.getStr();
-			this.beforeStr += newVar(field.getStr());
-			return getVar() + ".get()";
-			// return field.getStr();
+			this.beforeStr += newVar(param.getStr());
+			return getVar(); // + ".get()";
+			// return "(" + param.getStr() + ").get()";
 		}, this);
 		// newVar(func.getStr(paramsVar), func.type);
 		// this.str += newVar(func.getStr(paramsVar));
@@ -1489,11 +1490,11 @@ function FunctionNode(func)
 		this.varName = getVar();
 
 		// this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
-		this.str = "new Func(function(){ return " + this.str + ";}, " + typeToJson(func.type) + ")"
+		// this.str = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ")"
 		
 		this.getBeforeStr = function()
 		{
-			return this.beforeStr;
+			return inputStr + "\n" + this.beforeStr;
 		}
 
 		this.getStr = function()

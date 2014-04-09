@@ -1285,7 +1285,8 @@ function ComprehensionNode(nodeGraph, externNodes)
 	this.getBeforeStr = function()
 	{
 		return beforeStr + arraysStr + varStr + inputStr + expr.getBeforeStr() +
-		"var comp" + this.compIndex.toString() + " = " + expr.getStr() + ";\n";
+		// "var comp" + this.compIndex.toString() + " = " + expr.getStr() + ";\n";
+		"var comp" + this.compIndex.toString() + " = new Func(function(){ " + " return " + expr.getStr() + ";}, " + typeToJson(expr.getType()) + ");\n";
 		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
 	}
 
@@ -2324,6 +2325,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		}, this);
 		// return {val : listNode, type : listNode.getType()};
 		return new Var("new List(" + str + ")", mListType(typeParam), beforeStr);
+		// return new Var(str, mListType(typeParam), beforeStr);
 	} else if("dict" in expr)
 	{
 		var d = _.mapValues(expr.dict, function(val)
@@ -4096,6 +4098,31 @@ function FunctionInstance(classGraph)
 	// });
 	this.needsNodes = false;
 
+	this.getBeforeStr = function()
+	{
+		var str = "";
+		_.each(this.inputNodes, function(input)
+		{
+			str += input.getBeforeStr();
+		});
+		// str += this.expr.getBeforeStr();
+		return str;
+	}
+
+	this.getStr = function(params)
+	{
+		var str = "";
+		_.each(params, function(param, index)
+		{
+			str += param;
+			if(index < params.length - 1)
+			{
+				str += ", ";
+			}
+		});
+		return this.name + "(" + str + ")";
+	}
+
 	this.func = function(params) 
 	{	
 		_.each(params, function(param, i)
@@ -4476,9 +4503,10 @@ function compileGraph(graph, lib, previousNodes)
 						_.each(funcGraph["in"], function(paramAndType)
 						{
 							var type = paramAndType[1];
-							var node = new FuncInput(type);
+							var node = new Var(paramAndType[0], paramAndType[1]);
 							node.func = funcGraph.id;
 							func.inputNodes.push(node);
+							// func.internalNodes[paramAndType[0]] = node;
 							func.internalNodes[paramAndType[0]] = node;
 						});
 						
@@ -4507,6 +4535,19 @@ function compileGraph(graph, lib, previousNodes)
 							func.type = func.expr.getType();
 						}
 					}
+
+					var paramStr = "";
+					_.each(funcGraph["in"], function(paramAndType, j)
+					{
+						paramStr += paramAndType[0];
+						if(j < funcGraph["in"].length - 1)
+						{
+							paramStr += ", ";
+						} 
+					});
+					src += "function " + funcGraph.id + "(" + paramStr + "){\n";
+					src += func.expr.getBeforeStr();
+					src += "return " + func.expr.getStr() + ";\n};\n";
 
 					// if(connections.length > beforeConnectionsLength)
 					if(func.needsNodes)
@@ -4679,6 +4720,7 @@ function compileGraph(graph, lib, previousNodes)
 
 					src += node.getBeforeStr();
 					src += "var " + id + " = new Store(" + node.getStr() + ".get(), " + typeToJson(node.getType()) + ");\n";
+					// src += "var " + id + " = new Store(" + node.getStr() + ".get(), " + typeToJson(node.getType()) + ");\n";
 					
 					// src += "var " + id + " = (function(){\n" + node.getStr();
 					// src += "\nreturn new Store(" + node.getVar() + ", \"" + node.getType() + "\")\n})();";
@@ -4697,7 +4739,9 @@ function compileGraph(graph, lib, previousNodes)
 				} else
 				{
 					src += node.getBeforeStr();
-					src += "var " + id + " = " + node.getStr() + ";\n";
+					// src += "var " + id + " = " + node.getStr() + ";\n";
+					src += "var " + id + " = " + "new Func(function(){ " + " return " + node.getStr() + ";}, " + typeToJson(func.type) + ")\n;";
+					// this.str = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ")"
 
 					// src += "return " + node.getVar() + ";\n}\n};\n";
 					
