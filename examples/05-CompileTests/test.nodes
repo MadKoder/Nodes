@@ -1,6 +1,11 @@
 nodes:
-	# def a = 1 + 2
-	var a = [[x + 1 for x in range(0, 5)], [x + 2 for x in range(0, 3)]]
+	var a = 1
+	# var a = [[x + 1 for x in range(0, 5)], [x + 2 for x in range(0, 3)]]
 	# def b = [x + 2 for x in range(0, 5)]
 	# var b = a
-	# var b = a
+	var b = a + 1
+actions :
+	tick : 
+		while a < 10 do 
+			a = a + 1
+		b = b + 10

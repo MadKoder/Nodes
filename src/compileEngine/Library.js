@@ -697,7 +697,7 @@ var functions =
 	"-" : maf2(function (x, y){return x - y;}),
     "*" : maf2(function (x, y) {return x * y;}),
     "/" : maf2(function (x, y) {return x / y;}),
-	"<" : mcf2(function (x, y) {return x < y;}),
+	"<" : mcf2(function (x, y) {return x + "<"  + y;}),
 	">" : mcf2(function (x, y) {return x > y;}),
 	"<=" : mcf2(function (x, y) {return x <= y;}),
 	">=" : mcf2(function (x, y) {return x >= y;}),

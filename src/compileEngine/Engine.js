@@ -1281,7 +1281,7 @@ function ComprehensionNode(nodeGraph, externNodes)
 	} 
 
 	compIndex++;
-	
+
 	this.getBeforeStr = function()
 	{
 		return beforeStr + arraysStr + varStr + inputStr + expr.getBeforeStr() +
@@ -2194,7 +2194,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		var compiledRef = compileRef(ref, nodes);
 		// Utilise par les actions d'affectations, pour copier la valeur et non la reference
 		if(cloneIfRef != undefined && cloneIfRef)
-			return {val : new Cloner(compiledRef.val), type : compiledRef.type};
+			return new Var("new Cloner(" + compiledRef.getStr() + ")", compiledRef.getType());
 		return compiledRef;
 	} else if (_.isNumber(expr) || _.isBoolean(expr))
 	{
@@ -2877,11 +2877,11 @@ function compileSlot(slot, nodes, connections)
 			return new Deref(compileRef(slot.slice(1), nodes).val);
 		} else
 		{
-			return compileRef(slot, nodes, true).val;
+			return compileRef(slot, nodes, true);
 		}
 	} else if(isArray(slot) || "destruct" in slot)
 	{
-		return compileRef(slot, nodes, true).val;
+		return compileRef(slot, nodes, true);
 	} else
 	{
 		return makeAction(slot, nodes, connections);
@@ -3504,7 +3504,16 @@ function makeAction(actionGraph, nodes, connections)
 		
 		if(param != null)
 		{
-			return new IfElseParam(param, thenSlot, elseSlot);
+			// return new IfElseParam(param, thenSlot, elseSlot);
+			var beforeStr = param.getBeforeStr() + thenSlot.getBeforeStr();
+			var str = "new IfElseParam(" + param.getStr() + ", " + thenSlot.getStr();
+			if(elseSlot != null)
+			{
+				str += ", " + elseSlot.getStr();
+				beforeStr += elseSlot.getBeforeStr();
+			}
+			str += ")";
+			return new Var(str, "action", beforeStr);
 		}
 		else
 		{
@@ -3517,7 +3526,10 @@ function makeAction(actionGraph, nodes, connections)
 		
 		if(param != null)
 		{
-			return new WhileParam(param, slot);
+			// return new WhileParam(param, slot);
+			var beforeStr = param.getBeforeStr() + slot.getBeforeStr();
+			var str = "new WhileParam(" + param.getStr() + ", " + slot.getStr() + ")";
+			return new Var(str, "action", beforeStr);
 		}
 		else
 		{
@@ -3526,6 +3538,19 @@ function makeAction(actionGraph, nodes, connections)
 	} else
 	{
 		var slots = compileSlots(actionGraph.slots, localNodes, connections);
+		var beforeStr = "";
+		slots = _.reduce(slots, function(accum, slot)
+		{
+			if(_.isString(slot))
+			{
+				return accum + slot + ",\n";
+			}
+			else
+			{
+				beforeStr += slot.getBeforeStr();
+				return accum + slot.getStr() + ",\n"
+			}
+		}, "[\n") + "]";
 		
 		if(type == "accessSet")
 		{
@@ -3553,13 +3578,15 @@ function makeAction(actionGraph, nodes, connections)
 		else if(type == "set")
 		{
 			var node = new Send(slots, param);
+			return new Var("new Send(" + slots + ", " + param.getStr() + ")", "action", beforeStr + param.getBeforeStr());
 		} else // Seq
 		{
 			if(slots.length == 1)
 			{
 				return slots[0];
 			}
-			var node = new Seq(slots);
+			// var node = new Seq(slots);
+			return new Var("new Seq(" + slots + ")", "action", beforeStr);
 		}
 
 		return node;
@@ -4374,6 +4401,21 @@ function makeEvent(event, nodes, connections)
 	return new Event(condition, action);
 }
 
+function ActionParams(action, inputs)
+{
+	this.action = action;
+	this.inputs = inputs;
+	
+	this.signal = function(params)
+	{
+		_.each(params, function(param, i)
+		{
+			this.inputs[i].set(param.get());
+		}, this);
+		this.action.signal();
+	}
+}
+
 function compileGraph(graph, lib, previousNodes) 
 {
 	// globals init
@@ -4607,22 +4649,8 @@ function compileGraph(graph, lib, previousNodes)
 				});
 			}
 			
-			function ActionParams(action, inputs)
-			{
-				this.action = action;
-				this.inputs = inputs;
-				
-				this.signal = function(params)
-				{
-					_.each(params, function(param, i)
-					{
-						this.inputs[i].set(param.get());
-					}, this);
-					this.action.signal();
-				}
-			}
-			
 			nodes[id[0]] = new ActionParams(null, inputs);
+			src += "var " + id[0] + " = new ActionParams(null, null);\n";
 		}
     }
 
@@ -4733,7 +4761,10 @@ function compileGraph(graph, lib, previousNodes)
 				localNodes[actionGraph.inParams[i][0]] = input;
 			});
 
-			nodes[id[0]].action = makeAction(actionGraph, localNodes);
+			// nodes[id[0]].action = makeAction(actionGraph, localNodes);
+			var action =  makeAction(actionGraph, localNodes);
+			src += action.getBeforeStr();
+			src += id[0] + ".action = " + action.getStr();
 		}
     }
 	
