@@ -52,10 +52,10 @@ function getTypeParams(type)
 var src = "";
 var currentVarIndex = -1;
 var currentVarType = null;
-function newVar(val, type)
+function newVar(val)
 {
 	currentVarIndex++;
-	currentVarType = type;
+	// currentVarType = type;
 	// src += "var __v" + currentVarIndex.toString() + " = " + val + ";\n";
 	return "var __v" + currentVarIndex.toString() + " = " + val + ";\n";
 }
@@ -1196,7 +1196,7 @@ function cartesianProductOf(arrays) {
 	}, [ [] ]);
 };
 
-function Comprehension(nodeGraph, externNodes)
+function ComprehensionNode(nodeGraph, externNodes)
 {
 	this.nodes = {};
 	
@@ -1212,11 +1212,16 @@ function Comprehension(nodeGraph, externNodes)
 
 	// TODO replace SubStores by FuncInput (for reccursion)
 	// And cleanup SubStores of push, pop, dirty ...
+	var beforeStr = "";
+	var arraysStr = "var arrays = [";
+	var inputStr = "var inputs = [";
+	var varStr = "";
 	_.forEach(iterators, function(iterator, index)
 	{
-		exprAndType = makeExprAndType(iterator["in"], externNodes);
-		this.arrays[index] = exprAndType.val;
-		var inputType = exprAndType.val.getType();
+		var expr = makeExpr(iterator["in"], externNodes);
+		this.arrays[index] = expr;
+		arraysStr += expr.getStr() + ", "
+		var inputType = expr.getType();
 		if(getBaseType(inputType) != "list")
 		{
 			error("Comprehension input parameter " + iterator["in"] + " is not a list : " + inputType);
@@ -1225,9 +1230,12 @@ function Comprehension(nodeGraph, externNodes)
 	
 		var inputGraph = iterator["for"];
 		inputs[index] = new ArrayAccess(this.arrays[index]);
+		beforeStr += expr.getBeforeStr();
+		varStr += "var " + inputGraph + " = new ArrayAccess(arrays[" + index.toString() + "], " + typeToJson(inputType) + ");\n";
+		inputStr += inputGraph + ", ";
 		if(_.isString(inputGraph))
 		{
-			this.nodes[inputGraph] = inputs[index];
+			this.nodes[inputGraph] = new Var(inputGraph, inputTemplateType);
 		} else // destruct
 		{
 			var destructGraph = inputGraph.destruct;
@@ -1247,6 +1255,8 @@ function Comprehension(nodeGraph, externNodes)
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
 		};
 	}, this);
+	inputStr += "];\n"
+	arraysStr += "];\n"
 	
 	var mergedNodes = _.merge(this.nodes, externNodes);
 	if("when" in nodeGraph)
@@ -1268,8 +1278,33 @@ function Comprehension(nodeGraph, externNodes)
 		this.addsRefs = true;
 	} 
 
+	this.getBeforeStr = function()
+	{
+		return beforeStr + arraysStr + varStr + inputStr + expr.getBeforeStr() +
+		"var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
+	}
+
+	this.getStr = function()
+	{
+		return "new Comprehension(comp , inputs, [undefined], arrays, false);" 
+	}
+
+	this.getType = function()
+	{
+		return mt("list", [expr.getType()]);
+	}
+}
+
+function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef)
+{
+	this.arrays = arrays;
+	var expr = _expr;
+	var inputs = _inputs;
+	var comprehensionIndices = _comprehensionIndices;
+	var funcRef = _funcRef;
+
 	function connect(val, indices)
-	{					
+	{
 		if(funcRef)
 		{
 			if(expr.addsRefs)
@@ -1328,7 +1363,7 @@ function Comprehension(nodeGraph, externNodes)
 			return _.range(array.length);
 		}));
 
-		if(when != undefined)
+		if(false)
 		{
 			this.outputList = [];
 			_.each(indicesArray, function(indices, i)
@@ -1396,12 +1431,6 @@ function Comprehension(nodeGraph, externNodes)
 		return this.outputList;
 	};
 	
-	this.getPath = function(path)
-    {
-    	// TODO use path ?
-		return this.get();
-    }
-
 	this.getMinMaxTick = function(path)
 	{
 		var maxTicks = 0, maxOfMinTicks = 0;
@@ -1822,7 +1851,7 @@ function StructAccess(node, path, val) {
 
 function ArrayAccess(node, type) {
     this.node = node;
-    if(node == undefined)
+    if(type != undefined)
     {
     	var nodeType = type;	
     }
@@ -2071,7 +2100,8 @@ function compileRef(ref, nodes, promiseAllowed)
 			return new Var("new StructAccess(" + node.getVar() + ", " + compiledPath + ");", type);
 		} else
 		{
-			return new Var(node.getVar() + ".get()", type);
+			// return new Var(node.getStr() + ".get()", type);
+			return new Var(node.getStr(), type);
 		}
 	}
 }
@@ -2135,6 +2165,11 @@ function Var(valStr, type)
 	{
 		return this.type;
 	}
+
+	this.getBeforeStr = function()
+	{
+		return "";
+	}
 }
 
 function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
@@ -2168,8 +2203,8 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		}
 		// newVar("new Store(" + expr.toString() + ", \"" + type + "\")", type);
 		// newVar(expr.toString(), type);
-		// return new Var("new Store(" + expr.toString() + ", \"" + type + "\")", type);
-		return new Var(expr.toString(), type);
+		return new Var("new Store(" + expr.toString() + ", \"" + type + "\")", type);
+		// return new Var(expr.toString(), type);
 		// return new Store(expr, type);
 		// return newVar(expr.toString(), type);
 		// return newVar(type) + " = " + expr.toString + ";";
@@ -2477,7 +2512,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 	} else if("merge" in expr)
 	{
 		// TODO type avec template
-		return {val : new Merge(expr.merge, expr["with"], nodes), type : "merge"};
+		return new Merge(expr.merge, expr["with"], nodes);
 	} else if("let" in expr)
 	{
 		var what = expr.let;
@@ -2487,7 +2522,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			// TODO : utiliser "var" plutot ?
 			mergedNodes[node.def] = makeNode(node, mergedNodes);
 		});
-		return {val : makeExpr(expr["in"], mergedNodes), type : "let"};
+		return makeExpr(expr["in"], mergedNodes);
 	} else if("match" in expr)
 	{
 		function Match(what, cases, elseCase)
@@ -2527,7 +2562,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		}
 
 		// TODO type avec template
-		return {val : new Match(expr.match, expr["cases"], expr["else"	]), type : "match"};
+		return new Match(expr.match, expr["cases"], expr["else"	]);
 	} else if("matchType" in expr)
 	{
 		function MatchType(what, cases)
@@ -2737,59 +2772,40 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		}
 
 		// TODO type avec template
-		return {val : new MatchType(expr.matchType, expr["cases"]), type : "match"};
+		return new MatchType(expr.matchType, expr["cases"]);
 	} else if("comp" in expr)
 	{
-		var node = new Comprehension(expr, nodes);
-		return {val : node, type : "comprehension"};
+		return new ComprehensionNode(expr, nodes);
 	} else if("select" in expr)
 	{
-		var node = new Select(expr, nodes);
-		return {val : node, type : "select"};
+		return new Select(expr, nodes);
 	} else if("closure" in expr)
 	{
-		var closure = new Closure(expr, nodes, genericTypeParams);
-		return {val : closure, type : closure.getType()};
+		return new Closure(expr, nodes, genericTypeParams);
 	}
 }
 
-// function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
-// {
-// 	return makeExprAndType(expr, nodes, genericTypeParams, cloneIfRef).val;
-// }
-
 function makeNode(nodeGraph, nodes, connectionsGraph)
 {
-	if("comp" in nodeGraph)
+	if("val" in nodeGraph)
 	{
-		var node = new Comprehension(nodeGraph, nodes);
-		if("var" in nodeGraph)
-		{
-			node = new Store(node.get(), node.getType());
-		}
-		return node;
-	} else
-	{
-		if("val" in nodeGraph)
-		{
-			var node = makeExpr(nodeGraph.val, nodes);
-		}
-		else
-		{
-			var node = makeExpr(nodeGraph, nodes);
-		}
-		
-		
-		if("slots" in nodeGraph)
-		{
-			connectionsGraph.push({
-				source : node,
-				slots : nodeGraph.slots
-			});
-		}
-
-		return node;
+		var node = makeExpr(nodeGraph.val, nodes);
 	}
+	else
+	{
+		var node = makeExpr(nodeGraph, nodes);
+	}
+	
+	
+	if("slots" in nodeGraph)
+	{
+		connectionsGraph.push({
+			source : node,
+			slots : nodeGraph.slots
+		});
+	}
+
+	return node;
 }
 
 function IfElseParam(param, thenSlot, elseSlot) {
@@ -3399,7 +3415,7 @@ function makeAction(actionGraph, nodes, connections)
 			if(_.isObject(slot) && "loc" in slot)
 			{
 				var subSlot = slot.slots[0];
-				var type = makeExprAndType(slot.set, mergedNodes).val.getType();
+				var type = makeExpr(slot.set, mergedNodes).getType();
 				if(_.isObject(subSlot) && "destruct" in subSlot)
 				{
 					var templates = getTypeParams(type);
@@ -4615,8 +4631,10 @@ function compileGraph(graph, lib, previousNodes)
 				if("var" in nodeGraph)
 				{
 					// TODO : virer les dependances du node
-					src += "var " + id + " = (function(){\n";
-					src += "return new Store(" + node.getStr() + ", " + typeToJson(node.getType()) + ")\n})();\n";
+					// src += "var " + id + " = (function(){\n";
+					// src += "return new Store(" + node.getStr() + ", " + typeToJson(node.getType()) + ")\n})();\n";
+
+					src += "var " + id + " = new Store(" + node.getStr() + ".get(), " + typeToJson(node.getType()) + ");\n";
 					
 					// src += "var " + id + " = (function(){\n" + node.getStr();
 					// src += "\nreturn new Store(" + node.getVar() + ", \"" + node.getType() + "\")\n})();";
@@ -4634,10 +4652,14 @@ function compileGraph(graph, lib, previousNodes)
 					node = new Cache(node);
 				} else
 				{
-					src +=  "var " + id + " = {\nget : function(){\n"
-					// src += node.getStr();
+					src += node.getBeforeStr();
+					src += "var " + id + " = " + node.getStr() + ";\n";
+
 					// src += "return " + node.getVar() + ";\n}\n};\n";
-					src += "return " + node.getStr() + ";\n}};\n";
+					
+					// src +=  "var " + id + " = {\n"
+					// src += "get : function(){\n"
+					// src += "return " + node.getStr() + ";\n}};\n";
 				}
 				function Node(id, type)
 				{
@@ -4649,9 +4671,14 @@ function compileGraph(graph, lib, previousNodes)
 						return this.type;
 					}
 
-					this.getVar = function()
+					this.getStr = function()
 					{
 						return this.id;
+					}
+
+					this.getBeforeStr = function()
+					{
+						return "";
 					}
 				}
 				nodes[id] = new Node(id, node.getType());

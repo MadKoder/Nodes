@@ -1,3 +1,5 @@
 nodes:
-	def a = [1, 2, 3]
-	var b = a
+	# def a = 1 + 2
+	def a = [x + 1 for x in range(0, 5)]
+	# var b = a
+	# var b = a

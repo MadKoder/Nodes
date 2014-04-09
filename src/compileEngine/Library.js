@@ -36,7 +36,7 @@ function typeToJson(type)
 	{
 		return "\"" + baseType + "\"";
 	}
-	return "{\nbase : \"" + baseType + "\",\nparams : [" + _.map(typeParams, typeToJson).join(",") + "\n]}";
+	return "{base : \"" + baseType + "\",params : [" + _.map(typeParams, typeToJson).join(",") + "]}";
 }
 
 // function isSubType(checkedType, refType)
@@ -310,7 +310,7 @@ function mf2(func2, inAndOutTypes)
 {
 	return {
 		params : [["first", inAndOutTypes.inputs[0]], ["second", inAndOutTypes.inputs[1]]],
-		func : function(params) 
+		getStr : function(params) 
 		{	
 			return func2(params[0], params[1]);
 		},
@@ -688,12 +688,7 @@ var functions =
 	(
 		function (start, stop) 
 		{
-			var array = new Array(stop - start + 1);
-			for(var i = 0; i < array.length; i++)
-			{
-				array[i] = i + start;
-			}
-			return array;
+			return "_.range("+start+","+stop+")";			
 		},
 		inOut2("int", "int", mt("list", ["int"]))
 	),
@@ -1471,18 +1466,29 @@ function FunctionNode(func)
 			}
 			src
 		}, this);
+		this.beforeStr = "";
 		this.str = "";
 
 		var index
 		var paramsVar = _.map(fields, function(field)
 		{
 			// this.str += field.getStr();
-			return field.getStr();
+			this.beforeStr += newVar(field.getStr());
+			return getVar() + ".get()";
+			// return field.getStr();
 		}, this);
 		// newVar(func.getStr(paramsVar), func.type);
 		// this.str += newVar(func.getStr(paramsVar));
 		this.str += func.getStr(paramsVar);
 		this.varName = getVar();
+
+		this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
+		
+		this.getBeforeStr = function()
+		{
+			return this.beforeStr;
+		}
+
 		this.getStr = function()
 		{
 			return this.str;
