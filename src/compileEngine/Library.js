@@ -230,7 +230,7 @@ function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 			var inAndOutTypes = getInAndOutTypes(templates[0]);
 			return {
 				params : [["first" , inAndOutTypes.inputs[0]]],
-				func : function(params) 
+				getStr : function(params) 
 				{	
 					return func1(params[0]);
 				},
@@ -1773,7 +1773,7 @@ var nodes =
 					{
 						return this.val;
 					}
-					
+
 					this.get = function()
 					{
 						if(cond.get())

@@ -1722,59 +1722,45 @@ function typeToCompactString(type)
 	return ret;
 }
 
-function StructAccess(node, path, val) {
+function StructAccess(node, path, type) {
 	this.id = storeId++;
     this.node = node;
     this.path = path;
-    if(val == undefined)
-    {
-		var nodeType = node.getType();	
-    }
-    else
-    {
-    	var nodeType = val.__type;
-    }
-	var baseType = getBaseType(nodeType);
-	var templates = getTypeParams(nodeType);
-	check(baseType in library.nodes, "Var type " + baseType + " not found in library");
-	var typeObj = (templates.length > 0) ? 
-		library.nodes[baseType].getInstance(templates) :
-		library.nodes[baseType];
-	var operators = typeObj.operators;
-	this.getPathOperator = operators.getPath;
-	this.setPathOperator = operators.setPath;
-	this.updateOperator = operators.update;
+    this.type = type;
+ //    if(val == undefined)
+ //    {
+	// 	var nodeType = node.getType();	
+ //    }
+ //    else
+ //    {
+ //    	var nodeType = val.__type;
+ //    }
+	// var baseType = getBaseType(nodeType);
+	// var templates = getTypeParams(nodeType);
+	// check(baseType in library.nodes, "Var type " + baseType + " not found in library");
+	// var typeObj = (templates.length > 0) ? 
+	// 	library.nodes[baseType].getInstance(templates) :
+	// 	library.nodes[baseType];
+	// var operators = typeObj.operators;
+	// this.getPathOperator = operators.getPath;
+	// this.setPathOperator = operators.setPath;
+	// this.updateOperator = operators.update;
 	
-	var fields = typeObj.fields;
-	var hiddenFields = typeObj.hiddenFields;
-	try
-	{
-		this.type = getFieldType(fields.concat(hiddenFields), path);
-	}
-	catch(err)
-	{
-		console.log(err);
-		error("No field " + path + " in node of type " + node.getType());		
-	}
+	// var fields = typeObj.fields;
+	// var hiddenFields = typeObj.hiddenFields;
+	// try
+	// {
+	// 	this.type = getFieldType(fields.concat(hiddenFields), path);
+	// }
+	// catch(err)
+	// {
+	// 	console.log(err);
+	// 	error("No field " + path + " in node of type " + node.getType());		
+	// }
 
 	this.get = function()
 	{
-		var ret = this.node.getField(this.path[0]);
-		if(this.path.length > 1)
-		{
-			ret = getPath(ret, this.path.slice(1));
-		}
-		return ret;
-		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
-		// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
-		// et meme changer au cours du temps
-		// if(_.isObject(val) && "__type" in val)
-		// //if(true)
-		// {
-		// 	var operators = library.nodes[typeToCompactString(val.__type)].operators;
-		// 	this.getPathOperator = operators.getPath;
-		// }
-		// return this.getPathOperator(val, this.path);
+		return this.node.getPath(this.path);
 	};
 	
 	this.set = function(val, rootAndPath, subPath)
@@ -2095,11 +2081,14 @@ function compileRef(ref, nodes, promiseAllowed)
 		}
 		var node = getNode(sourceNode, nodes);
 		var path = split.slice(1);
-		var compiledPath = _.reduce(path, function(step)
-			{
-				return step + ",";
-			}, "[");
-		compiledPath += "]";
+		var valPath = "";
+		var nodePath = _.reduce(path, function(accum, step, index)
+		{
+			valPath += "." + step;
+			var comma = (index == 0) ? "" : ", ";
+			return accum + comma + "\"" + step + "\"";
+		}, "[");
+		nodePath += "]";
 		// If reference is an action, no type...
 		// TODO : make another function for resolving references to actions ?
 		if("getType" in node)
@@ -2109,7 +2098,33 @@ function compileRef(ref, nodes, promiseAllowed)
 		//var type = undefined;
 		if(split.length > 1)
 		{
-			return new Var("new StructAccess(" + node.getVar() + ", " + compiledPath + ");", type);
+			var baseType = getBaseType(node.getType());
+			var templates = getTypeParams(node.getType());
+			check(baseType in library.nodes, "Var type " + baseType + " not found in library");
+			var typeObj = (templates.length > 0) ? 
+				library.nodes[baseType].getInstance(templates) :
+				library.nodes[baseType];
+			var operators = typeObj.operators;
+			this.getPathOperator = operators.getPath;
+			this.setPathOperator = operators.setPath;
+			this.updateOperator = operators.update;
+			
+			var fields = typeObj.fields;
+			var hiddenFields = typeObj.hiddenFields;
+			var type;
+			try
+			{
+				type = getFieldType(fields.concat(hiddenFields), path);
+			}
+			catch(err)
+			{
+				console.log(err);
+				error("No field " + path + " in node of type " + node.getType());		
+			}
+
+			var str = "new StructAccess(" + node.getNode() + ", " + nodePath + ", " + type + ")";
+			var valStr = node.getVal() + valPath;
+			return new Var(valStr, str, type);
 		} else
 		{
 			// return new Var(node.getStr() + ".get()", type);
@@ -2231,7 +2246,10 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		var compiledRef = compileRef(ref, nodes);
 		// Utilise par les actions d'affectations, pour copier la valeur et non la reference
 		if(cloneIfRef != undefined && cloneIfRef)
-			return new Var("new Cloner(" + compiledRef.getStr() + ")", compiledRef.getType());
+		{
+			var str = "new Cloner(" + compiledRef.getVal() + ")";
+			return new Var("(" + str + ").get()", str, compiledRef.getType());
+		}
 		return compiledRef;
 	} else if (_.isNumber(expr) || _.isBoolean(expr))
 	{
@@ -2971,6 +2989,7 @@ function concatActions(beginActions, actionGraph)
 	return actionGraph;
 }
 
+var locIndex = 0;
 function makeAction(actionGraph, nodes, connections)
 {
 	
@@ -3438,6 +3457,7 @@ function makeAction(actionGraph, nodes, connections)
 		return [];
 	}
 	
+	var beforeStr = "";
 	// TODO gere action avec juste un local (sert a  rien mais bon ...)
 	// genre a : loc b=c
 	function makeLocals(actionGraph, nodes)
@@ -3462,10 +3482,12 @@ function makeAction(actionGraph, nodes, connections)
 				}
 				else
 				{
-					var locName = subSlot[0];
-					var loc = new Store(null, type);
+					// var loc = new Store(null, type);
+					var locName = "__loc" + locIndex.toString();
+					beforeStr += "var " + locName + " = new Store(null, \"" + type + "\")";
+					var loc = new Var("", "new Store(null, \"" + type + "\")", type);
 					var newLoc = {};
-					newLoc[locName] = loc;
+					newLoc[subSlot[0]] = loc;
 					mergedNodes = _.merge(mergedNodes, newLoc);
 				}
 			} else
@@ -3523,7 +3545,7 @@ function makeAction(actionGraph, nodes, connections)
 		if(param != null)
 		{
 			// return new IfElseParam(param, thenSlot, elseSlot);
-			var beforeStr = param.getBeforeStr() + thenSlot.getBeforeStr();
+			beforeStr += param.getBeforeStr() + thenSlot.getBeforeStr();
 			var str = "new IfElseParam(" + param.getNode() + ", " + thenSlot.getNode();
 			if(elseSlot != null)
 			{
@@ -3545,7 +3567,7 @@ function makeAction(actionGraph, nodes, connections)
 		if(param != null)
 		{
 			// return new WhileParam(param, slot);
-			var beforeStr = param.getBeforeStr() + slot.getBeforeStr();
+			beforeStr += param.getBeforeStr() + slot.getBeforeStr();
 			var str = "new WhileParam(" + param.getNode() + ", " + slot.getNode() + ")";
 			return new Action(str, beforeStr);
 		}
@@ -3556,7 +3578,6 @@ function makeAction(actionGraph, nodes, connections)
 	} else
 	{
 		var slots = compileSlots(actionGraph.slots, localNodes, connections);
-		var beforeStr = "";
 		slots = _.reduce(slots, function(accum, slot)
 		{
 			if(_.isString(slot))
@@ -3629,6 +3650,42 @@ function makeConcreteName(name, typeParamsInstances)
 		return typeParamToString(param[1]);
 	});
 }
+
+function __Obj(structDef, params, type)
+{
+	this.structDef = structDef;
+	this.type = type;
+	this.fields = {};
+	_.each(params, function(param, i)
+	{
+		this.fields[structDef.params[i]] = param;
+	}, this);
+
+	this.get = function()
+	{
+		var struct = {};
+		_.each(this.fields, function(field, key)
+		{
+			struct[key] = field.get();
+		});
+		return struct;
+	}
+
+	this.getPath = function(path)
+	{
+		var field = this.fields[path[0]].get();
+		if(path.length > 1)
+		{
+			return getPath(field, path.slice(1));
+		}
+		return field;
+	}
+
+	this.getType = function()
+	{
+		return this.structDef;
+	}
+};
 
 var structId = 0;
 
@@ -3737,6 +3794,8 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			this.built = false;
 			this.needsNodes = false;
 			this.addsRefs = false;
+			var paramStr = "[";
+			
 			for(var i = 0; i < signalSlotAndFieldGraph.length; i++)
 			{
 				var field = signalSlotAndFieldGraph[i];
@@ -3754,6 +3813,9 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 						this.needsNodes = true;
 					}
 					this.fields[fieldName] = fieldVal;
+
+					var comma = (i == 0) ? "" : ", ";
+					paramStr += comma + fieldVal.getNode();
 				} else if("signal" in field)
 				{
 					function StructSignal() {
@@ -3776,6 +3838,25 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					this.fields.__signals[signalGraph.signal] = [];
 				}
 			};
+			paramStr += "]";
+
+			this.nodeStr = "new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\")";
+			this.valStr = "(" + this.nodeStr + ").get()";
+
+			this.getBeforeStr = function()
+			{
+				return "";
+			}
+
+			this.getNode = function()
+			{
+				return this.nodeStr;
+			}
+
+			this.getVal = function()
+			{
+				return this.valStr;
+			}
 
 			this.getMinMaxTick = function(path)
 			{
@@ -4467,7 +4548,7 @@ function compileGraph(graph, lib, previousNodes)
 	library = lib;
 	connections = [];
 	connectionsAllowed = false;
-	src = "";
+	src = "var float = {};\n";
 
 	//return;
 	
@@ -4627,6 +4708,33 @@ function compileGraph(graph, lib, previousNodes)
 					else
 					{
 						makeStruct(structGraph, []);
+
+						function defStruct(structGraph, inheritedFields)
+						{
+							var signalSlotAndFieldGraph = inheritedFields.concat(structGraph.fields ? structGraph.fields : []);
+	
+							var paramStr = "";
+							var fieldsGraph = [];
+							var signalAndSlotsGraph = [];
+							_.each(signalSlotAndFieldGraph, function(item, index)
+							{
+								// A field
+								if(_.isArray(item))
+								{
+									fieldsGraph.push(item);
+									var comma = (index == 0) ? "" : ", ";
+									paramStr += comma + "\"" + item[0] + "\"";
+								}
+								else
+								{
+									signalAndSlotsGraph.push(item);
+								}
+							});
+							var str = "{params : [" + paramStr + "]}";
+							return str;
+						}
+
+						src += "var " + structGraph.name + " = " + defStruct(structGraph, []) + ";\n";
 
 						function makeSubs(subs, inheritedFields, superClassName, isGroup)
 						{

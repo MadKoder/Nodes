@@ -21,7 +21,7 @@ var library =
 
 
 
-$.get("test.nodes", function( text ) {
+$.get("snake.nodes", function( text ) {
 // $.get( "structSlots.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
@@ -35,7 +35,7 @@ $.get("test.nodes", function( text ) {
 	// eval(src);
 	// $("#test").html(code.a.get());
 	tick.signal();
-	$test.html(b.get());
+	$test.html(c.get());
 }
 , "text" // Commenter pour lire du json
 );
