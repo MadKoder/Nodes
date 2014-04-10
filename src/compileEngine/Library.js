@@ -312,7 +312,7 @@ function mf2(func2, inAndOutTypes)
 		params : [["first", inAndOutTypes.inputs[0]], ["second", inAndOutTypes.inputs[1]]],
 		getStr : function(params) 
 		{	
-			return func2(params[0] + ".get()", params[1] + ".get()");
+			return func2(params[0], params[1]);
 		},
 		type : inAndOutTypes.output
 	}
@@ -365,7 +365,7 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 				params : [["first" , inAndOutTypes.inputs[0]], ["second" , inAndOutTypes.inputs[1]]],
 				getStr : function(params) 
 				{	
-					return func2(params[0] + ".get()", params[1] + ".get()");
+					return func2(params[0], params[1]);
 				},
 				type : inAndOutTypes.output				
 			}
@@ -1474,15 +1474,15 @@ function FunctionNode(func)
 		{
 			_.each(func.inputNodes, function(input, i)
 			{
-				inputStr += "var " + input.getStr() + " = " + params[i].getStr() + ";";
+				inputStr += "var " + input.getNode() + " = " + params[i].getNode() + ";";
 			});
 		}
 		var paramsVar = _.map(params, function(param)
 		{
 			// this.str += field.getStr();
-			this.beforeStr += newVar(param.getStr());
-			return getVar(); // + ".get()";
-			// return "(" + param.getStr() + ").get()";
+			// this.beforeStr += newVar(param.getNode());
+			// return getVar(); // + ".get()";
+			return param.getVal();
 		}, this);
 		// newVar(func.getStr(paramsVar), func.type);
 		// this.str += newVar(func.getStr(paramsVar));
@@ -1490,17 +1490,25 @@ function FunctionNode(func)
 		this.varName = getVar();
 
 		// this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
-		// this.str = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ")"
+		this.val = this.str;
+		this.nodeStr = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ")"
 		
 		this.getBeforeStr = function()
 		{
-			return inputStr + "\n" + this.beforeStr;
+			// return inputStr + "\n" + this.beforeStr;
+			return this.beforeStr;
 		}
 
-		this.getStr = function()
+		this.getNode = function()
 		{
-			return this.str;
+			return this.nodeStr;
 		}
+
+		this.getVal = function()
+		{
+			return this.val;
+		}
+
 		this.getVar = function()
 		{
 			return this.varName;

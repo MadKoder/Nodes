@@ -1,9 +1,11 @@
 functions:
 	inc(int v)
-		v + 1
+		v+1
 nodes:
 	# var a = 1 + 2
-	var a = [[x + 1 for x in range(0, 5)], [x + 2 for x in range(0, 3)]]
+	def l =  range(0, 5)
+	# var a = [inc(x) for x in range(0, 3)]
+	def a = [[inc(x) for x in l], [x + 2 for x in range(0, 3)]]
 	# def b = [x + 2 for x in range(0, 5)]
 	# var b = a + 2
 	# var b = inc(a)

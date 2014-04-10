@@ -1221,8 +1221,8 @@ function ComprehensionNode(nodeGraph, externNodes)
 	_.forEach(iterators, function(iterator, index)
 	{
 		var expr = makeExpr(iterator["in"], externNodes);
-		this.arrays[index] = expr;
-		arraysStr += expr.getStr() + ", "
+		
+		arraysStr += expr.getNode() + ", "
 		var inputType = expr.getType();
 		if(getBaseType(inputType) != "list")
 		{
@@ -1231,13 +1231,14 @@ function ComprehensionNode(nodeGraph, externNodes)
 		var inputTemplateType = getTypeParams(inputType)[0];
 	
 		var inputGraph = iterator["for"];
-		inputs[index] = new ArrayAccess(this.arrays[index]);
+		
 		beforeStr += expr.getBeforeStr();
-		varStr += "var " + inputGraph + " = new ArrayAccess(arrays" + compIndex.toString() + "[" + index.toString() + "], " + typeToJson(inputType) + ");\n";
-		inputStr += inputGraph + ", ";
+		var arrayAccessName = "aa" + compIndex.toString();
+		varStr += "var " + arrayAccessName + " = new ArrayAccess(arrays" + compIndex.toString() + "[" + index.toString() + "], " + typeToJson(inputType) + ");\n";
+		inputStr += arrayAccessName + ", ";
 		if(_.isString(inputGraph))
 		{
-			this.nodes[inputGraph] = new Var(inputGraph, inputTemplateType);
+			this.nodes[inputGraph] = new Var(arrayAccessName + ".get()", arrayAccessName, inputTemplateType);
 		} else // destruct
 		{
 			var destructGraph = inputGraph.destruct;
@@ -1285,14 +1286,19 @@ function ComprehensionNode(nodeGraph, externNodes)
 	this.getBeforeStr = function()
 	{
 		return beforeStr + arraysStr + varStr + inputStr + expr.getBeforeStr() +
-		// "var comp" + this.compIndex.toString() + " = " + expr.getStr() + ";\n";
-		"var comp" + this.compIndex.toString() + " = new Func(function(){ " + " return " + expr.getStr() + ";}, " + typeToJson(expr.getType()) + ");\n";
+		"var comp" + this.compIndex.toString() + " = " + expr.getNode() + ";\n";
+		// "var comp" + this.compIndex.toString() + " = new Func(function(){ " + " return " + expr.getStr() + ";}, " + typeToJson(expr.getType()) + ");\n";
 		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
 	}
 
-	this.getStr = function()
+	this.getNode = function()
 	{
 		return "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", [undefined], arrays" + this.compIndex.toString() + ", false)" 
+	}
+
+	this.getVal = function()
+	{
+		return "(" + this.getNode() + ").get()";
 	}
 
 	this.getType = function()
@@ -2107,7 +2113,8 @@ function compileRef(ref, nodes, promiseAllowed)
 		} else
 		{
 			// return new Var(node.getStr() + ".get()", type);
-			return new Var(node.getStr(), type);
+			// return new Var(node.getStr(), type);
+			return node;
 		}
 	}
 }
@@ -2157,10 +2164,11 @@ function Cloner(ref)
 // 	}
 // }
 
-function Var(valStr, type, beforeStr)
+function Var(valStr, nodeStr, type, beforeStr)
 {
+	this.valStr = valStr;
+	this.nodeStr = nodeStr;
 	this.type = type;
-	this.str = valStr;
 	if(beforeStr != undefined)
 	{
 		this.beforeStr = beforeStr;
@@ -2170,9 +2178,14 @@ function Var(valStr, type, beforeStr)
 		this.beforeStr = "";
 	}
 
-	this.getStr = function()
+	this.getVal = function()
 	{
-		return this.str;
+		return this.valStr;
+	}
+
+	this.getNode = function()
+	{
+		return this.nodeStr;
 	}
 
 	this.getType = function()
@@ -2217,7 +2230,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		}
 		// newVar("new Store(" + expr.toString() + ", \"" + type + "\")", type);
 		// newVar(expr.toString(), type);
-		return new Var("new Store(" + expr.toString() + ", \"" + type + "\")", type);
+		return new Var(expr.toString(), "new Store(" + expr.toString() + ", \"" + type + "\")", type);
 		// return new Var(expr.toString(), type);
 		// return new Store(expr, type);
 		// return newVar(expr.toString(), type);
@@ -2283,7 +2296,9 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 	{
 		var typeParam = null;
 		var beforeStr = "";
-		var str = _.reduce(expr.array, function(accum, elt, index)
+		var valStr = "[";
+		var nodeStr = "[";
+		_.each(expr.array, function(elt, index)
 		{
 			var expr = makeExpr(elt, nodes);
 			beforeStr += expr.getBeforeStr();
@@ -2296,36 +2311,14 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 				typeParam = getCommonSuperClass(typeParam, expr.getType())
 			}
 
-			if(index == 0)
-			{
-				return accum + expr.getStr();
-			}
-			return accum + "," + expr.getStr();
+			var comma = (index == 0) ? "" : ", ";
+			valStr += comma + expr.getVal();
+			nodeStr += comma + expr.getNode();
 		}, "[");
-		str += "]";
-		var l = expr.array.map(
-			function(element, index)
-			{
-				// FIXME : type ?
-				return makeExpr(element, nodes);
-			}
-		);
-		var templateType = undefined;
-		var listNode = new List(l);
+		valStr += "]";
+		nodeStr += "]";
 		
-		_.each(this.list, function(item)
-		{
-			if(this.typeParam == null)
-			{
-				this.typeParam = item.getType();
-			} else
-			{
-				this.typeParam = getCommonSuperClass(this.typeParam, item.getType())
-			}
-		}, this);
-		// return {val : listNode, type : listNode.getType()};
-		return new Var("new List(" + str + ")", mListType(typeParam), beforeStr);
-		// return new Var(str, mListType(typeParam), beforeStr);
+		return new Var(valStr, "new List(" + nodeStr + ")", mListType(typeParam), beforeStr);		
 	} else if("dict" in expr)
 	{
 		var d = _.mapValues(expr.dict, function(val)
@@ -4503,7 +4496,9 @@ function compileGraph(graph, lib, previousNodes)
 						_.each(funcGraph["in"], function(paramAndType)
 						{
 							var type = paramAndType[1];
-							var node = new Var(paramAndType[0], paramAndType[1]);
+							// version when function gets ref 
+							// var node = new Var(paramAndType[0] + ".get()", paramAndType[0], paramAndType[1]);
+							var node = new Var(paramAndType[0], paramAndType[0], paramAndType[1]);
 							node.func = funcGraph.id;
 							func.inputNodes.push(node);
 							// func.internalNodes[paramAndType[0]] = node;
@@ -4547,7 +4542,7 @@ function compileGraph(graph, lib, previousNodes)
 					});
 					src += "function " + funcGraph.id + "(" + paramStr + "){\n";
 					src += func.expr.getBeforeStr();
-					src += "return " + func.expr.getStr() + ";\n};\n";
+					src += "return " + func.expr.getVal() + ";\n};\n";					
 
 					// if(connections.length > beforeConnectionsLength)
 					if(func.needsNodes)
@@ -4719,7 +4714,7 @@ function compileGraph(graph, lib, previousNodes)
 					// src += "return new Store(" + node.getStr() + ", " + typeToJson(node.getType()) + ")\n})();\n";
 
 					src += node.getBeforeStr();
-					src += "var " + id + " = new Store(" + node.getStr() + ".get(), " + typeToJson(node.getType()) + ");\n";
+					src += "var " + id + " = new Store(" + node.getVal() + ", " + typeToJson(node.getType()) + ");\n";
 					// src += "var " + id + " = new Store(" + node.getStr() + ".get(), " + typeToJson(node.getType()) + ");\n";
 					
 					// src += "var " + id + " = (function(){\n" + node.getStr();
@@ -4739,8 +4734,8 @@ function compileGraph(graph, lib, previousNodes)
 				} else
 				{
 					src += node.getBeforeStr();
-					// src += "var " + id + " = " + node.getStr() + ";\n";
-					src += "var " + id + " = " + "new Func(function(){ " + " return " + node.getStr() + ";}, " + typeToJson(func.type) + ")\n;";
+					src += "var " + id + " = " + node.getNode() + ";\n";
+					// src += "var " + id + " = " + "new Func(function(){ " + " return " + node.getStr() + ";}, " + typeToJson(func.type) + ")\n;";
 					// this.str = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ")"
 
 					// src += "return " + node.getVar() + ";\n}\n};\n";
@@ -4749,27 +4744,8 @@ function compileGraph(graph, lib, previousNodes)
 					// src += "get : function(){\n"
 					// src += "return " + node.getStr() + ";\n}};\n";
 				}
-				function Node(id, type)
-				{
-					this.id = id;
-					this.type = type;
-
-					this.getType = function()
-					{
-						return this.type;
-					}
-
-					this.getStr = function()
-					{
-						return this.id;
-					}
-
-					this.getBeforeStr = function()
-					{
-						return "";
-					}
-				}
-				nodes[id] = new Node(id, node.getType());
+				
+				nodes[id] = new Var(id + ".get()", id, node.getType());
 				
 				// nodes[id] = node;
 				// src += "var " + id + " = " + node.getSrc();
