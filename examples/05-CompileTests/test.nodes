@@ -1,16 +1,19 @@
+structs:
+	Vec2 :
+		float x
+		float y
 functions:
-	inc(int v)
-		v+1
+	int inc(int v)
+		if v < 10 then inc(v + 1) else v
 nodes:
-	# var a = 1 + 2
-	def l =  range(0, 5)
+	var a = 1
+	# def l =  range(0, 5)
 	# var a = [inc(x) for x in range(0, 3)]
-	def a = [[inc(x) for x in l], [x + 2 for x in range(0, 3)]]
+	# def a = [[inc(x) for x in l], [x + 2 for x in range(0, 3)]]
 	# def b = [x + 2 for x in range(0, 5)]
-	# var b = a + 2
+	def b = if a <= 10 then a else 20
 	# var b = inc(a)
-# actions :
-# 	tick : 
-# 		while a < 10 do 
-# 			a = a + 1
-# 		b = b + 10
+actions :
+	tick : 
+		while a < 10 do 
+			a = a + 1		

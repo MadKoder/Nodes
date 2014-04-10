@@ -1754,6 +1754,26 @@ var nodes =
 					
 					this.type = "if";
 
+					this.beforeStr = cond.getBeforeStr() + first.getBeforeStr() + second.getBeforeStr();
+					var str = "if(" + cond.getVal() + "){return " + first.getVal() + ";}else{return " + second.getVal() + ";}";
+					this.nodeStr = "new Func(function(){ " + str + ";}, " + typeToJson(typeParam) + ")"
+					this.val = "(" + this.nodeStr + ").get()";
+					
+					this.getBeforeStr = function()
+					{
+						return this.beforeStr;
+					}
+
+					this.getNode = function()
+					{
+						return this.nodeStr;
+					}
+
+					this.getVal = function()
+					{
+						return this.val;
+					}
+					
 					this.get = function()
 					{
 						if(cond.get())
@@ -1762,6 +1782,7 @@ var nodes =
 						}
 						return second.get();
 					};
+
 					this.update = function(val, ticks, parentTick)
 					{
 						// If condition didn't change, update result

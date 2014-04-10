@@ -2199,6 +2199,29 @@ function Var(valStr, nodeStr, type, beforeStr)
 	}
 }
 
+function Action(nodeStr, beforeStr)
+{
+	this.nodeStr = nodeStr;
+	if(beforeStr != undefined)
+	{
+		this.beforeStr = beforeStr;
+	}
+	else
+	{
+		this.beforeStr = "";
+	}
+
+	this.getNode = function()
+	{
+		return this.nodeStr;
+	}
+
+	this.getBeforeStr = function()
+	{
+		return this.beforeStr;
+	}
+}
+
 function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 {
 	if(isRef(expr))
@@ -3501,14 +3524,14 @@ function makeAction(actionGraph, nodes, connections)
 		{
 			// return new IfElseParam(param, thenSlot, elseSlot);
 			var beforeStr = param.getBeforeStr() + thenSlot.getBeforeStr();
-			var str = "new IfElseParam(" + param.getStr() + ", " + thenSlot.getStr();
+			var str = "new IfElseParam(" + param.getNode() + ", " + thenSlot.getNode();
 			if(elseSlot != null)
 			{
-				str += ", " + elseSlot.getStr();
+				str += ", " + elseSlot.getNode();
 				beforeStr += elseSlot.getBeforeStr();
 			}
 			str += ")";
-			return new Var(str, "action", beforeStr);
+			return new Action(str, beforeStr);
 		}
 		else
 		{
@@ -3523,8 +3546,8 @@ function makeAction(actionGraph, nodes, connections)
 		{
 			// return new WhileParam(param, slot);
 			var beforeStr = param.getBeforeStr() + slot.getBeforeStr();
-			var str = "new WhileParam(" + param.getStr() + ", " + slot.getStr() + ")";
-			return new Var(str, "action", beforeStr);
+			var str = "new WhileParam(" + param.getNode() + ", " + slot.getNode() + ")";
+			return new Action(str, beforeStr);
 		}
 		else
 		{
@@ -3543,7 +3566,7 @@ function makeAction(actionGraph, nodes, connections)
 			else
 			{
 				beforeStr += slot.getBeforeStr();
-				return accum + slot.getStr() + ",\n"
+				return accum + slot.getNode() + ",\n"
 			}
 		}, "[\n") + "]";
 		
@@ -3573,7 +3596,7 @@ function makeAction(actionGraph, nodes, connections)
 		else if(type == "set")
 		{
 			var node = new Send(slots, param);
-			return new Var("new Send(" + slots + ", " + param.getStr() + ")", "action", beforeStr + param.getBeforeStr());
+			return new Action("new Send(" + slots + ", " + param.getNode() + ")", beforeStr + param.getBeforeStr());
 		} else // Seq
 		{
 			if(slots.length == 1)
@@ -3581,7 +3604,7 @@ function makeAction(actionGraph, nodes, connections)
 				return slots[0];
 			}
 			// var node = new Seq(slots);
-			return new Var("new Seq(" + slots + ")", "action", beforeStr);
+			return new Action("new Seq(" + slots + ")", beforeStr);
 		}
 
 		return node;
@@ -4784,7 +4807,7 @@ function compileGraph(graph, lib, previousNodes)
 			// nodes[id[0]].action = makeAction(actionGraph, localNodes);
 			var action =  makeAction(actionGraph, localNodes);
 			src += action.getBeforeStr();
-			src += id[0] + ".action = " + action.getStr();
+			src += id[0] + ".action = " + action.getNode();
 		}
     }
 	
