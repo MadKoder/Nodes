@@ -31,12 +31,12 @@ actions :
 	rotLeft :
 		direction = rotateLeft(direction)
 events:
+	contains(tail(snake), headPos, eqVec2) :
+		snakeLength = 10
+		snake = [Vec2(0, 0)]
+		direction = Vec2(1, 0)
 	eqVec2(headPos, applePos) :
 		snakeLength = snakeLength + 1
 		loc newApplePos = applePos
 		while(contains(snake, newApplePos, eqVec2)) do newApplePos = Vec2(<-Random(size.x), <-Random(size.x))
 		applePos = newApplePos
-	contains(tail(snake), headPos, eqVec2) :
-		snakeLength = 10
-		snake = [Vec2(0, 0)]
-		direction = Vec2(1, 0)

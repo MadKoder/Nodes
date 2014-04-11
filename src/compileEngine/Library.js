@@ -28,6 +28,18 @@ function typeToString(type)
 	return baseType + "<" + _.map(typeParams, typeToString).join(",") + ">";
 }
 
+function typeToCompactString(type)
+{
+	var baseType = getBaseType(type);
+	var typeParams = getTypeParams(type);
+	if(typeParams.length == 0)
+	{
+		return baseType;
+	}
+	var ret = baseType + "$" + (_.map(typeParams, typeToCompactString)).join("$");
+	return ret;
+}
+
 function typeToJson(type)
 {
 	var baseType = getBaseType(type);
@@ -479,30 +491,33 @@ function mt3f3(func3, getInAndOutTypes, guessTypeParamsFunc)
 	}
 }
 
+function Random(max)
+{
+	this.max = max
+	this.slots = {};
+	this.signal = function(v)
+	{
+		var val =  Math.floor(Math.random() * this.max.get());
+		for(var i = 0; i < this.slots.length; i++)
+		{
+			// TODO gerer autre chose que store ?
+			this.slots[i].set(val);
+		}
+	};
+	this.getType = function()
+	{
+		return "int";
+	}
+}
+
 function makeRandom() 
 {	
-	function Random(fields)
-	{
-		this.max = fields.max
-		this.slots = {};
-		this.signal = function(v)
-		{
-			var val =  Math.floor(Math.random() * this.max.get());
-			for(var i = 0; i < this.slots.length; i++)
-			{
-				// TODO gerer autre chose que store ?
-				this.slots[i].set(val);
-			}
-		};
-		this.getType = function()
-		{
-			return "int";
-		}
-	}
-
 	return {
 		"fields" : [["max", "float"]],
-		"builder" : Random
+		"builder" : function(fields)
+		{
+			return new Var("", "new Random(" + fields.max.getNode() + ")", "int");
+		}
 	};
 }
 
@@ -647,6 +662,45 @@ function pushBack(a, v)
 	newA.push(v);
 	return newA;
 }
+
+function Contains(instanceParams) 
+{	
+	this.arrayInput = new FuncInput(instanceParams);
+	this.arrayAccess = new ArrayAccess(this.arrayInput);
+
+	this.get = function(params)
+	{
+		var array = params[0];
+		var arrayLength = array.get().length;
+		this.arrayInput.push(array);
+		var val = params[1];
+		var funcInstance = params[2].get();
+		for(var i = 0; i < arrayLength; i++)
+		{
+			// Il faut appeler funcInstance.func pour conserver le "this",
+			// et non pas cacher la methode func puis l'appeler seule
+			this.arrayAccess.push(i);
+			if(funcInstance.needsNodes)
+			{
+				var res = funcInstance.funcRef([this.arrayAccess, val]);
+			}
+			else
+			{
+				var res = funcInstance.func([this.arrayAccess.get(), val.get()]);
+			}
+			
+			if(res)
+			{
+				this.arrayAccess.pop();
+				this.arrayInput.pop();
+				return true;
+			}
+			this.arrayAccess.pop();
+		}
+		this.arrayInput.pop();
+		return false;
+	}
+};
 
 var functions = 
 {
@@ -1344,42 +1398,17 @@ var functions =
 			{
 				this.params = [["list" , mListType(templates[0])], ["item" , templates[0]], ["function" , inOut2(templates[0], templates[0], "bool")]];
 				this.needsNodes = true;
-				this.arrayInput = new FuncInput(mListType(templates[0]));
-				this.arrayAccess = new ArrayAccess(this.arrayInput);
-				this.funcRef = function(params) 
-				{	
-					var array = params[0];
-					var arrayLength = array.get().length;
-					this.arrayInput.push(array);
-					var val = params[1];
-					var funcInstance = params[2].get();
-					for(var i = 0; i < arrayLength; i++)
-					{
-						// Il faut appeler funcInstance.func pour conserver le "this",
-						// et non pas cacher la methode func puis l'appeler seule
-						this.arrayAccess.push(i);
-						if(funcInstance.needsNodes)
-						{
-							var res = funcInstance.funcRef([this.arrayAccess, val]);
-						}
-						else
-						{
-							var res = funcInstance.func([this.arrayAccess.get(), val.get()]);
-						}
-						
-						if(res)
-						{
-							this.arrayAccess.pop();
-							this.arrayInput.pop();
-							return true;
-						}
-						this.arrayAccess.pop();
-					}
-					this.arrayInput.pop();
-					return false;
-				};
-				this.type = "bool",
 				this.templates = templates;
+				this.type = "bool";
+				this.getBeforeStr = function()
+				{
+					return "var contains" + typeToCompactString(templates[0]) + " = new Contains(" + typeToJson(mListType(templates[0])) + ");\n";
+				}
+
+				this.getStrRef = function(params)
+				{
+					return "contains" + typeToCompactString(templates[0]) + ".get(" + params + ")";
+				}
 			}
 			return new instance(templates);
 		}
@@ -1417,10 +1446,11 @@ var functions =
 	}
 };
 
-function Func(func, type)
+function Func(func, type, paramsNode)
 {
 	this.func = func;
 	this.type = type;
+	this.paramsNode = paramsNode;
 	this.get = function()
 	{
 		return this.func();
@@ -1430,6 +1460,14 @@ function Func(func, type)
 	{
 		return this.type;
 	}
+
+	// this.addSink = function(sink)
+	// {
+	// 	_.each(this.paramsNode, function(param)
+	// 	{
+	// 		param.addSink(sink);
+	// 	});
+	// };
 }
 
 var globalTick = 0;
@@ -1477,21 +1515,36 @@ function FunctionNode(func)
 				inputStr += "var " + input.getNode() + " = " + params[i].getNode() + ";";
 			});
 		}
-		var paramsVar = _.map(params, function(param)
+		var paramsVal = _.map(params, function(param)
 		{
 			// this.str += field.getStr();
 			// this.beforeStr += newVar(param.getNode());
 			// return getVar(); // + ".get()";
 			return param.getVal();
 		}, this);
+		var paramsNodeStr = "[";
+		var paramsNode = _.map(params, function(param, index)
+		{
+			var comma = (index == 0) ? "" : ", ";									
+			var node = param.getNode();
+			paramsNodeStr += comma + node;
+			return node;
+		}, this);
 		// newVar(func.getStr(paramsVar), func.type);
 		// this.str += newVar(func.getStr(paramsVar));
-		this.str += func.getStr(paramsVar);
+		if(func.needsNodes)
+		{
+			this.str += func.getStrRef(paramsNode);
+		}
+		else
+		{
+			this.str += func.getStr(paramsVal);
+		}
 		this.varName = getVar();
 
 		// this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
 		this.val = this.str;
-		this.nodeStr = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ")"
+		this.nodeStr = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ")";
 		
 		this.getBeforeStr = function()
 		{

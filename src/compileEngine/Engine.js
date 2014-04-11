@@ -1710,18 +1710,6 @@ function getFieldType(fields, path)
 	return getFieldType(library.nodes[fieldType].fields, _.tail(path));
 }
 
-function typeToCompactString(type)
-{
-	var baseType = getBaseType(type);
-	var typeParams = getTypeParams(type);
-	if(typeParams.length == 0)
-	{
-		return baseType;
-	}
-	var ret = baseType + "#" + (_.map(typeParams, typeToCompactString)).join("#");
-	return ret;
-}
-
 function StructAccess(node, path, type) {
 	this.id = storeId++;
     this.node = node;
@@ -2039,7 +2027,7 @@ function compileRef(ref, nodes, promiseAllowed)
 		var tupleGraph = ref.destruct;
 		var tuple = _.map(tupleGraph, function(path){return compileRef(path, nodes, promiseAllowed).val;});
 		var templates = _.map(tuple, function(node){return node.getType();})
-		return {val : new Destruct(tuple), type : mt("tuple", templates)};
+		return new Destruct(tuple);
 	}
 	else
 	{
@@ -2060,7 +2048,7 @@ function compileRef(ref, nodes, promiseAllowed)
 			var func = library.functions[sourceNode];
 			if("guessTypeParams" in func)
 			{
-				return {val : new StoreFunctionTemplate(library.functions[sourceNode], null), type : null};
+				return new StoreFunctionTemplate(library.functions[sourceNode], null);
 			}
 			// TODO type
 			function makeFunctionType(func)
@@ -2071,13 +2059,14 @@ function compileRef(ref, nodes, promiseAllowed)
 				};
 			}
 			var func = library.functions[sourceNode];
-			return {val : new Store(func, makeFunctionType(func)), type : null};
+			// return new Store(func, makeFunctionType(func));
+			return new Var(sourceNode + "()", sourceNode, makeFunctionType(func));
 		}
 		
 		if(promiseAllowed && !(sourceNode in nodes))
 		{
 			promiseCounter++;
-			return {val : {__promise : ref}};
+			return {__promise : ref};
 		}
 		var node = getNode(sourceNode, nodes);
 		var path = split.slice(1);
@@ -2247,7 +2236,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		// Utilise par les actions d'affectations, pour copier la valeur et non la reference
 		if(cloneIfRef != undefined && cloneIfRef)
 		{
-			var str = "new Cloner(" + compiledRef.getVal() + ")";
+			var str = "new Cloner(" + compiledRef.getNode() + ")";
 			return new Var("(" + str + ").get()", str, compiledRef.getType());
 		}
 		return compiledRef;
@@ -2332,7 +2321,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		var dictTypeParam = getDictTypeParam(ref.getType());
 		// TODO For array
 		// TODO check type of ref, type of indexKey
-		return {val : new DictAccess(ref, indexOrKey, dictTypeParam), type : mt("Maybe", [dictTypeParam])};
+		return new DictAccess(ref, indexOrKey, dictTypeParam);
 	} else if("array" in expr)
 	{
 		var typeParam = null;
@@ -2380,7 +2369,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 				error("Dict value types are not the same, found " + valType + " and " + newType);
 			}
 		});
-		return {val : new Dict(d, valType), type : {base : "dict", params : ["string", valType]}};
+		return new Dict(d, valType);
 	} else  if("string" in expr)
 	{
 		return new Var("\"" + expr.string + "\"", "string");
@@ -3394,6 +3383,7 @@ function makeAction(actionGraph, nodes, connections)
 	
 	// Les generateurs (les <-) sont transformes en Store, 
 	// qui sont alimentes au debut de l'actionGraph
+	var beforeStr = "";
 	var generators = [];
 	function makeGenerators(val)
 	{
@@ -3402,17 +3392,20 @@ function makeAction(actionGraph, nodes, connections)
 			var producerGraph = _.cloneDeep(val);
 			producerGraph.type = producerGraph.msg;
 			var msgProducer = makeNode(producerGraph, nodes, {});
-			var msgStore = new SubStore(msgProducer.getType());
-			msgProducer.slots = [msgStore];
 			var producerName = "__msgProducer" + msgIndex;
-			nodes[producerName] = msgProducer;
-			generators.push(producerName);
-
+			beforeStr += "var " + producerName + " = " + msgProducer.getNode() + ";\n";
+			// var msgStore = new SubStore(msgProducer.getType());
+			var msgStore = new Var("", "new Store( " + typeToJson(msgProducer.getType()) + ")", msgProducer.getType());
 			var storeName = "__msgStore" + msgIndex;
 			if("def" in val)
 				storeName = val.def;
 			nodes[storeName] = msgStore;
-			
+			beforeStr += "var " + storeName + " = " + msgStore.getNode() + ";\n";
+			beforeStr += "__msgProducer" + msgIndex.toString() + ".slots = [" + storeName + "];\n";
+			// msgProducer.slots = [msgStore];
+			nodes[producerName] = msgProducer;
+			generators.push(producerName);
+
 			msgIndex++;
 			
 			return [storeName];
@@ -3457,7 +3450,6 @@ function makeAction(actionGraph, nodes, connections)
 		return [];
 	}
 	
-	var beforeStr = "";
 	// TODO gere action avec juste un local (sert a  rien mais bon ...)
 	// genre a : loc b=c
 	function makeLocals(actionGraph, nodes)
@@ -3484,8 +3476,8 @@ function makeAction(actionGraph, nodes, connections)
 				{
 					// var loc = new Store(null, type);
 					var locName = "__loc" + locIndex.toString();
-					beforeStr += "var " + locName + " = new Store(null, \"" + type + "\")";
-					var loc = new Var("", "new Store(null, \"" + type + "\")", type);
+					beforeStr += "var " + locName + " = new Store(null, " + typeToJson(type) + ");\n";
+					var loc = new Var(locName + ".get()", locName, type);
 					var newLoc = {};
 					newLoc[subSlot[0]] = loc;
 					mergedNodes = _.merge(mergedNodes, newLoc);
@@ -3780,6 +3772,8 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			}
 		}
 	}
+
+	var instanceIndex = 0;
 	
 	function makeBuilder(structGraph)
 	{
@@ -3795,7 +3789,9 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			this.needsNodes = false;
 			this.addsRefs = false;
 			var paramStr = "[";
-			
+			this.instanceName = concreteName + instanceIndex.toString();
+			instanceIndex++;
+
 			for(var i = 0; i < signalSlotAndFieldGraph.length; i++)
 			{
 				var field = signalSlotAndFieldGraph[i];
@@ -3840,11 +3836,22 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			};
 			paramStr += "]";
 
+			// this.nodeStr = this.instanceName;
 			this.nodeStr = "new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\")";
-			this.valStr = "(" + this.nodeStr + ").get()";
+			// this.valStr = this.instanceName + ".get()";
+			this.valStr = "{\n";
+			_.each(this.fields, function(field, key)
+			{
+				if((key != "__type") && (key != "__views"))
+				{
+					this.valStr += "\t" + key + " : " + field.getVal() + ",\n";
+				}
+			}, this);
+			this.valStr += "}";
 
 			this.getBeforeStr = function()
 			{
+				// return "var "  + this.instanceName + " = new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\");\n";
 				return "";
 			}
 
@@ -4522,7 +4529,7 @@ function makeEvent(event, nodes, connections)
 	var condition = makeExpr(event["when"], nodes);
 	var action = makeAction(event["do"], nodes, connections);
 
-	return new Event(condition, action);
+	return new Var("", "new Event(" + condition.getNode() + ", " + action.getNode() + ")", "", condition.getBeforeStr() + action.getBeforeStr());
 }
 
 function ActionParams(action, inputs)
@@ -4549,6 +4556,7 @@ function compileGraph(graph, lib, previousNodes)
 	connections = [];
 	connectionsAllowed = false;
 	src = "var float = {};\n";
+	src += "var int = {};\n";
 
 	//return;
 	
@@ -4915,15 +4923,19 @@ function compileGraph(graph, lib, previousNodes)
 			// nodes[id[0]].action = makeAction(actionGraph, localNodes);
 			var action =  makeAction(actionGraph, localNodes);
 			src += action.getBeforeStr();
-			src += id[0] + ".action = " + action.getNode();
+			src += id[0] + ".action = " + action.getNode() + ";\n";
 		}
     }
 	
 	var eventsGraph = graph.events;
+	var eventIndex = 0;
 	for(var i = 0; i < eventsGraph.length; i++)
 	{
 		var eventGraph = eventsGraph[i];
 		var event = makeEvent(eventGraph, nodes, connectionsGraph);
+		src += event.getBeforeStr();
+		src += "var __event" + eventIndex.toString() + " = " + event.getNode() + ";\n";
+		eventIndex++;
     }
 	
 	for(var i = 0; i < graphNodes.length; i++)

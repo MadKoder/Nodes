@@ -34,8 +34,8 @@ $.get("snake.nodes", function( text ) {
 	$.globalEval(src)
 	// eval(src);
 	// $("#test").html(code.a.get());
-	tick.signal();
-	$test.html(c.get());
+	// tick.signal();
+	// $test.html(c.get());
 }
 , "text" // Commenter pour lire du json
 );
