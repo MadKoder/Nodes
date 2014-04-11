@@ -665,39 +665,19 @@ function pushBack(a, v)
 
 function Contains(instanceParams) 
 {	
-	this.arrayInput = new FuncInput(instanceParams);
-	this.arrayAccess = new ArrayAccess(this.arrayInput);
-
-	this.get = function(params)
+	this.get = function(array, val, func)
 	{
-		var array = params[0];
-		var arrayLength = array.get().length;
-		this.arrayInput.push(array);
-		var val = params[1];
-		var funcInstance = params[2].get();
+		var arrayVal = array.get();
+		var arrayLength = arrayVal.length;
+		var funcInstance = func;
+		var valValue = val.get();
 		for(var i = 0; i < arrayLength; i++)
 		{
-			// Il faut appeler funcInstance.func pour conserver le "this",
-			// et non pas cacher la methode func puis l'appeler seule
-			this.arrayAccess.push(i);
-			if(funcInstance.needsNodes)
+			if(funcInstance(arrayVal[i], valValue))
 			{
-				var res = funcInstance.funcRef([this.arrayAccess, val]);
-			}
-			else
-			{
-				var res = funcInstance.func([this.arrayAccess.get(), val.get()]);
-			}
-			
-			if(res)
-			{
-				this.arrayAccess.pop();
-				this.arrayInput.pop();
 				return true;
 			}
-			this.arrayAccess.pop();
 		}
-		this.arrayInput.pop();
 		return false;
 	}
 };
@@ -1461,13 +1441,13 @@ function Func(func, type, paramsNode)
 		return this.type;
 	}
 
-	// this.addSink = function(sink)
-	// {
-	// 	_.each(this.paramsNode, function(param)
-	// 	{
-	// 		param.addSink(sink);
-	// 	});
-	// };
+	this.addSink = function(sink)
+	{
+		_.each(this.paramsNode, function(param)
+		{
+			param.addSink(sink);
+		});
+	};
 }
 
 var globalTick = 0;
@@ -1527,9 +1507,17 @@ function FunctionNode(func)
 		{
 			var comma = (index == 0) ? "" : ", ";									
 			var node = param.getNode();
-			paramsNodeStr += comma + node;
+			if(!(param.isFunc)) // If not a function
+			{
+				paramsNodeStr += comma + node;
+			}
+			else
+			{
+				var a = 0;
+			}
 			return node;
 		}, this);
+		paramsNodeStr += "]";
 		// newVar(func.getStr(paramsVar), func.type);
 		// this.str += newVar(func.getStr(paramsVar));
 		if(func.needsNodes)
@@ -1544,7 +1532,7 @@ function FunctionNode(func)
 
 		// this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
 		this.val = this.str;
-		this.nodeStr = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ")";
+		this.nodeStr = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ", " + paramsNodeStr + ")";
 		
 		this.getBeforeStr = function()
 		{

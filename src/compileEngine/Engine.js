@@ -2060,7 +2060,9 @@ function compileRef(ref, nodes, promiseAllowed)
 			}
 			var func = library.functions[sourceNode];
 			// return new Store(func, makeFunctionType(func));
-			return new Var(sourceNode + "()", sourceNode, makeFunctionType(func));
+			var res = new Var(sourceNode + "()", sourceNode, makeFunctionType(func));
+			res.isFunc = true;
+			return res;
 		}
 		
 		if(promiseAllowed && !(sourceNode in nodes))
@@ -3395,15 +3397,15 @@ function makeAction(actionGraph, nodes, connections)
 			var producerName = "__msgProducer" + msgIndex;
 			beforeStr += "var " + producerName + " = " + msgProducer.getNode() + ";\n";
 			// var msgStore = new SubStore(msgProducer.getType());
-			var msgStore = new Var("", "new Store( " + typeToJson(msgProducer.getType()) + ")", msgProducer.getType());
+			var msgStore = new Var("", "new Store( null, " + typeToJson(msgProducer.getType()) + ")", msgProducer.getType());
 			var storeName = "__msgStore" + msgIndex;
 			if("def" in val)
 				storeName = val.def;
-			nodes[storeName] = msgStore;
+			nodes[storeName] = new Var(storeName + ".get()", storeName, msgProducer.getType());
 			beforeStr += "var " + storeName + " = " + msgStore.getNode() + ";\n";
 			beforeStr += "__msgProducer" + msgIndex.toString() + ".slots = [" + storeName + "];\n";
 			// msgProducer.slots = [msgStore];
-			nodes[producerName] = msgProducer;
+			nodes[producerName] = new Action(producerName, "");
 			generators.push(producerName);
 
 			msgIndex++;
@@ -3476,6 +3478,7 @@ function makeAction(actionGraph, nodes, connections)
 				{
 					// var loc = new Store(null, type);
 					var locName = "__loc" + locIndex.toString();
+					locIndex++;
 					beforeStr += "var " + locName + " = new Store(null, " + typeToJson(type) + ");\n";
 					var loc = new Var(locName + ".get()", locName, type);
 					var newLoc = {};
@@ -3608,7 +3611,7 @@ function makeAction(actionGraph, nodes, connections)
 		}
 		else if(type == "set")
 		{
-			var node = new Send(slots, param);
+			// var node = new Send(slots, param);
 			return new Action("new Send(" + slots + ", " + param.getNode() + ")", beforeStr + param.getBeforeStr());
 		} else // Seq
 		{
