@@ -212,7 +212,7 @@ function mf1(func1, inAndOutTypes)
 {
 	return {
 		params : [["first", inAndOutTypes.inputs[0]]],
-		func : function(params)	{	
+		getStr : function(params)	{	
 			return func1(params[0]);
 		},
 		type : inAndOutTypes.output
@@ -1798,7 +1798,7 @@ var nodes =
 					this.beforeStr = cond.getBeforeStr() + first.getBeforeStr() + second.getBeforeStr();
 					var str = "if(" + cond.getVal() + "){return " + first.getVal() + ";}else{return " + second.getVal() + ";}";
 					this.nodeStr = "new Func(function(){ " + str + ";}, " + typeToJson(typeParam) + ")"
-					this.val = "(" + this.nodeStr + ").get()";
+					this.val = cond.getVal() + " ? " + first.getVal() + " : " + second.getVal();
 					
 					this.getBeforeStr = function()
 					{

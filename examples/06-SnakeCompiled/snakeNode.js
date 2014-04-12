@@ -47,7 +47,8 @@ $.get( "snake.txt", function( text ) {
 		// }
 	// ];
 	var compiledGraph = compileGraph(codeGraph, library);
-	$.globalEval(compiledGraph)
+	$.globalEval(compiledGraph);
+	
 	var sizeNode = size;
 	drawGame(new Pos(sizeNode.get().x, sizeNode.get().y));
 	var posNode = snake;

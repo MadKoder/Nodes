@@ -11,14 +11,19 @@ functions:
 nodes:
 	var a = 1
 	var s = Vec2(a, 0)
-	def r = Rect(s, Vec2(100, 200))
-	def c = r.pos.x
+	# def r = Rect(s, Vec2(100, 200))
+	# def c = r.pos.x
 	# def l =  range(0, 5)
 	# var a = [inc(x) for x in range(0, 3)]
 	# def a = [[inc(x) for x in l], [x + 2 for x in range(0, 3)]]
 	# def b = [x + 2 for x in range(0, 5)]
-	def b = if a <= 10 then a else 20
+	# def b = if a <= 10 then a else 20
 	# var b = inc(a)
 actions :
 	tick : 
-		s.x = 100
+		while s.x < 10 do :
+			add(1)
+			add(1)
+		add(1)
+	add(int val):
+		s.x = s.x + val
