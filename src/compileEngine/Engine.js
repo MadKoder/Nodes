@@ -2958,13 +2958,12 @@ function ListDelta(add, remove, updates)
 
 function concatActions(beginActions, actionGraph)
 {
-	if(actionGraph.type == "Seq")
+	if(!("if" in actionGraph) && !("while" in actionGraph) && !("accessSet" in actionGraph) && !("set" in actionGraph))
 	{
 		actionGraph.slots = beginActions.concat(actionGraph.slots);
 	} else
 	{
 		actionGraph = {
-			"type" : "Seq",
 			"slots" : beginActions.concat([actionGraph])
 		};
 	}
@@ -3404,8 +3403,12 @@ function makeAction(actionGraph, nodes, connections)
 			beforeStr += "var " + storeName + " = " + msgStore.getNode() + ";\n";
 			beforeStr += "__msgProducer" + msgIndex.toString() + ".slots = [" + storeName + "];\n";
 			// msgProducer.slots = [msgStore];
-			nodes[producerName] = new Action(producerName, "");
-			generators.push(producerName);
+			nodes[producerName] = new Action("(function(){" + producerName + ".signal();})", "");
+			generators.push(
+				{
+					signal : producerName,
+					params : []
+				});
 
 			msgIndex++;
 			

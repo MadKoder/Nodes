@@ -56,17 +56,17 @@ $.get( "snake.txt", function( text ) {
 	
 	var keys = $(document).asEventStream('keydown').map('.keyCode')
 	keys.filter(function(x) { return x === 37 }).onValue(function(v){
-		rotLeft.signal();
+		rotLeft();
 	});
 	keys.filter(function(x) { return x === 39 }).onValue(function(v){
-		rotRight.signal();
+		rotRight();
 	});
   
 	//drawSnake(snake);
 	var tick   = Bacon.interval(200);
 	$score = $('#score')
 	tick.onValue(function(t){
-		moveSnake.signal();
+		moveSnake();
 		var snake  = posNode.get().map(function(pos){return new Pos(pos.x, pos.y);});
 		drawSnake(snake);
 		var head  = [new Pos(headPos.get().x, headPos.get().y)];
