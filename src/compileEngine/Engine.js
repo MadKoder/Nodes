@@ -1069,7 +1069,7 @@ function StoreFunctionTemplate(t, name)
 	
 	this.getNode = function()
 	{
-		return this.func;
+		return this.name;
 	};
 	
 	this.getTemplate = function()
@@ -1236,8 +1236,12 @@ function ComprehensionNode(nodeGraph, externNodes)
 	var inputStr = "var inputs" + compIndex.toString() + " = [";
 	var indicesStr = "var indices" + compIndex.toString() + " = [";
 	var varStr = "";
+	var varPostfix = "";
+	var varIndex = 0;
 	_.forEach(iterators, function(iterator, index)
 	{
+		varPostfix = compIndex.toString() + "_" + varIndex.toString();
+		varIndex++;
 		var expr = makeExpr(iterator["in"], externNodes);
 		
 		arraysStr += expr.getNode() + ", "
@@ -1251,7 +1255,7 @@ function ComprehensionNode(nodeGraph, externNodes)
 		var inputGraph = iterator["for"];
 		
 		beforeStr += expr.getBeforeStr();
-		var arrayAccessName = "aa" + compIndex.toString();
+		var arrayAccessName = "aa" + varPostfix;
 		varStr += "var " + arrayAccessName + " = new ArrayAccess(arrays" + compIndex.toString() + "[" + index.toString() + "], " + typeToJson(inputType) + ");\n";
 		inputStr += arrayAccessName + ", ";
 		if(_.isString(inputGraph))
@@ -1273,17 +1277,18 @@ function ComprehensionNode(nodeGraph, externNodes)
 			// TODO  Path ?
 			// TODO param nodes = union(this.nodes, externNodes)
 			// comprehensionIndices[index] = new ValInput("int");
-			var indexName = "index" + compIndex.toString();
-			varStr += "var " + indexName + " = new Store(null, int);\n";		
+			var indexName = "index" + varPostfix;
+			varStr += "var " + indexName + " = new FuncInput(int);\n";		
 			comprehensionIndices[index] = new Var(indexName + ".get()", indexName, "int");
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
+			indicesStr += indexName + ", ";
 		};		
 	}, this);
 	inputStr += "];\n"
 	arraysStr += "];\n"
 	indicesStr += "];\n"
-	compIndex++;
 	var mergedNodes = _.merge(this.nodes, externNodes);
+	compIndex++;
 	if("when" in nodeGraph)
 	{
 		// TODO  Path ?
@@ -1306,15 +1311,30 @@ function ComprehensionNode(nodeGraph, externNodes)
 
 	this.getBeforeStr = function()
 	{
-		return beforeStr + arraysStr + varStr + inputStr + indicesStr + expr.getBeforeStr() +
+		var str = beforeStr + arraysStr + varStr + inputStr + indicesStr + expr.getBeforeStr() +
 		"var comp" + this.compIndex.toString() + " = " + expr.getNode() + ";\n";
+		if("when" in nodeGraph)
+		{		
+			str += "var when" + this.compIndex.toString() + " = " + when.getNode() + ";\n";
+		}
+		return str;
 		// "var comp" + this.compIndex.toString() + " = new Func(function(){ " + " return " + expr.getStr() + ";}, " + typeToJson(expr.getType()) + ");\n";
 		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
 	}
 
 	this.getNode = function()
 	{
-		return "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", indices" + this.compIndex.toString() + ", arrays" + this.compIndex.toString() + ", false)" 
+		var str = "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", indices" + this.compIndex.toString() + ", arrays" + this.compIndex.toString() + ", false, ";
+		if(when)
+		{
+			str += "when" + this.compIndex.toString();
+		}
+		else
+		{
+			str += "undefined";	
+		}
+		str += ")";
+		return str;
 	}
 
 	this.getVal = function()
@@ -1328,13 +1348,14 @@ function ComprehensionNode(nodeGraph, externNodes)
 	}
 }
 
-function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef)
+function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef, _when)
 {
 	this.arrays = arrays;
 	var expr = _expr;
 	var inputs = _inputs;
 	var comprehensionIndices = _comprehensionIndices;
 	var funcRef = _funcRef;
+	var when = _when;
 
 	function connect(val, indices)
 	{
@@ -1396,7 +1417,7 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef)
 			return _.range(array.length);
 		}));
 
-		if(false)
+		if(when)
 		{
 			this.outputList = [];
 			_.each(indicesArray, function(indices, i)
@@ -1405,7 +1426,7 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].push(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
 					}
 					inputs[arrayIndex].push(indices[arrayIndex]);					
 				}
@@ -1421,7 +1442,7 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].pop();
+						comprehensionIndices[arrayIndex].popVal();
 					}
 					inputs[arrayIndex].pop();					
 				}
@@ -1435,7 +1456,7 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].push(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
 					}
 					inputs[arrayIndex].push(indices[arrayIndex]);
 				}
@@ -1448,7 +1469,7 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].pop();
+						comprehensionIndices[arrayIndex].popVal();
 					}
 					inputs[arrayIndex].pop();					
 				}
@@ -2179,7 +2200,7 @@ function Cloner(ref)
 		if(this.cloneOperator != undefined)
 			return this.cloneOperator(this.ref.get());
 		// TODO listes, autres ...
-		return this.ref.get();
+		return _.clone(this.ref.get(), true);
 		//return _.cloneDeep(this.ref.get());
 	}
 }
@@ -2646,7 +2667,8 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 					return node;
 				}
 				
-				var node = "new Affectation(" + makeExpr(mergeExp.val, nodes).getNode() + ", " + pathToString(mergeExp.paths) + ")";
+				var node = "new Affectation(" + makeExpr(mergeExp.val, nodes).getNode() + ", " + 
+					"[" + _.map(mergeExp.paths, pathToString).join(", ") + "])";
 				return node;
 			}).join(", ") + "]";
 		}
@@ -5045,8 +5067,8 @@ function compileGraph(graph, lib, previousNodes)
 
 			// nodes[id[0]].action = makeAction(actionGraph, localNodes);
 			var action =  makeAction(actionGraph, localNodes);
-			src += action.getBeforeStr();
 			src += "function " + id[0] + "(" + inputStr + "){\n";
+			src += action.getBeforeStr();
 			src += action.getNode() + "}\n";
 			// src += id[0] + ".action = " + action.getNode() + ";\n";
 		}

@@ -728,6 +728,11 @@ function at(array, index) // The function
 	return false;
 }
 
+function eq(first, second)
+{	
+	return first == second;
+}
+
 var functions = 
 {
 	"head" : mluf1
@@ -1754,9 +1759,13 @@ function funcToNodeSpec(funcProto)
 
 var currentPath = [];
 
-function tuple(fields)
+function Tuple(fields)
 {
-	return _.map(fields, function(field){return field.get();});
+	this.fields = fields;
+	this.get = function()
+	{
+		return _.map(this.fields, function(field){return field.get();});
+	}
 };
 
 var nodes = 
@@ -2168,7 +2177,7 @@ var nodes =
 
 					this.getNode = function()
 					{
-						return "tuple(" + "[" + _.map(this.fields, function(field)
+						return "new Tuple(" + "[" + _.map(this.fields, function(field)
 							{
 								return field.getNode();
 							}).join(", ") + "])";

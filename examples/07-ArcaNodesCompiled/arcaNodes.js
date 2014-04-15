@@ -76,7 +76,8 @@ $.get( "arcaNodes.nodes", function( text ) {
 		var keyCode = e.keyCode != 0 ? e.keyCode : e.which;
 		if(isValidKeyCode(keyCode))
 		{
-			keyDown([new Store(keyCode)]);
+			// keyDown([new Store(keyCode)]);
+			keyDown(new Store(keyCode));
 			return false;
 		};
 	});
@@ -85,7 +86,8 @@ $.get( "arcaNodes.nodes", function( text ) {
 		var keyCode = e.keyCode != 0 ? e.keyCode : e.which;
 		if(isValidKeyCode(keyCode))
 		{
-			keyUp([new Store(keyCode)]);
+			// keyUp([new Store(keyCode)]);
+			keyUp(new Store(keyCode));
 			return false;
 		}
 	});

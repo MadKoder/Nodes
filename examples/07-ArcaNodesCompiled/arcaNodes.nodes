@@ -143,7 +143,7 @@ nodes:
 	var list<Monster> monsters
 	var alone = makeMonster(Vec2((0 * cellSize) + 16, (0 *  cellSize) + 16), "right")
 	def newMonsters = pushFront(monsters, alone)
-	var maxMonsters = 1
+	var maxMonsters = 20
 	var tickCounter = 0
 	def freeCells = flatten([[Vec2(i, j) for cell, j in column when (cell == 0)] for column, i in maze])
 	def mazeLength = length(maze)
