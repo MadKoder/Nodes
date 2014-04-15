@@ -41,7 +41,7 @@ functions:
 		left = floor(b.topLeft.x / cellSize)
 		bottom = floor(b.bottomRight.y / cellSize)
 		right = floor(b.bottomRight.x / cellSize)
-		[Vec2(i, j) for i in range(left, right), j in range(top, bottom)]
+		[Vec2(i, j) for i in range(left, right + 1), j in range(top, bottom + 1)]
 	Bounds monsterBounds(Vec2 pos)
 structs:
 	Monster :
@@ -196,7 +196,7 @@ actions :
 		# 	with bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
 		# 	filter inRect(bullet.pos, bounds)
 		
-		bullets = [bullet \ pos = addVec2(bullet.pos, bullet.speedVector) for bullet in bullets]
+		bullets = [bullet \ pos = addVec2(bullet.pos, bullet.speedVector) for bullet in bullets when inRect(bullet.pos, bounds)]
 
 		foreach monsters move(innerBounds, cellSize, maze, maxAnimState)
 		alone.move(innerBounds, cellSize, maze, maxAnimState)
