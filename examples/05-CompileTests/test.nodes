@@ -9,8 +9,8 @@ functions:
 	int inc(int v)
 		if v < 10 then inc(v + 1) else v
 nodes:
-	var a = 1
-	var s = Vec2(a, 0)
+	var a = [1, 2, 3]
+	# var s = Vec2(a, 0)
 	# def r = Rect(s, Vec2(100, 200))
 	# def c = r.pos.x
 	# def l =  range(0, 5)
@@ -21,9 +21,13 @@ nodes:
 	# var b = inc(a)
 actions :
 	tick : 
-		while s.x < 10 do :
-			add(1)
-			add(1)
-		add(1)
-	add(int val):
-		s.x = s.x + val
+		# for item, i in a do 
+		# 	item = i + 1
+		update item, i in a
+			with i + 1 
+	# 	while s.x < 10 do :
+	# 		add(1)
+	# 		add(1)
+	# 	add(1)
+	# add(int val):
+	# 	s.x = s.x + val

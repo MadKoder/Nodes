@@ -268,7 +268,7 @@ function mt2f1(func1, getInAndOutTypes, guessTypeParamsFunc)
 			var inAndOutTypes = getInAndOutTypes(templates[0], templates[1]);
 			return {
 				params : [["first" , inAndOutTypes.inputs[0]]],
-				func : function(params) 
+				getStr : function(params) 
 				{	
 					return func1(params[0]);
 				},
@@ -682,6 +682,13 @@ function Contains(instanceParams)
 	}
 };
 
+function unzip(list)
+{
+	if(list.length == 0)
+		return [[],[]];
+	return _.zip(list);
+}
+
 var functions = 
 {
 	"head" : mluf1
@@ -994,9 +1001,7 @@ var functions =
 	(
 		function(list) // The function
 		{	
-			if(list.length == 0)
-				return [[],[]];
-			return _.zip(list);
+			return "unzip(" + list + ")";
 		},
 		function(firstTemplate, secondTemplate) // Input and output types
 		{
@@ -1129,8 +1134,9 @@ var functions =
 		{
 			return {
 				params : [["function" , inOut1(templates[0], templates[1])], ["list" , mListType(templates[0])]],
-				func : function(params) 
+				getStr : function(params) 
 				{	
+					return "_.map(" + params[1] + ", " + params[0] + ")";
 					var funcInstance = params[0];
 					return _.map(params[1], function(val)
 					{
@@ -1505,17 +1511,21 @@ function FunctionNode(func)
 		var paramsNodeStr = "[";
 		var paramsNode = _.map(params, function(param, index)
 		{
-			var comma = (index == 0) ? "" : ", ";									
-			var node = param.getNode();
-			if(!(param.isFunc)) // If not a function
+			if(!(param.isConstant))
 			{
-				paramsNodeStr += comma + node;
+				var comma = (index == 0) ? "" : ", ";									
+				var node = param.getNode();
+				if(!(param.isFunc)) // If not a function
+				{
+					paramsNodeStr += comma + node;
+				}
+				else
+				{
+					var a = 0;
+				}
+				return node;
 			}
-			else
-			{
-				var a = 0;
-			}
-			return node;
+			return "";
 		}, this);
 		paramsNodeStr += "]";
 		// newVar(func.getStr(paramsVar), func.type);
@@ -1778,7 +1788,7 @@ var nodes =
 			
 			var mostGenericType = getCommonSuperClass(fstType, scdType);
 			if(mostGenericType != undefined)
-				return mostGenericType;
+				return [mostGenericType];
 			error("\"If\" parameters are not of compatible types : " + typeToString(fstType) + " and " + typeToString(scdType))
 		},
 		getInstance : function(templates)
@@ -1911,10 +1921,17 @@ var nodes =
 				{	
 					var list = [];
 					var temp = templates;
-					this.get = function()
+					
+					this.getBeforeStr = function()
 					{
-						return list;
+						return "";
 					};
+
+					this.getVal = function()
+					{
+						return "[]";
+					}
+					
 					this.getType = function()
 					{
 						return mListType(temp[0]);

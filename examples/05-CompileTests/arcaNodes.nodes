@@ -192,10 +192,13 @@ actions :
 			bulletRefresh = bulletMinRefresh
 		bulletRefresh = max(bulletRefresh - 1, 0)
 		
-		update bullet in bullets 
-			with bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
-			filter inRect(bullet.pos, bounds)
-		
+		# TODO remove filter case from parser
+		# update bullet in bullets 
+		# 	with bullet \ pos = addVec2(bullet.pos, bullet.speedVector)
+		# 	filter inRect(bullet.pos, bounds)
+
+		bullets = [bullet \ pos = addVec2(bullet.pos, bullet.speedVector) for bullet in bullets]
+
 		foreach monsters move(innerBounds, cellSize, maze, maxAnimState)
 		alone.move(innerBounds, cellSize, maze, maxAnimState)
 		

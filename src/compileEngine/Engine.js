@@ -1055,7 +1055,12 @@ function StoreFunctionTemplate(t)
 	this.func = null;
 	//this.type = null;
 
-	this.get = function()
+	this.getVal = function()
+	{
+		return this.func;
+	};
+	
+	this.getNode = function()
 	{
 		return this.func;
 	};
@@ -1133,12 +1138,12 @@ function makeAffectations(matchesGraph, nodes)
 	});
 }
 
-function Merge(what, matchesGraph, nodes)
+function Merge(what, matches, type)
 {
-	this.what = compileRef(what, nodes).val;
-	var whatType = this.what.getType();
+	this.what = what;
+	var whatType = type;
 	
-	this.matches = makeAffectations(matchesGraph, nodes);
+	this.matches = matches;
 	
 	// Needs nodes if any of the affection value needs nodes
 	this.needsNodes = _.any(this.matches, function(affect)
@@ -1217,6 +1222,7 @@ function ComprehensionNode(nodeGraph, externNodes)
 	var beforeStr = "";
 	var arraysStr = "var arrays" + compIndex.toString() + " = [";
 	var inputStr = "var inputs" + compIndex.toString() + " = [";
+	var indicesStr = "var indices" + compIndex.toString() + " = [";
 	var varStr = "";
 	_.forEach(iterators, function(iterator, index)
 	{
@@ -1254,12 +1260,16 @@ function ComprehensionNode(nodeGraph, externNodes)
 		{
 			// TODO  Path ?
 			// TODO param nodes = union(this.nodes, externNodes)
-			comprehensionIndices[index] = new ValInput("int");
+			// comprehensionIndices[index] = new ValInput("int");
+			var indexName = "index" + compIndex.toString();
+			varStr += "var " + indexName + " = new Store(null, int);\n";		
+			comprehensionIndices[index] = new Var(indexName + ".get()", indexName, "int");
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
 		};
 	}, this);
 	inputStr += "];\n"
 	arraysStr += "];\n"
+	indicesStr += "];\n"
 	
 	var mergedNodes = _.merge(this.nodes, externNodes);
 	if("when" in nodeGraph)
@@ -1285,7 +1295,7 @@ function ComprehensionNode(nodeGraph, externNodes)
 
 	this.getBeforeStr = function()
 	{
-		return beforeStr + arraysStr + varStr + inputStr + expr.getBeforeStr() +
+		return beforeStr + arraysStr + varStr + inputStr + indicesStr + expr.getBeforeStr() +
 		"var comp" + this.compIndex.toString() + " = " + expr.getNode() + ";\n";
 		// "var comp" + this.compIndex.toString() + " = new Func(function(){ " + " return " + expr.getStr() + ";}, " + typeToJson(expr.getType()) + ");\n";
 		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
@@ -1293,7 +1303,7 @@ function ComprehensionNode(nodeGraph, externNodes)
 
 	this.getNode = function()
 	{
-		return "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", [undefined], arrays" + this.compIndex.toString() + ", false)" 
+		return "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", indices" + this.compIndex.toString() + ", arrays" + this.compIndex.toString() + ", false)" 
 	}
 
 	this.getVal = function()
@@ -2049,6 +2059,7 @@ function compileRef(ref, nodes, promiseAllowed)
 			if("guessTypeParams" in func)
 			{
 				return new StoreFunctionTemplate(library.functions[sourceNode], null);
+				// new Var(sourceNode + "()", sourceNode, func.getType());
 			}
 			// TODO type
 			function makeFunctionType(func)
@@ -2060,7 +2071,7 @@ function compileRef(ref, nodes, promiseAllowed)
 			}
 			var func = library.functions[sourceNode];
 			// return new Store(func, makeFunctionType(func));
-			var res = new Var(sourceNode + "()", sourceNode, makeFunctionType(func));
+			var res = new Var(sourceNode, sourceNode, makeFunctionType(func));
 			res.isFunc = true;
 			return res;
 		}
@@ -2095,10 +2106,6 @@ function compileRef(ref, nodes, promiseAllowed)
 			var typeObj = (templates.length > 0) ? 
 				library.nodes[baseType].getInstance(templates) :
 				library.nodes[baseType];
-			var operators = typeObj.operators;
-			this.getPathOperator = operators.getPath;
-			this.setPathOperator = operators.setPath;
-			this.updateOperator = operators.update;
 			
 			var fields = typeObj.fields;
 			var hiddenFields = typeObj.hiddenFields;
@@ -2117,6 +2124,8 @@ function compileRef(ref, nodes, promiseAllowed)
 			var valStr = node.getVal() + valPath;
 			var ret = new Var(valStr, str, type);
 			ret.isStructAccess = true;
+			ret.path = nodePath;
+			ret.rootNode = node.getNode();
 			return ret;
 		} else
 		{
@@ -2167,6 +2176,36 @@ function Var(valStr, nodeStr, type, beforeStr)
 	this.getNode = function()
 	{
 		return this.nodeStr;
+	}
+
+	this.getType = function()
+	{
+		return this.type;
+	}
+
+	this.getBeforeStr = function()
+	{
+		return this.beforeStr;
+	}
+}
+
+function Constant(valStr, type, beforeStr)
+{
+	this.valStr = valStr;
+	this.type = type;
+	this.isConstant = true;
+	if(beforeStr != undefined)
+	{
+		this.beforeStr = beforeStr;
+	}
+	else
+	{
+		this.beforeStr = "";
+	}
+
+	this.getVal = function()
+	{
+		return this.valStr;
 	}
 
 	this.getType = function()
@@ -2247,7 +2286,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		
 		var compiledRef = compileRef(ref, nodes);
 		// Utilise par les actions d'affectations, pour copier la valeur et non la reference
-		if(cloneIfRef != undefined && cloneIfRef)
+		if(cloneIfRef && !(compiledRef.isConstant))
 		{
 			var str = "new Cloner(" + compiledRef.getNode() + ")";
 			return new Var("(" + str + ").get()", str, compiledRef.getType());
@@ -2565,8 +2604,33 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		return node;
 	} else if("merge" in expr)
 	{
-		// TODO type avec template
-		return new Merge(expr.merge, expr["with"], nodes);
+		function makeAffectationStr(matchesGraph, nodes)
+		{
+			return "[" + matchesGraph.map(function(mergeExp){
+				
+				if("cond" in mergeExp)
+				{
+					var cond = makeExpr(mergeExp.cond, nodes);
+					var affects = makeAffectationStr(mergeExp.affectations);
+					var elseAffects = undefined;
+					if("else" in mergeExp)
+					{
+						var elseAffects = makeAffectationStr(mergeExp["else"]);
+					}
+					// return new CondAffectation(cond, affects, elseAffects);
+					var node = "new CondAffectation(" + cond.getNode() + ", " + affects + ", " + elseAffects + ")";
+					return new Var(node + ".get()", node, "");
+				}
+				
+				return new Affectation(makeExpr(mergeExp.val, nodes), mergeExp.paths);
+				var node = "new Affectation(" + makeExpr(mergeExp.val, nodes).getNode() + ", " + pathToString(mergeExp.paths) + ")";
+				return new Var(node + ".get()", node, "");
+			}).join(", ") + "]";
+		}
+
+		var what = compileRef(expr.merge, nodes);
+		var node = "new Merge(" + what.getNode() + ", " +  makeAffectationStr(expr["with"], nodes) + ", " + typeToJson(what.getType()) + ")";
+		return new Var(node + ".get()", node, what.getType());
 	} else if("let" in expr)
 	{
 		var what = expr.let;
@@ -3176,42 +3240,19 @@ function makeAction(actionGraph, nodes, connections)
 	
 	if("for" in actionGraph)
 	{
-		function ForAction(iterated, arrayAccess, indexStore, action)
-		{
-			this.listStore = iterated;
-			this.arrayAccess = arrayAccess;
-			this.indexStore = indexStore;
-			this.action = action;
-			
-			this.signal = function()
-			{
-				var list = this.listStore.get();
-				_.each(
-					list, 
-					function(element, index)
-					{
-						this.arrayAccess.push(index);
-						if(this.indexStore != undefined)
-							this.indexStore.set(index);
-						this.action.signal();	
-						this.arrayAccess.pop();					
-					},
-					this
-				);
-			}
-		}
-		
-		var iterated = compileRef(actionGraph["in"], nodes).val;
+		var list = compileRef(actionGraph["in"], nodes);
+		var itName = "it" + locIndex;
+		var beforeStr = itName + " = new ArrayAccess(" + list.getNode() + ");\n";
+
 		var localNodes = _.clone(nodes);
+		localNodes[actionGraph["for"]] = new Var(itName + ".get()", itName, getListTypeParam(list.getType()));
+
+		var str = newVar(list.getVal() + ".length - 1");
+		var counter = getVar();
 		
-		var arrayAccess = new ArrayAccess(iterated);
-		// TODO gerer destruct
-		localNodes[actionGraph["for"]] = arrayAccess;
-		var indexStore = null;
 		if("index" in actionGraph)
 		{
-			indexStore = new SubStore("int")
-			localNodes[actionGraph["index"]] = indexStore;
+			localNodes[actionGraph["index"]] = new Constant(counter, "int");
 		}
 		// TODO : check that action only change iterator
 		var action = makeAction
@@ -3220,89 +3261,32 @@ function makeAction(actionGraph, nodes, connections)
 			localNodes
 		);
 
-		return new ForAction(iterated, arrayAccess, indexStore, action);
+		locIndex++;
+
+		str += "for(; " + counter + " >= 0; " + counter + "--){\n";
+		str += itName + ".push(" + counter + ");\n";
+		str += action.getNode();
+		str += itName + ".pop();\n}\n";
+		return new Action(str, beforeStr);
 	}
 	
 	if("update" in actionGraph)
 	{
-		function Update(iterated, arrayAccess, indexStore, action)
-		{
-			this.listStore = iterated;
-			this.arrayAccess = arrayAccess;
-			this.indexStore = indexStore;
-			this.action = action;
-			
-			this.signal = function()
-			{
-				var list = this.listStore.get();
-				_.each(
-					list, 
-					function(element, index)
-					{
-						this.arrayAccess.push(index);
-						if(this.indexStore != undefined)
-							this.indexStore.set(index);
-						this.action.signal();
-						this.arrayAccess.pop();
-					},
-					this
-				);
-			}
-		}
-		
-		function CondUpdate(iterated, arrayAccess, indexStore, action, cond)
-		{
-			this.listStore = iterated;
-			this.arrayAccess = arrayAccess;
-			this.indexStore = indexStore;
-			this.action = action;
-			this.cond = cond;
-			
-			this.signal = function()
-			{
-				
-				var updated = [];
-				var list = this.listStore.get();
-				var removed = false;
-				_.each(
-					list, 
-					function(element, index)
-					{
-						this.arrayAccess.push(index);
-						if(this.indexStore != undefined)
-							this.indexStore.signal(index);
-						if(this.cond.get())
-						{
-							this.action.signal();
-							var newVal = this.arrayAccess.get();
-							updated.push(newVal);
-						}
-						else
-						{
-							removed = true;
-						}
-						this.arrayAccess.pop();
-					},
-					this
-				);
-				// TODO : signals
-				this.listStore.set(updated);
-			}
-		}
-		var iterated = compileRef(actionGraph["in"], nodes).val;
+		var list = compileRef(actionGraph["in"], nodes);
+		var itName = "it" + locIndex;
+		var beforeStr = itName + " = new ArrayAccess(" + list.getNode() + ");\n";
+
 		var localNodes = _.clone(nodes);
+		localNodes[actionGraph["update"]] = new Var(itName + ".get()", itName, getListTypeParam(list.getType()));
+
+		var str = newVar(list.getVal() + ".length - 1");
+		var counter = getVar();
 		
-		var arrayAccess = new ArrayAccess(iterated);
-		// TODO gerer destruct
-		localNodes[actionGraph["update"]] = arrayAccess;
-		var indexStore = null;
 		if("index" in actionGraph)
 		{
-			indexStore = new SubStore("int")
-			localNodes[actionGraph["index"]] = indexStore;
+			localNodes[actionGraph["index"]] = new Constant(counter, "int");
 		}
-
-		var val = actionGraph["with"];
+		
 		if("with" in actionGraph)
 		{
 			var action = makeAction
@@ -3331,12 +3315,14 @@ function makeAction(actionGraph, nodes, connections)
 			);
 		}
 		
-		if("filter" in actionGraph)
-		{
-			return new CondUpdate(iterated, arrayAccess, indexStore, action, makeExpr(actionGraph.filter, localNodes));
-		}
+		locIndex++;
 
-		return new Update(iterated, arrayAccess, indexStore, action);
+		str += "for(; " + counter + " >= 0; " + counter + "--){\n";
+		str += itName + ".push(" + counter + ");\n";
+		str += action.getNode();
+		str += itName + ".pop();\n}\n";
+		var val = actionGraph["with"];
+		return new Action(str, beforeStr);
 	}
 	
 	if("signal" in actionGraph)
@@ -3627,8 +3613,11 @@ function makeAction(actionGraph, nodes, connections)
 				beforeStr += slot.getBeforeStr();
 				if(slot.isStructAccess)
 				{
-					beforeStr += newVar(slot.getNode());
-					return getVar() + ".set(" + valName + ");\n";
+					// beforeStr += newVar(slot.getNode());
+					// return getVar() + ".set(" + valName + ");\n";
+					// var str = slot .setPath( valName + ";\n";
+					str = slot.rootNode + ".setPath(" + valName + ", " + slot.path +");\n";
+					return str;
 				}
 				return slot.getNode() + ".set(" + valName + ");\n";
 			}).join("");
@@ -3748,7 +3737,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	{
 		library.nodes[concreteName] = node;
 	}
-
+	
 	var fieldsGraph = [];
 	var signalAndSlotsGraph = [];
 	_.each(signalSlotAndFieldGraph, function(item)
@@ -3821,6 +3810,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			this.instanceName = concreteName + instanceIndex.toString();
 			instanceIndex++;
 
+			var firstField = true;
 			for(var i = 0; i < signalSlotAndFieldGraph.length; i++)
 			{
 				var field = signalSlotAndFieldGraph[i];
@@ -3839,8 +3829,23 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					}
 					this.fields[fieldName] = fieldVal;
 
-					var comma = (i == 0) ? "" : ", ";
-					paramStr += comma + fieldVal.getNode();
+					if(firstField)
+					{
+						var comma = "";
+						firstField = false;
+					}
+					else
+					{
+						var comma = ", ";
+					}
+					if(fieldVal.isConstant)
+					{
+						paramStr += comma + "new Store(" + fieldVal.getVal() + ", " + typeToJson(fieldVal.getType()) + ")";
+					}
+					else
+					{
+						paramStr += comma + fieldVal.getNode();
+					}
 				} else if("signal" in field)
 				{
 					function StructSignal() {
@@ -4075,7 +4080,46 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 		superClass : superClassName
 	});
 	
-	
+	var paramStr = "";
+	var slotStr = "";
+	var beforeStr = "";
+	var firstField = true;
+	_.each(signalSlotAndFieldGraph, function(item)
+	{
+		// A field
+		if(_.isArray(item))
+		{
+			if(firstField)
+			{
+				firstField = false;
+				var comma = "";
+			}
+			else
+			{
+				var comma = ", ";
+			}
+			paramStr += comma + "\"" + item[0] + "\"";
+		}
+		else
+		{
+			if("slot" in item)
+			{
+				var slotGraph = item;
+				var localNodes = {"self" : new Var("self.get()", "self", type,  "")};
+				var slotParamStr = _.map(slotGraph.params, function(param)
+				{
+					var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
+					localNodes[param[0]] = node;
+					return param[0];
+				}).join(", ");
+				var action = makeAction(slotGraph.action, localNodes);
+				beforeStr += action.getBeforeStr();
+				slotStr += slotGraph.slot + " : function(self, " + slotParamStr + "){\n" + action.getNode() + "\n},";
+			}
+		}
+	});
+	var str = beforeStr + "var " + concreteName + " = {params : [" + paramStr + "],\n" + slotStr + "};\n";
+
 	// Why do we need to use the same store.
 	// Problem with this code is the type, because operators are only those of the root type
 	node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new FuncInput(type);
@@ -4084,6 +4128,8 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	if(superClassName)
 		library.nodes[superClassName].subClasses.push(concreteName);
 	
+	return src;
+
 	for(var i = 0; i < signalAndSlotsGraph.length; i++)
 	{
 		var field = signalAndSlotsGraph[i];
@@ -4133,6 +4179,8 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			};
 		}
 	}
+
+	return src;
 }
 
 function StructTemplate(classGraph, tp, superClassName, inheritedFields)
@@ -4217,7 +4265,7 @@ function templatesToKey(templates)
 		if(_.isString(template))
 			return template;
 		return template.base + templatesToKey(template.templates);		
-	}).join("");
+	}).join("$");
 }
 
 function FunctionInstance(classGraph)
@@ -4489,6 +4537,11 @@ function FunctionTemplate(classGraph)
 		{
 			instance.type = instantiateTemplates(classGraph.type, templateNameToInstances);			
 		}
+
+		var fullFuncName = classGraph.id + "$" + key;
+		
+		var funcVar = new Var(fullFuncName + "()", fullFuncName, "");
+		instance.funcVar = funcVar;
 		this.cache[key] = instance;
 		
 		instance.internalNodes = {};
@@ -4498,9 +4551,16 @@ function FunctionTemplate(classGraph)
 		_.each(classGraph["in"], function(paramAndType)
 		{
 			// Replace template declarations by their instances:
+			// var type = instantiateTemplates(paramAndType[1], templateNameToInstances);
+			// var node = new FuncInput(type);
+			// instance.inputNodes.push(node);
+			// instance.internalNodes[paramAndType[0]] = node;
+
 			var type = instantiateTemplates(paramAndType[1], templateNameToInstances);
-			var node = new FuncInput(type);
+			var node = new Var(paramAndType[0], paramAndType[0], type);
+			// node.func = funcGraph.id;
 			instance.inputNodes.push(node);
+			// func.internalNodes[paramAndType[0]] = node;
 			instance.internalNodes[paramAndType[0]] = node;
 		});
 		
@@ -4517,6 +4577,17 @@ function FunctionTemplate(classGraph)
 			genericTypeParams[param] = templates[index];
 		});
 		instance.expr = makeExpr(classGraph["out"].val, instance.internalNodes, genericTypeParams);
+
+		var paramStr = _.map(classGraph["in"], function(paramAndType)
+			{
+				return paramAndType[0];
+			}).join(", ");
+		
+		var beforeStr = "function " + fullFuncName + "(" + paramStr + "){\n";
+		beforeStr += instance.expr.getBeforeStr();
+		beforeStr += "return " + instance.expr.getVal() + ";\n};\n";		
+		funcVar.beforeStr = beforeStr;
+
 		if(instance.expr.needsNodes)
 		{
 			instance.needsNodes = true;
@@ -4743,34 +4814,7 @@ function compileGraph(graph, lib, previousNodes)
 					}
 					else
 					{
-						makeStruct(structGraph, []);
-
-						function defStruct(structGraph, inheritedFields)
-						{
-							var signalSlotAndFieldGraph = inheritedFields.concat(structGraph.fields ? structGraph.fields : []);
-	
-							var paramStr = "";
-							var fieldsGraph = [];
-							var signalAndSlotsGraph = [];
-							_.each(signalSlotAndFieldGraph, function(item, index)
-							{
-								// A field
-								if(_.isArray(item))
-								{
-									fieldsGraph.push(item);
-									var comma = (index == 0) ? "" : ", ";
-									paramStr += comma + "\"" + item[0] + "\"";
-								}
-								else
-								{
-									signalAndSlotsGraph.push(item);
-								}
-							});
-							var str = "{params : [" + paramStr + "]}";
-							return str;
-						}
-
-						src += "var " + structGraph.name + " = " + defStruct(structGraph, []) + ";\n";
+						src += makeStruct(structGraph, []);
 
 						function makeSubs(subs, inheritedFields, superClassName, isGroup)
 						{
@@ -4779,15 +4823,13 @@ function compileGraph(graph, lib, previousNodes)
 								for(var i = 0; i < subs.length; i++)
 								{
 									var subStructGraph = subs[i];
-									makeStruct(subStructGraph, inheritedFields, superClassName, isGroup);
+									src += makeStruct(subStructGraph, inheritedFields, superClassName, isGroup);
 									makeSubs(subStructGraph.subs, inheritedFields.concat(subStructGraph.fields), subStructGraph.name, false);
 								}
 							}
 						}
 						
 						makeSubs(structGraph.subs, structGraph.fields, structGraph.name, false);
-						makeSubs(structGraph.groups, structGraph.fields, structGraph.name, true);
-						makeSubs(structGraph.leaves, structGraph.fields, structGraph.name, false);
 					}
 				} else // tree
 				{
@@ -4897,7 +4939,8 @@ function compileGraph(graph, lib, previousNodes)
 					// node = src;
 				} else if("cache" in nodeGraph)
 				{
-					node = new Cache(node);
+					// node = new Cache(node);
+					node = new Var("new Cache(" + node.getNode() + ")", node.getVal(), node.getType());
 				} else
 				{
 					src += node.getBeforeStr();
