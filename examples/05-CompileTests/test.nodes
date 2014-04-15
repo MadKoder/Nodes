@@ -2,14 +2,20 @@ structs:
 	Vec2 :
 		float x
 		float y
+		slot inc(Vec2 delta) : 
+			self.x = self.x + delta.x
+			self.y = self.y + delta.y
 	Rect :
 		Vec2 pos
 		Vec2 size
 functions:
-	int inc(int v)
+	T inc<T>(T v)
 		if v < 10 then inc(v + 1) else v
 nodes:
+	var x = 0
 	var a = [1, 2, 3]
+	var v = Vec2(inc(0), 1)
+	var va = [Vec2(0, 1), Vec2(10, 20)]
 	# var s = Vec2(a, 0)
 	# def r = Rect(s, Vec2(100, 200))
 	# def c = r.pos.x
@@ -23,8 +29,11 @@ actions :
 	tick : 
 		# for item, i in a do 
 		# 	item = i + 1
-		update item, i in a
-			with i + 1 
+		# update item, i in a
+		# 	with i + 1 
+		x = inc(x)
+		v.inc(Vec2(v.x, v.y))
+		foreach va inc(Vec2(1, 1))
 	# 	while s.x < 10 do :
 	# 		add(1)
 	# 		add(1)

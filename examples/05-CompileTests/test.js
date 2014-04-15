@@ -21,8 +21,8 @@ var library =
 
 
 
+// $.get("test.nodes", function( text ) {
 $.get("arcaNodes.nodes", function( text ) {
-// $.get( "structSlots.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
 
@@ -35,7 +35,7 @@ $.get("arcaNodes.nodes", function( text ) {
 	// eval(src);
 	// $("#test").html(code.a.get());
 	tick();
-	$test.html(a.get());
+	// $test.html(va.get()[0].x + " " + va.get()[1].y);
 }
 , "text" // Commenter pour lire du json
 );

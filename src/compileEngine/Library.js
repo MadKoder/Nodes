@@ -215,7 +215,11 @@ function mf1(func1, inAndOutTypes)
 		getStr : function(params)	{	
 			return func1(params[0]);
 		},
-		type : inAndOutTypes.output
+		type : inAndOutTypes.output,
+		getBeforeStr : function()
+		{
+			return "";
+		}
 	}
 }
 
@@ -246,7 +250,11 @@ function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 				{	
 					return func1(params[0]);
 				},
-				type : inAndOutTypes.output
+				type : inAndOutTypes.output,
+				getBeforeStr : function()
+				{
+					return "";
+				}
 			}
 		},
 		getType : function(templates)
@@ -272,7 +280,11 @@ function mt2f1(func1, getInAndOutTypes, guessTypeParamsFunc)
 				{	
 					return func1(params[0]);
 				},
-				type : inAndOutTypes.output
+				type : inAndOutTypes.output,
+				getBeforeStr : function()
+				{
+					return "";
+				}
 			}
 		}
 	}
@@ -326,7 +338,11 @@ function mf2(func2, inAndOutTypes)
 		{	
 			return func2(params[0], params[1]);
 		},
-		type : inAndOutTypes.output
+		type : inAndOutTypes.output,
+		getBeforeStr : function()
+		{
+			return "";
+		}
 	}
 }
 
@@ -379,8 +395,16 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 				{	
 					return func2(params[0], params[1]);
 				},
-				type : inAndOutTypes.output				
+				type : inAndOutTypes.output,
+				getBeforeStr : function()
+				{
+					return "";
+				}			
 			}
+		},
+		getType : function(templates)
+		{
+			return getInAndOutTypes(templates[0]);
 		}
 	}
 }
@@ -663,30 +687,45 @@ function pushBack(a, v)
 	return newA;
 }
 
-function Contains(instanceParams) 
-{	
-	this.get = function(array, val, func)
+function contains(array, val, func)
+{
+	var arrayVal = array.get();
+	var arrayLength = arrayVal.length;
+	var funcInstance = func;
+	var valValue = val.get();
+	for(var i = 0; i < arrayLength; i++)
 	{
-		var arrayVal = array.get();
-		var arrayLength = arrayVal.length;
-		var funcInstance = func;
-		var valValue = val.get();
-		for(var i = 0; i < arrayLength; i++)
+		if(funcInstance(arrayVal[i], valValue))
 		{
-			if(funcInstance(arrayVal[i], valValue))
-			{
-				return true;
-			}
+			return true;
 		}
-		return false;
 	}
-};
+	return false;
+}
 
 function unzip(list)
 {
 	if(list.length == 0)
 		return [[],[]];
 	return _.zip(list);
+}
+
+function head(list) // The function
+{	
+	return _.head(list);
+}
+
+function tail(list) // The function
+{	
+	return _.tail(list);
+}
+
+function at(array, index) // The function
+{	
+	if(index < array.length && index >= 0)
+		return array[index];
+	// TODO version generique (ici seulement pour list de bool)
+	return false;
 }
 
 var functions = 
@@ -741,6 +780,23 @@ var functions =
 	">" : mcf2(function (x, y) {return x + ">" + y;}),
 	"<=" : mcf2(function (x, y) {return x + "<=" + y;}),
 	">=" : mcf2(function (x, y) {return x + ">=" + y;}),
+	"eq" : 	mtf2
+	(
+		function(first, second) // The function
+		{	
+			return first + "==" + second;
+		},
+		function(template) // Input and output types
+		{
+			return inOut2(template, template, "bool");
+		},
+		function(firstType, secondType)	// Template guess from input types
+		{
+			// TODO checkSubType
+			checkSameTypes(firstType, secondType);
+			return firstType;
+		}
+	),
 	"==" : 	mtf2
 	(
 		function(first, second) // The function
@@ -942,10 +998,7 @@ var functions =
 	(
 		function(array, index) // The function
 		{	
-			if(index < array.length && index >= 0)
-				return array[index];
-			// TODO version generique (ici seulement pour list de bool)
-			return false;
+			return "at(" + array + ", " + index + ")";
 		},
 		function(template) // Input and output types
 		{
@@ -1052,8 +1105,7 @@ var functions =
 	(
 		function (str) 
 		{
-			var ret = str.split("");
-			return ret;
+			return str + ".split(\"\")";
 		},
 		inOut1("string", mListType("string"))
 	),
@@ -1061,7 +1113,7 @@ var functions =
 	(
 		function (str) 
 		{
-			return parseInt(str);
+			return "parseInt(" + str + ")";
 		},
 		inOut1("string", "int")
 	),
@@ -1069,7 +1121,7 @@ var functions =
 	(
 		function (x) 
 		{
-			return x.toString();
+			return x + ".toString()";
 		},
 		inOut1("int", "string")
 	),
@@ -1077,7 +1129,7 @@ var functions =
 	(
 		function (str) 
 		{
-			return new RegExp(str);
+			return "new RegExp(" + str + ")";
 		},
 		inOut1("string", "regex")
 	),
@@ -1146,7 +1198,11 @@ var functions =
 					});
 				},
 				type : mListType(templates[1]),
-				templates : templates
+				templates : templates,
+				getBeforeStr : function()
+				{
+					return "";
+				}
 			}
 		}
 	},
@@ -1388,12 +1444,12 @@ var functions =
 				this.type = "bool";
 				this.getBeforeStr = function()
 				{
-					return "var contains" + typeToCompactString(templates[0]) + " = new Contains(" + typeToJson(mListType(templates[0])) + ");\n";
+					return "";					
 				}
 
 				this.getStrRef = function(params)
 				{
-					return "contains" + typeToCompactString(templates[0]) + ".get(" + params + ")";
+					return "contains(" + params + ")";
 				}
 			}
 			return new instance(templates);
@@ -1489,10 +1545,7 @@ function FunctionNode(func)
 		this.beforeStr = "";
 		this.str = "";
 
-		if("getBeforeStr" in func)
-		{
-			this.beforeStr = func.getBeforeStr();
-		}
+		this.beforeStr += func.getBeforeStr();
 		var inputStr = "";
 		if("inputNodes" in func)
 		{
@@ -1504,7 +1557,7 @@ function FunctionNode(func)
 		var paramsVal = _.map(params, function(param)
 		{
 			// this.str += field.getStr();
-			// this.beforeStr += newVar(param.getNode());
+			this.beforeStr += param.getBeforeStr();
 			// return getVar(); // + ".get()";
 			return param.getVal();
 		}, this);
@@ -1700,6 +1753,11 @@ function funcToNodeSpec(funcProto)
 }
 
 var currentPath = [];
+
+function tuple(fields)
+{
+	return _.map(fields, function(field){return field.get();});
+};
 
 var nodes = 
 {
@@ -2099,10 +2157,27 @@ var nodes =
 				builder : function func(fields) 
 				{	
 					this.fields = fields;
-					this.get = function()
+
+					var list = [];
+					var temp = templates;
+					
+					this.getBeforeStr = function()
 					{
-						return _.map(this.fields, function(field){return field.get();});
+						return "";
 					};
+
+					this.getNode = function()
+					{
+						return "tuple(" + "[" + _.map(this.fields, function(field)
+							{
+								return field.getNode();
+							}).join(", ") + "])";
+					}
+					
+					// this.get = function()
+					// {
+					// 	return _.map(this.fields, function(field){return field.get();});
+					// };
 					this.getType = function()
 					{
 						return mt("tuple", templates);

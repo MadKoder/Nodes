@@ -65,6 +65,11 @@ function getVar()
 	return "__v" + currentVarIndex.toString();
 }
 
+function pathToString(path)
+{
+	return "[" + _.map(path, function(step){return "\"" + step + "\"";}).join(", ") + "]";
+}
+
 function getVarType()
 {
 	return currentVarType;
@@ -1049,15 +1054,17 @@ function ActionParam(type)
 	}
 }
 
-function StoreFunctionTemplate(t) 
+function StoreFunctionTemplate(t, name) 
 {
 	this.template = t;
 	this.func = null;
+	this.id = storeId++;
+	this.name = name;
 	//this.type = null;
 
 	this.getVal = function()
 	{
-		return this.func;
+		return this.name;
 	};
 	
 	this.getNode = function()
@@ -1074,6 +1081,11 @@ function StoreFunctionTemplate(t)
 	{
 		this.func = this.template.build(params);		
 	};
+
+	this.getBeforeStr = function()
+	{
+		return "";
+	}
 	
 	// this.getType = function()
 	// {
@@ -1265,12 +1277,12 @@ function ComprehensionNode(nodeGraph, externNodes)
 			varStr += "var " + indexName + " = new Store(null, int);\n";		
 			comprehensionIndices[index] = new Var(indexName + ".get()", indexName, "int");
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
-		};
+		};		
 	}, this);
 	inputStr += "];\n"
 	arraysStr += "];\n"
 	indicesStr += "];\n"
-	
+	compIndex++;
 	var mergedNodes = _.merge(this.nodes, externNodes);
 	if("when" in nodeGraph)
 	{
@@ -1291,7 +1303,6 @@ function ComprehensionNode(nodeGraph, externNodes)
 		this.addsRefs = true;
 	} 
 
-	compIndex++;
 
 	this.getBeforeStr = function()
 	{
@@ -1979,7 +1990,7 @@ function ArrayAccess(node, type) {
 		this.node.addSink(sink);
 	};
 
-	this.set = function(val, rootAndPath)
+	this.set = function(val)
 	{
 		var index = this.stack.pop();
 		this.savedStack.push(index);
@@ -1987,6 +1998,19 @@ function ArrayAccess(node, type) {
 		var array = this.node.get();
 		array[index] = val;
 		this.node.dirty([index]);
+
+		index = this.savedStack.pop();
+		this.stack.push(index);
+	}
+
+	this.setPath = function(val, path)
+	{
+		var index = this.stack.pop();
+		this.savedStack.push(index);
+
+		var array = this.node.get();
+		setPath(array[index], path, val);
+		this.node.dirty([index].concat(path));
 
 		index = this.savedStack.pop();
 		this.stack.push(index);
@@ -2035,9 +2059,15 @@ function compileRef(ref, nodes, promiseAllowed)
 	if(_.isPlainObject(ref) && "destruct" in ref)
 	{
 		var tupleGraph = ref.destruct;
-		var tuple = _.map(tupleGraph, function(path){return compileRef(path, nodes, promiseAllowed).val;});
-		var templates = _.map(tuple, function(node){return node.getType();})
-		return new Destruct(tuple);
+		var tuple = _.map(tupleGraph, function(path){return compileRef(path, nodes, promiseAllowed);});
+		// var templates = _.map(tuple, function(node){return node.getType();})
+		// return new Destruct(tuple);
+		var beforeStr = newVar("new Destruct(" + "[" + _.map(tuple, function(elt)
+			{
+				return elt.getNode();
+			}).join(", ") + "])");
+		var v = getVar();
+		return new Var(v + ".get()", v, "", beforeStr);
 	}
 	else
 	{
@@ -2058,7 +2088,7 @@ function compileRef(ref, nodes, promiseAllowed)
 			var func = library.functions[sourceNode];
 			if("guessTypeParams" in func)
 			{
-				return new StoreFunctionTemplate(library.functions[sourceNode], null);
+				return new StoreFunctionTemplate(library.functions[sourceNode], sourceNode);
 				// new Var(sourceNode + "()", sourceNode, func.getType());
 			}
 			// TODO type
@@ -2242,18 +2272,12 @@ function Action(nodeStr, beforeStr)
 	}
 }
 
-function Match(what, cases, elseCase)
+function Match(what, cases, elseCase, type)
 {
-	this.what = makeExpr(what, nodes);
-	this.cases = cases.map(function(caseGraph){
-		return {
-			vals : _.map(caseGraph.vals, function(val){
-				return makeExpr(val, nodes)}),
-			out : makeExpr(caseGraph.out, nodes)
-		};
-	});
-	this.elseCase = makeExpr(elseCase, nodes);
-	this.type = this.elseCase.getType();
+	this.what = what;
+	this.cases = cases
+	this.elseCase = elseCase;
+	this.type = type;
 				
 	this.get = function()
 	{
@@ -2606,7 +2630,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 	{
 		function makeAffectationStr(matchesGraph, nodes)
 		{
-			return "[" + matchesGraph.map(function(mergeExp){
+			return "[" + _.map(matchesGraph, function(mergeExp){
 				
 				if("cond" in mergeExp)
 				{
@@ -2619,12 +2643,11 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 					}
 					// return new CondAffectation(cond, affects, elseAffects);
 					var node = "new CondAffectation(" + cond.getNode() + ", " + affects + ", " + elseAffects + ")";
-					return new Var(node + ".get()", node, "");
+					return node;
 				}
 				
-				return new Affectation(makeExpr(mergeExp.val, nodes), mergeExp.paths);
 				var node = "new Affectation(" + makeExpr(mergeExp.val, nodes).getNode() + ", " + pathToString(mergeExp.paths) + ")";
-				return new Var(node + ".get()", node, "");
+				return node;
 			}).join(", ") + "]";
 		}
 
@@ -2652,14 +2675,14 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 							return makeExpr(val, nodes).getNode()
 						}).join(", ") + "], " +
 					"out : " + makeExpr(caseGraph.out, nodes).getNode() +
-				"};"
+				"}"
 			}).join(", ") + "]";
 		var elseExpr = makeExpr(expr["else"], nodes)
 		var elseStr = elseExpr.getNode();
 		var type = elseExpr.getType();
 
-		var str = "Match(" + makeExpr(expr.match, nodes).getNode() + ", " + cases + ", " + elseStr + ", " + typeToJson(type) + ")";
-		return new Var(str + ".get()", str, type);
+		var str = "new Match(" + makeExpr(expr.match, nodes).getNode() + ", " + cases + ", " + elseStr + ", " + typeToJson(type) + ")";
+		return new Var("(" + str + ").get()", str, type);
 	} else if("matchType" in expr)
 	{
 		function MatchType(what, cases)
@@ -3040,23 +3063,31 @@ function makeAction(actionGraph, nodes, connections)
 	
 	if("foreach" in actionGraph)
 	{
-		function ForEach(list, signal, params)
-		{
-			this.list = list;
-			this.iteratedSignal = signal;
-			this.params = params;
-			
-			this.signal = function()
-			{
-				this.list.signal("foreach", [this.iteratedSignal].concat(this.params));
-			}
-		}
-		var iterated = compileRef(actionGraph["foreach"], nodes).val;
-		checkList(iterated.getType());
+		var list = compileRef(actionGraph["foreach"], nodes);
+		var itName = "it" + locIndex;
+		var beforeStr = itName + " = new ArrayAccess(" + list.getNode() + ");\n";
+
+		var str = newVar(list.getVal() + ".length - 1");
+		var counter = getVar();
+
+		locIndex++;
+
 		var paramsGraph = actionGraph.params;
-		var compiledParams = _.map(paramsGraph, function(param){return makeExpr(param, nodes);});
-		// TODO check signal and params valid with list element type
-		return new ForEach(iterated, actionGraph.signal, compiledParams);
+		var paramsStr = _.map(paramsGraph, function(param)
+			{
+				beforeStr += newVar(makeExpr(param, nodes).getNode());
+				return getVar();
+			}).join(", ");
+		str += "for(; " + counter + " >= 0; " + counter + "--){\n";
+		str += itName + ".push(" + counter + ");\n";
+		str += getListTypeParam(list.getType()) + "." + actionGraph["signal"] + "(" + itName;
+		if(paramsStr.length > 0)
+		{
+			str += ", " + paramsStr;
+		}
+		str += ");\n";
+		str += itName + ".pop();\n}\n";
+		return new Action(str, beforeStr);
 	}
 	
 	if("match" in actionGraph)
@@ -3254,6 +3285,7 @@ function makeAction(actionGraph, nodes, connections)
 		{
 			localNodes[actionGraph["index"]] = new Constant(counter, "int");
 		}
+		locIndex++;
 		// TODO : check that action only change iterator
 		var action = makeAction
 		(
@@ -3261,8 +3293,8 @@ function makeAction(actionGraph, nodes, connections)
 			localNodes
 		);
 
-		locIndex++;
-
+		beforeStr += action.getBeforeStr();
+		
 		str += "for(; " + counter + " >= 0; " + counter + "--){\n";
 		str += itName + ".push(" + counter + ");\n";
 		str += action.getNode();
@@ -3327,18 +3359,6 @@ function makeAction(actionGraph, nodes, connections)
 	
 	if("signal" in actionGraph)
 	{
-		function SignalNode(node, signal, params)
-		{
-			this.node = node;
-			this.nodeSignal = signal;
-			this.params = params;
-			
-			this.signal = function()
-			{
-				// TODO ameliorer params.params
-				this.node.signal(this.nodeSignal, this.params, [], true);
-			}
-		}
 		var paramsGraph = actionGraph.params;
 		var beforeStr = ""
 		var paramsStr = _.map(paramsGraph, function(param)
@@ -3346,23 +3366,21 @@ function makeAction(actionGraph, nodes, connections)
 				beforeStr += newVar(makeExpr(param, nodes).getNode());
 				return getVar();
 			}).join(", ");
+		
+		// Object slot
 		if("var" in actionGraph)
 		{
-			return new SignalNode(compileRef(actionGraph["var"], nodes).val, actionGraph.signal, compiledParams)
-		}
-		function SignalAction(action, params)
-		{
-			this.action = action;
-			this.params = params;
-			
-			this.signal = function()
+			var node = compileRef(actionGraph["var"], nodes); 
+			var str = node.getType() + "." + actionGraph["signal"] + "(" + node.getNode();
+			if(paramsStr.length > 0)
 			{
-				// TODO ameliorer params.params
-				this.action.signal(this.params, [], {root : this.node, path : []});
+				str += ", " + paramsStr;
 			}
+			str += ");\n";
+			return new Action(str, beforeStr);
 		}
-		// return new SignalAction(compileRef(actionGraph["signal"], nodes), compiledParams);
-		// var str = "{signal: function(){" + compileRef(actionGraph["signal"], nodes).getNode() + ".signal(" + paramsStr + ");}}";
+		
+		// Global action
 		var str = compileRef(actionGraph["signal"], nodes).getNode() + "(" + paramsStr + ");\n";
 		return new Action(str, beforeStr);
 	}
@@ -3454,13 +3472,15 @@ function makeAction(actionGraph, nodes, connections)
 				if(_.isObject(subSlot) && "destruct" in subSlot)
 				{
 					var templates = getTypeParams(type);
-					var newLoc = {};
 					var destruct = subSlot.destruct;
 					_.each(destruct, function(name, i){
-						var loc = new Store(null, templates[i]);
-						newLoc[name] = loc;
+						// var loc = new Store(null, templates[i]);
+						var locName = "__loc" + locIndex.toString();
+						locIndex++;
+						beforeStr += "var " + locName + " = new Store(null, " + typeToJson(templates[i]) + ");\n";
+						var loc = new Var(locName + ".get()", locName, templates[i]);
+						mergedNodes[name] = loc;
 					});
-					mergedNodes = _.merge(mergedNodes, newLoc);
 				}
 				else
 				{
@@ -3469,9 +3489,7 @@ function makeAction(actionGraph, nodes, connections)
 					locIndex++;
 					beforeStr += "var " + locName + " = new Store(null, " + typeToJson(type) + ");\n";
 					var loc = new Var(locName + ".get()", locName, type);
-					var newLoc = {};
-					newLoc[subSlot[0]] = loc;
-					mergedNodes = _.merge(mergedNodes, newLoc);
+					mergedNodes[subSlot[0]] = loc;
 				}
 			} else
 			{
@@ -3695,6 +3713,14 @@ function __Obj(structDef, params, type)
 	{
 		return this.structDef;
 	}
+
+	this.addSink = function(sink)
+	{
+		_.each(this.fields, function(field)
+		{
+			field.addSink(sink);
+		});
+	}
 };
 
 var structId = 0;
@@ -3811,6 +3837,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			instanceIndex++;
 
 			var firstField = true;
+			var beforeStr = "";
 			for(var i = 0; i < signalSlotAndFieldGraph.length; i++)
 			{
 				var field = signalSlotAndFieldGraph[i];
@@ -3846,6 +3873,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					{
 						paramStr += comma + fieldVal.getNode();
 					}
+					beforeStr += fieldVal.getBeforeStr();
 				} else if("signal" in field)
 				{
 					function StructSignal() {
@@ -3886,7 +3914,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			this.getBeforeStr = function()
 			{
 				// return "var "  + this.instanceName + " = new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\");\n";
-				return "";
+				return beforeStr;
 			}
 
 			this.getNode = function()
@@ -4128,7 +4156,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	if(superClassName)
 		library.nodes[superClassName].subClasses.push(concreteName);
 	
-	return src;
+	return str;
 
 	for(var i = 0; i < signalAndSlotsGraph.length; i++)
 	{
@@ -4180,7 +4208,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 		}
 	}
 
-	return src;
+	return str;
 }
 
 function StructTemplate(classGraph, tp, superClassName, inheritedFields)
@@ -4278,19 +4306,33 @@ function FunctionInstance(classGraph)
 		// return [];
 	// });
 	this.needsNodes = false;
+	this.beforeStr = "";
 
 	this.getBeforeStr = function()
 	{
-		var str = "";
-		_.each(this.inputNodes, function(input)
-		{
-			str += input.getBeforeStr();
-		});
-		// str += this.expr.getBeforeStr();
-		return str;
+		// var str = "";
+		// _.each(this.inputNodes, function(input)
+		// {
+		// 	str += input.getBeforeStr();
+		// });
+		return this.beforeStr;
 	}
 
 	this.getStr = function(params)
+	{
+		var str = "";
+		_.each(params, function(param, index)
+		{
+			str += param;
+			if(index < params.length - 1)
+			{
+				str += ", ";
+			}
+		});
+		return this.name + "(" + str + ")";
+	}
+
+	this.getStrRef = function(params)
 	{
 		var str = "";
 		_.each(params, function(param, index)
@@ -4539,9 +4581,7 @@ function FunctionTemplate(classGraph)
 		}
 
 		var fullFuncName = classGraph.id + "$" + key;
-		
-		var funcVar = new Var(fullFuncName + "()", fullFuncName, "");
-		instance.funcVar = funcVar;
+		// instance.name = fullFuncName;		
 		this.cache[key] = instance;
 		
 		instance.internalNodes = {};
@@ -4583,11 +4623,11 @@ function FunctionTemplate(classGraph)
 				return paramAndType[0];
 			}).join(", ");
 		
-		var beforeStr = "function " + fullFuncName + "(" + paramStr + "){\n";
-		beforeStr += instance.expr.getBeforeStr();
-		beforeStr += "return " + instance.expr.getVal() + ";\n};\n";		
-		funcVar.beforeStr = beforeStr;
-
+		// instance.beforeStr += "function " + fullFuncName + "(" + paramStr + "){\n";
+		instance.beforeStr += "function " + classGraph.id + "(" + paramStr + "){\n";
+		instance.beforeStr += instance.expr.getBeforeStr();
+		instance.beforeStr += "return " + instance.expr.getVal() + ";\n};\n";		
+		
 		if(instance.expr.needsNodes)
 		{
 			instance.needsNodes = true;
@@ -4657,6 +4697,7 @@ function compileGraph(graph, lib, previousNodes)
 	connectionsAllowed = false;
 	src = "var float = {};\n";
 	src += "var int = {};\n";
+	src += "var string = {};\n";
 
 	//return;
 	
@@ -4710,7 +4751,7 @@ function compileGraph(graph, lib, previousNodes)
 							var type = paramAndType[1];
 							// version when function gets ref 
 							// var node = new Var(paramAndType[0] + ".get()", paramAndType[0], paramAndType[1]);
-							var node = new Var(paramAndType[0], paramAndType[0], paramAndType[1]);
+							var node = new Var(paramAndType[0], "new Store(" + paramAndType[0] + ", " + typeToJson(paramAndType[1]) + ")", paramAndType[1]);
 							node.func = funcGraph.id;
 							func.inputNodes.push(node);
 							// func.internalNodes[paramAndType[0]] = node;
@@ -4940,7 +4981,8 @@ function compileGraph(graph, lib, previousNodes)
 				} else if("cache" in nodeGraph)
 				{
 					// node = new Cache(node);
-					node = new Var("new Cache(" + node.getNode() + ")", node.getVal(), node.getType());
+					src += node.getBeforeStr();
+					src += "var " + id + " = new Cache(" + node.getNode() + ");\n";
 				} else
 				{
 					src += node.getBeforeStr();
