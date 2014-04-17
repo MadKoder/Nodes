@@ -1,0 +1,54 @@
+structs:
+	Vec2 :
+		float x
+		float y
+	Vec3 :
+		float x
+		float y
+		float z
+	Color :
+		float r
+		float g
+		float b
+	State : 
+		Color color
+	Ui : 
+		subs :
+			UiGroup:
+				list<Ui> children
+				subs :
+					HGroup
+					VGroup
+			Button :
+				string desc
+				signal click(string what)
+				slot onClick(string what):
+					self.click(what)
+	Obj :
+		int id
+		dict<string, Color> stateSet
+		subs:
+			Group :
+				list<Obj>	children
+			Leaf:
+				Vec2 pos
+				subs :
+					Rect : 
+						Vec2 size
+					Circle :
+						float radius 
+functions:
+	addVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x + v1.x, v0.y + v1.y)
+	subVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x - v1.x, v0.y - v1.y)
+	accumState(dict<string, State> accum, dict<string, State> state) 		merge(accum, state)
+	getStateSet(Obj obj) 		obj.stateSet
+	ref list<T> getTypeAndAccumState<T>(Obj obj) type obj :
+		T  : [obj]
+		Group : flatMap
+			(
+				Obj child -> getTypeAndAccumState<T>(child \ stateSet = merge(obj.stateSet, child.stateSet)),
+				obj.children
+			)
+		_ : []

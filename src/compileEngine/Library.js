@@ -106,16 +106,24 @@ function isSameOrSubType(checkedType, refType)
 	}
 
 	// Empty list is always sub-type of any other list type
-	if((checkedBaseType == "list") && (checkedTypeParams[0] == undefined))
+	if((checkedBaseType == "list") && (checkedTypeParams[0] == ""))
 	{
 		return true
 	}
 
-	_(checkedTypeParams).zip(refTypeParams).each(function(types)
+	// Empty dict is always sub-type of any other dict type
+	if((checkedBaseType == "dict") && (checkedTypeParams[1] == ""))
 	{
-		if(types[0] != types[1])
-			return false;
-	})
+		return true
+	}
+
+	if(!(_(checkedTypeParams).zip(refTypeParams).map(function(types)
+	{
+		return isSameOrSubType(types[0], types[1]);
+	}).every()))
+	{
+		return false;
+	}
 	return true;
 }
 
@@ -1193,14 +1201,7 @@ var functions =
 				params : [["function" , inOut1(templates[0], templates[1])], ["list" , mListType(templates[0])]],
 				getStr : function(params) 
 				{	
-					return "_.map(" + params[1] + ", " + params[0] + ")";
-					var funcInstance = params[0];
-					return _.map(params[1], function(val)
-					{
-						// Il faut appeler funcInstance.func pour conserver le "this",
-						// et non pas cacher la methode func puis l'appeler seule
-						return funcInstance.func([val]);
-					});
+					return "_.map(" + params[1] + ", " + params[0] + ")";					
 				},
 				type : mListType(templates[1]),
 				templates : templates,
@@ -1236,15 +1237,9 @@ var functions =
 				this.params = [["function" , inOut1(templates[0], mListType(templates[1]))], ["list" , mListType(templates[0])]];
 				this.needsNodes = true;
 				this.arrayAccess = new ArrayAccess(null, mListType(templates[0]));
-				this.func = function(params) 
+				this.getStrRef = function(params) 
 				{	
-					var funcInstance = params[0];
-					var array = params[1];
-					return _(array).map(function(val)
-					{
-						return funcInstance.func([val]);
-					})
-					.flatten(true).value();
+					return "_.(" + params[1] + ".get()).map(function(val){return " + params[0] + ".get().func([val]);}).flatten(true).value()";
 				};
 				this.funcRef = function(params) 
 				{	
@@ -1289,6 +1284,10 @@ var functions =
 				};
 				this.type = mListType(templates[1]);
 				this.templates = templates;
+				this.getBeforeStr = function()
+				{
+					return "";
+				}
 			}
 			return new instance(templates)
 		}
@@ -1480,14 +1479,16 @@ var functions =
 					["dst" , dictType(templates[0], templates[1])], 
 					["src" , dictType(templates[0], templates[1])]
 				],
-				func : function(params) 
+				getStr : function(params) 
 				{	
-					var dst = _.cloneDeep(params[0]);
-					var src = params[1];
-					return _.merge(dst, src);
+					return "_.merge(_.cloneDeep(" + params[0] + ", " + params[1] + "))"
 				},
 				type : dictType("string", templates[0]),
-				templates : templates
+				templates : templates,
+				getBeforeStr : function()
+				{
+					return "";
+				}
 			}
 		}
 	}
@@ -2096,13 +2097,19 @@ var nodes =
 				{	
 					var dict = fields.dict;
 					var temp = templates;
-					this.get = function()
+					this.getBeforeStr = function()
 					{
-						return dict;
+						return "";
 					};
+
+					this.getVal = function()
+					{
+						return "{}";
+					}
+
 					this.getType = function()
 					{
-						return dictType(templates[0]);
+						return dictType(templates[0], templates[1]);
 					}
 				},
 				// operators : {

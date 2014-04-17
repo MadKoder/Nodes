@@ -756,13 +756,11 @@ function ValInput(type)
 	}
 }
 
+var lambdaIndex = 0;
 function Closure(expr, nodes, genericTypeParams) 
 {
 	this.nodes = nodes;
-	this.nodesClosure =  _.mapValues(nodes, function(node)
-	{
-		return new SubStore(node.getType());
-	});
+	
 	var localNodes = {};
 	var paramSpec = [];
 	var paramStores = _.map(expr.params, function(param, index)
@@ -824,14 +822,6 @@ function Closure(expr, nodes, genericTypeParams)
 	
 	this.get = function()
 	{
-		// _.each(this.nodesClosure, function(closure, key)
-		// {
-		// 	var node = this.nodes[key];
-		// 	if(node)
-		// 	{
-		// 		closure.set(node.get());
-		// 	}
-		// }, this);
 		return this.funcSpec;
 	};
 	
@@ -2323,6 +2313,178 @@ function Match(what, cases, elseCase, type)
 	}
 }
 
+function MatchType(what, cases, type, addsRefs)
+{
+	this.what = what;
+	this.cases = cases;
+	this.type = type;
+	this.addsRefs = addsRefs;
+
+	this.get = function()
+	{
+		var val = this.what.get();
+		var type = val.__type;
+		for(var i = 0; i < this.cases.length - 1; i++)
+		{
+			var match = this.cases[i];
+			if(sameTypes(type,  match.type))
+			{
+				if(match.needsNodes)
+				{
+					match.matchStore.push(this.what);
+				}
+				else
+				{
+					match.matchStore.pushVal(this.what.get());
+				}
+				var val = match.val.get();
+				if(match.needsNodes)
+				{
+					if(match.val.addsRefs)
+					{
+						val.__refs = [match.matchStore].concat(val.__refs);
+						val.__referencedNodes = [this.what].concat(val.__referencedNodes);
+					}
+					else
+					{
+						val.__referencedNodes = [this.what];
+						val.__refs = [match.matchStore];
+					}
+				}
+				
+				if(match.needsNodes)
+				{
+					match.matchStore.pop();
+				}
+				else
+				{
+					match.matchStore.popVal();
+				}
+				return val;
+			}
+		}
+		// else case
+		var match = this.cases[i];
+		match.matchStore.push(this.what);
+
+		var val = match.val.get();
+
+		if(match.needsNodes)
+		{
+			if(match.val.addsRefs)
+			{
+				val.__refs = [match.matchStore].concat(val.__refs);
+				val.__referencedNodes = [this.what].concat(val.__referencedNodes);
+			}
+			else
+			{
+				val.__referencedNodes = [this.what];
+				val.__refs = [match.matchStore];
+			}
+		}
+
+		match.matchStore.pop();
+
+		return val;
+		// TODO Error				
+	}
+
+	this.update = function(upVal, ticks, parentTick)
+	{
+		// inputticks should already have been checked in calling function
+		// var minMax = this.what.getMinMaxTick([]);
+		// if(ticks.tick >= minMax[1])
+		// {
+		// 	return upVal;
+		// }
+
+		var val = this.what.get();
+		var type = val.__type;
+		for(var i = 0; i < this.cases.length - 1; i++)
+		{
+			var match = this.cases[i];
+			if(sameTypes(type,  match.type))
+			{
+				match.matchStore.push(this.what);
+				if(match.needsNodes)
+				{
+					upVal.__refs.shift();
+					upVal.__referencedNodes.shift();
+				}
+				var ret = match.val.update(upVal, ticks, parentTick);
+				var val = ret[0];
+				var ticks = ret[1];
+				if(match.needsNodes)
+				{
+					if(match.val.addsRefs)
+					{
+						val.__refs.unshift(match.matchStore);
+						val.__referencedNodes.unshift(this.what);
+					}
+					else
+					{
+						val.__referencedNodes = [this.what];
+						val.__refs = [match.matchStore];
+					}
+				}
+				match.matchStore.pop();
+				return [val, ticks];
+			}
+		}
+		// else case
+		var match = this.cases[i];
+		match.matchStore.push(this.what);
+
+		if(match.needsNodes)
+		{
+			upVal.__refs.shift();
+			upVal.__referencedNodes.shift();
+		}
+
+		var ret = match.val.update(upVal, ticks, parentTick);
+		var val = ret[0];
+		var ticks = ret[1];
+				
+		if(match.needsNodes)
+		{
+			if(match.val.addsRefs)
+			{
+				val.__refs.unshift(match.matchStore);
+				val.__referencedNodes.unshift(this.what);
+			}
+			else
+			{
+				val.__referencedNodes = [this.what];
+				val.__refs = [match.matchStore];
+			}
+		}
+
+		match.matchStore.pop();
+
+		return [val, ticks];
+	}
+	
+	this.getType = function()
+	{
+		return this.type;
+	}
+
+	this.getMinMaxTick = function(path)
+	{
+		return this.what.getMinMaxTick(path);
+	}
+
+	this.getRootNode = function()
+	{
+		return this;
+	}
+
+	this.getPathFromRoot = function()
+	{
+		return [];
+	}
+}
+
 function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 {
 	if(isRef(expr))
@@ -2421,7 +2583,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		return new DictAccess(ref, indexOrKey, dictTypeParam);
 	} else if("array" in expr)
 	{
-		var typeParam = null;
+		var typeParam = "";
 		var beforeStr = "";
 		var valStr = "[";
 		var nodeStr = "[";
@@ -2430,7 +2592,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			var expr = makeExpr(elt, nodes);
 			beforeStr += expr.getBeforeStr();
 
-			if(typeParam == null)
+			if(typeParam == "")
 			{
 				typeParam = expr.getType();
 			} else
@@ -2453,11 +2615,22 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 				return makeExpr(val, nodes);
 			}
 		);
-		var valType = undefined;
+
+		var dictVal = "{" + _.map(d, function(val, key)
+		{
+			return key + " : " + val.getVal();
+		}).join(", ") + "}";
+
+		var dictVar = "{" + _.map(d, function(val, key)
+		{
+			return key + " : " + val.getNode();
+		}).join(", ") + "}";
+
+		var valType = "";
 		_.forOwn(d, function(val)
 		{
 			var newType = val.getType();
-			if(valType == undefined)
+			if(valType == "")
 			{
 				valType = newType;
 			}
@@ -2466,7 +2639,10 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 				error("Dict value types are not the same, found " + valType + " and " + newType);
 			}
 		});
-		return new Dict(d, valType);
+
+		// return new Dict(d, valType);
+		return new Var(dictVal, "new Dict(" + dictVar + ", \"" + typeToJson(valType) + "\")", {base : "dict", params : ["string", valType]});
+		
 	} else  if("string" in expr)
 	{
 		var str = "\"" + expr.string + "\"";
@@ -2608,12 +2784,18 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			if(connectionsAllowed)
 			{
 				var signals = node.fields.__signals;
+
 				var type = node.getType();
 				connections.push({
 					signals : signals,
 					type : type,
 					connections : expr.connections
 				});
+
+				_.each(expr.connections, function(connection)
+				{
+					signals[connection.signal] = {action : connection.action, nodes : _.clone(nodes)};
+				})
 			}
 			else
 			{
@@ -2707,214 +2889,46 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		return new Var("(" + str + ").get()", str, type);
 	} else if("matchType" in expr)
 	{
-		function MatchType(what, cases)
-		{
-			this.id = storeId++;
 
-			this.what = getNode(what, nodes);
-			this.addsRefs = false;
-			this.needsNodes = false;
-			this.cases = cases.map(function(matchExp){
-				var matchStore = new FuncInput(matchExp.type != "_" ? matchExp.type : this.what.getType(), this.what);
-				var mergedNodes = _.clone(nodes);
-				mergedNodes[what] = matchStore;
-				var type = matchExp.type;
-				if(genericTypeParams && type in genericTypeParams)
-				{
-					type = genericTypeParams[type];
-				}
-				
-				var val = makeExpr(matchExp.val, mergedNodes, genericTypeParams);
-	
-				var needsNodes = false;
-				if(val.needsNodes)
-				{
-					needsNodes = true;
-					this.needsNodes = true;
-					this.addsRefs = true;
-				} 
-				
-				return {
-					val : val,
-					type : type,
-					matchStore : matchStore,
-					needsNodes : needsNodes
-				};
-			}, this);
-
-			this.type = this.cases[0].val.getType();
-			for(i = 1; i < this.cases.length; i++)
+		var what = makeExpr(expr.matchType, nodes);
+		
+		var addsRefs = "false";
+		var returnType = null;
+		var cases = "[\n" + expr["cases"].map(function(matchExp){
+			var matchType = matchExp.type;
+			if(genericTypeParams && matchType in genericTypeParams)
 			{
-				this.type = getCommonSuperClass(this.type, this.cases[i].val.getType());
+				matchType = genericTypeParams[matchType];
 			}
-						
-			this.get = function()
+			var matchStore = new Var(what.getVal(), what.getNode(), matchType != "_" ? matchType : what.getType());
+			var mergedNodes = _.clone(nodes);
+			mergedNodes[expr.matchType] = matchStore;
+			
+			var val = makeExpr(matchExp.val, mergedNodes, genericTypeParams);
+
+			var needsNodes = "false";
+			if(val.needsNodes)
 			{
-				var val = this.what.get();
-				var type = val.__type;
-				for(var i = 0; i < this.cases.length - 1; i++)
-				{
-					var match = this.cases[i];
-					if(sameTypes(type,  match.type))
-					{
-						if(match.needsNodes)
-						{
-							match.matchStore.push(this.what);
-						}
-						else
-						{
-							match.matchStore.pushVal(this.what.get());
-						}
-						var val = match.val.get();
-						if(match.needsNodes)
-						{
-							if(match.val.addsRefs)
-							{
-								val.__refs = [match.matchStore].concat(val.__refs);
-								val.__referencedNodes = [this.what].concat(val.__referencedNodes);
-							}
-							else
-							{
-								val.__referencedNodes = [this.what];
-								val.__refs = [match.matchStore];
-							}
-						}
-						
-						if(match.needsNodes)
-						{
-							match.matchStore.pop();
-						}
-						else
-						{
-							match.matchStore.popVal();
-						}
-						return val;
-					}
-				}
-				// else case
-				var match = this.cases[i];
-				match.matchStore.push(this.what);
-
-				var val = match.val.get();
-
-				if(match.needsNodes)
-				{
-					if(match.val.addsRefs)
-					{
-						val.__refs = [match.matchStore].concat(val.__refs);
-						val.__referencedNodes = [this.what].concat(val.__referencedNodes);
-					}
-					else
-					{
-						val.__referencedNodes = [this.what];
-						val.__refs = [match.matchStore];
-					}
-				}
-		
-				match.matchStore.pop();
-		
-				return val;
-				// TODO Error				
+				needsNodes = "true";
+				addsRefs = "true";
 			}
 
-			this.update = function(upVal, ticks, parentTick)
+			if(returnType == null)
 			{
-				// inputticks should already have been checked in calling function
-				// var minMax = this.what.getMinMaxTick([]);
-				// if(ticks.tick >= minMax[1])
-				// {
-				// 	return upVal;
-				// }
-
-				var val = this.what.get();
-				var type = val.__type;
-				for(var i = 0; i < this.cases.length - 1; i++)
-				{
-					var match = this.cases[i];
-					if(sameTypes(type,  match.type))
-					{
-						match.matchStore.push(this.what);
-						if(match.needsNodes)
-						{
-							upVal.__refs.shift();
-							upVal.__referencedNodes.shift();
-						}
-						var ret = match.val.update(upVal, ticks, parentTick);
-						var val = ret[0];
-						var ticks = ret[1];
-						if(match.needsNodes)
-						{
-							if(match.val.addsRefs)
-							{
-								val.__refs.unshift(match.matchStore);
-								val.__referencedNodes.unshift(this.what);
-							}
-							else
-							{
-								val.__referencedNodes = [this.what];
-								val.__refs = [match.matchStore];
-							}
-						}
-						match.matchStore.pop();
-						return [val, ticks];
-					}
-				}
-				// else case
-				var match = this.cases[i];
-				match.matchStore.push(this.what);
-
-				if(match.needsNodes)
-				{
-					upVal.__refs.shift();
-					upVal.__referencedNodes.shift();
-				}
-
-				var ret = match.val.update(upVal, ticks, parentTick);
-				var val = ret[0];
-				var ticks = ret[1];
-						
-				if(match.needsNodes)
-				{
-					if(match.val.addsRefs)
-					{
-						val.__refs.unshift(match.matchStore);
-						val.__referencedNodes.unshift(this.what);
-					}
-					else
-					{
-						val.__referencedNodes = [this.what];
-						val.__refs = [match.matchStore];
-					}
-				}
-		
-				match.matchStore.pop();
-		
-				return [val, ticks];
+				returnType = val.getType();
+			}
+			else
+			{
+				returnType = getCommonSuperClass(returnType, val.getType());
 			}
 			
-			this.getType = function()
-			{
-				return this.type;
-			}
-
-			this.getMinMaxTick = function(path)
-			{
-				return this.what.getMinMaxTick(path);
-			}
-
-			this.getRootNode = function()
-			{
-				return this;
-			}
-
-			this.getPathFromRoot = function()
-			{
-				return [];
-			}
-		}
+			return "{\nval : " + val.getNode() + ",\n type : " + typeToJson(matchType) + ",\n needsNodes : " + needsNodes + "\n}";
+		}, this).join(",\n ") + "\n]";
 
 		// TODO type avec template
-		return new MatchType(expr.matchType, expr["cases"]);
+		var str = "new MatchType(" + what.getNode() + ", " + cases + ", " + typeToJson(returnType) + ", " + addsRefs + ")";
+		return new Var("(" + str + ").get()", str, type);
+		// return new MatchType(expr.matchType, expr["cases"]);
 	} else if("comp" in expr)
 	{
 		return new ComprehensionNode(expr, nodes);
@@ -2923,7 +2937,23 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		return new Select(expr, nodes);
 	} else if("closure" in expr)
 	{
-		return new Closure(expr, nodes, genericTypeParams);
+		var funcName = "lambda" + lambdaIndex.toString();
+		var funcDef = "function " + funcName + "(";
+		var localNodes = _.clone(nodes);
+		inputTypes = [];
+		funcDef += _.map(expr.params, function(param, index)
+		{
+			var node = new Var(param.id, "", param.type);
+			localNodes[param.id] = node;
+			inputTypes.push(param.type);
+			return param.id;
+		}).join(", ") + "){\n";
+		
+		var builtExpr = makeExpr(expr.closure, localNodes, genericTypeParams);
+		funcDef += "return " + builtExpr.getVal() + "\n}\n";
+
+		// return new Closure(expr, nodes, genericTypeParams);
+		return new Var(funcName, funcName, {inputs : inputTypes, output : builtExpr.getType()}, funcDef);
 	}
 }
 
@@ -3153,7 +3183,31 @@ function makeAction(actionGraph, nodes, connections)
 		}
 
 		// TODO type avec template
-		return new MatchAction(actionGraph, nodes);
+		// return new MatchAction(actionGraph, nodes);
+
+		var beforeStr = ""
+		var str = newVar(makeExpr(actionGraph.match, nodes).getVal());
+		var matchVar = getVar();
+		_.each(actionGraph.cases, function(caseGraph, caseIndex)
+		{
+			if(caseIndex > 0) str += "else";
+			str += "if(" + _.map(caseGraph.vals, function(val)
+			{
+				return "(" + matchVar + " == " + makeExpr(val, nodes).getVal() + ")";
+			}).join(" || ") + "){\n";
+
+			var action = makeAction(caseGraph.action, nodes);
+			beforeStr += action.getBeforeStr();
+			str += action.getNode() + "}\n";
+		});
+		if("else" in actionGraph)
+		{
+			var action = makeAction(actionGraph["else"], nodes);
+			beforeStr += action.getBeforeStr();
+			str += "else{\n" + action.getNode() + "}\n";
+			this.elseCase = makeAction(actionGraph["else"], nodes);
+		}
+		return new Action(str, beforeStr);
 	}
 	
 	if("matchType" in actionGraph)
@@ -3191,8 +3245,30 @@ function makeAction(actionGraph, nodes, connections)
 			}
 		}
 
+		var beforeStr = ""
+		var str = newVar(makeExpr(actionGraph.matchType, nodes).getNode());
+		var matchVar = getVar();
+		str += newVar(matchVar + ".type");
+		var typeVar = getVar();
+		_.each(actionGraph.cases, function(caseGraph, caseIndex)
+		{
+			// TODO manage default case
+			var matchType = caseGraph.type;
+			var matchStore = new Var(matchVar + ".get()", matchVar, matchType != "_" ? matchType : what.getType());
+			var mergedNodes = _.clone(nodes);
+			mergedNodes[actionGraph.matchType] = matchStore;
+
+			if(caseIndex > 0) str += "else";
+			str += "if(isSameOrSubType(" + typeVar + ", " + typeToJson(matchType) + ")){\n";
+			var action = makeAction(caseGraph.action, mergedNodes);
+			beforeStr += action.getBeforeStr();
+			str += action.getNode() + "}\n";
+		});
+		
+		return new Action(str, beforeStr);
+
 		// TODO type avec template
-		return new MatchTypeAction(actionGraph, nodes);
+		// return new MatchTypeAction(actionGraph, nodes);
 	}
 	
 	if("select" in actionGraph)
@@ -3788,6 +3864,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	
 	var fieldsGraph = [];
 	var signalAndSlotsGraph = [];
+	var signalsParams = {};
 	_.each(signalSlotAndFieldGraph, function(item)
 	{
 		// A field
@@ -3798,6 +3875,10 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 		else
 		{
 			signalAndSlotsGraph.push(item);
+			if("signal" in item)
+			{
+				signalsParams[item.signal] = item.params; 
+			}
 		}
 	});
 
@@ -3855,10 +3936,12 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			this.needsNodes = false;
 			this.addsRefs = false;
 			var paramStr = "[";
+			var signalStr = "["
 			this.instanceName = concreteName + instanceIndex.toString();
 			instanceIndex++;
 
 			var firstField = true;
+			var firstSignal = true;
 			var beforeStr = "";
 			for(var i = 0; i < signalSlotAndFieldGraph.length; i++)
 			{
@@ -3916,23 +3999,25 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					}
 					this.signals[signalGraph.signal] = [];
 					this.fields.__signals[signalGraph.signal] = [];
+
+					if(firstSignal)
+					{
+						var comma = "";
+						firstSignal = false;
+					}
+					else
+					{
+						var comma = ", ";
+					}
+					signalStr += "function " + signalGraph.signal + "(){}";
 				}
 			};
 			paramStr += "]";
+			signalStr += "]"
 
 			// this.nodeStr = this.instanceName;
-			this.nodeStr = "new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\")";
 			// this.valStr = this.instanceName + ".get()";
-			this.valStr = "{\n";
-			_.each(this.fields, function(field, key)
-			{
-				if((key != "__type") && (key != "__views"))
-				{
-					this.valStr += "\t" + key + " : " + field.getVal() + ",\n";
-				}
-			}, this);
-			this.valStr += "}";
-
+			
 			this.getBeforeStr = function()
 			{
 				// return "var "  + this.instanceName + " = new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\");\n";
@@ -3941,11 +4026,43 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 
 			this.getNode = function()
 			{
+				this.nodeStr = "new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\", " + signalStr + ")";
 				return this.nodeStr;
 			}
 
 			this.getVal = function()
 			{
+				this.valStr = "{\n";
+				_.each(this.fields, function(field, key)
+				{
+					if(key == "__signals")
+					{
+						_.each(field, function(signal, key)
+						{
+							if(signal.nodes != undefined)
+							{
+								var localNodes = _.clone(signal.nodes);
+								var signalParams = signalsParams[key];
+								var signalParamStr = _.map(signalParams, function(param)
+								{
+									var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
+									localNodes[param[0]] = node;
+									return param[0];
+								}).join(", ");
+								var action = makeAction(signal.action, localNodes);
+
+								this.valStr += "\t" + key + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}" + ",\n";
+							} else
+							{
+								this.valStr += "\t" + key + " : function(){}" + ",\n";
+							}
+						}, this);
+					} else if((key != "__type") && (key != "__views"))
+					{
+						this.valStr += "\t" + key + " : " + field.getVal() + ",\n";
+					}
+				}, this);
+				this.valStr += "}";
 				return this.valStr;
 			}
 
@@ -4163,8 +4280,17 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					return param[0];
 				}).join(", ");
 				var action = makeAction(slotGraph.action, localNodes);
-				beforeStr += action.getBeforeStr();
-				slotStr += slotGraph.slot + " : function(self, " + slotParamStr + "){\n" + action.getNode() + "\n},";
+				// beforeStr += action.getBeforeStr();
+				slotStr += slotGraph.slot + " : function(self, " + slotParamStr + "){\n" + action.getBeforeStr() + action.getNode() + "\n},\n";
+			} else
+			{
+				var signalGraph = item;
+				var signalParamStr = _.map(signalGraph.params, function(param)
+				{
+					return param[0];
+				}).join(", ");
+				// beforeStr += action.getBeforeStr();
+				slotStr += signalGraph.signal + " : function(self, " + signalParamStr + "){\nself.get()." + signalGraph.signal + "(" + signalParamStr + ");\n},\n";
 			}
 		}
 	});
@@ -5116,9 +5242,9 @@ function compileGraph(graph, lib, previousNodes)
 		var slots = library.nodes[type].operators.slots;
 		_.each(nodeConnection.connections, function(connection)
 		{
-			var mergedNodes = _.clone(nodes);
-			_.merge(mergedNodes, slots[connection.signal].localNodes);
-			signals[connection.signal].push(makeAction(connection.action, mergedNodes));
+			// var mergedNodes = _.clone(nodes);
+			// _.merge(mergedNodes, slots[connection.signal].localNodes);
+			// signals[connection.signal].push(makeAction(connection.action, mergedNodes));
 		});
 	});
 	

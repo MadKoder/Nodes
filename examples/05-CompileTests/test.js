@@ -19,10 +19,35 @@ var library =
 	actions : actions
 };
 
+function hit(vec)
+{
+	var hitResult = project.hitTest(new Point(vec.x, vec.y));
+					
+	if (!hitResult)
+		return -1;
+
+	return hitResult.item.data;
+}
+
+localFunctions =
+{
+	"hit" : mf1
+	(
+		function(vec)
+		{
+			return "hit(" + vec + ")";
+		},
+		inOut1("Vec2", "int")
+	)
+}
+
+_.merge(functions, localFunctions);
+_.merge(nodes, localFunctions, function(node, func){return funcToNodeSpec(func);});
 
 
-// $.get("test.nodes", function( text ) {
-$.get("arcaNodes.nodes", function( text ) {
+$.get("test.nodes", function( text ) {
+// $.get("arcaNodes.nodes", function( text ) {
+// $.get("treeEdit.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
 
@@ -35,7 +60,7 @@ $.get("arcaNodes.nodes", function( text ) {
 	// eval(src);
 	// $("#test").html(code.a.get());
 	tick();
-	// $test.html(va.get()[0].x + " " + va.get()[1].y);
+	$test.html(t.get());
 }
 , "text" // Commenter pour lire du json
 );
