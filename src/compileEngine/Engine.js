@@ -2119,8 +2119,10 @@ function compileRef(ref, nodes, promiseAllowed)
 		
 		if(promiseAllowed && !(sourceNode in nodes))
 		{
+			// TODO struct access
+			// TODO check that promises are kept, check types
 			promiseCounter++;
-			return {__promise : ref};
+			return new Var(sourceNode + ".get()", sourceNode);
 		}
 		var node = getNode(sourceNode, nodes);
 		var path = split.slice(1);
@@ -2161,7 +2163,7 @@ function compileRef(ref, nodes, promiseAllowed)
 				error("No field " + path + " in node of type " + node.getType());		
 			}
 
-			var str = "new StructAccess(" + node.getNode() + ", " + nodePath + ", " + type + ")";
+			var str = "new StructAccess(" + node.getNode() + ", " + nodePath + ", " + typeToJson(type) + ")";
 			var valStr = node.getVal() + valPath;
 			var ret = new Var(valStr, str, type);
 			ret.isStructAccess = true;
@@ -2329,61 +2331,61 @@ function MatchType(what, cases, type, addsRefs)
 			var match = this.cases[i];
 			if(sameTypes(type,  match.type))
 			{
-				if(match.needsNodes)
-				{
-					match.matchStore.push(this.what);
-				}
-				else
-				{
-					match.matchStore.pushVal(this.what.get());
-				}
+				// if(match.needsNodes)
+				// {
+				// 	match.matchStore.push(this.what);
+				// }
+				// else
+				// {
+				// 	match.matchStore.pushVal(this.what.get());
+				// }
 				var val = match.val.get();
-				if(match.needsNodes)
-				{
-					if(match.val.addsRefs)
-					{
-						val.__refs = [match.matchStore].concat(val.__refs);
-						val.__referencedNodes = [this.what].concat(val.__referencedNodes);
-					}
-					else
-					{
-						val.__referencedNodes = [this.what];
-						val.__refs = [match.matchStore];
-					}
-				}
+				// if(match.needsNodes)
+				// {
+				// 	if(match.val.addsRefs)
+				// 	{
+				// 		val.__refs = [match.matchStore].concat(val.__refs);
+				// 		val.__referencedNodes = [this.what].concat(val.__referencedNodes);
+				// 	}
+				// 	else
+				// 	{
+				// 		val.__referencedNodes = [this.what];
+				// 		val.__refs = [match.matchStore];
+				// 	}
+				// }
 				
-				if(match.needsNodes)
-				{
-					match.matchStore.pop();
-				}
-				else
-				{
-					match.matchStore.popVal();
-				}
+				// if(match.needsNodes)
+				// {
+				// 	match.matchStore.pop();
+				// }
+				// else
+				// {
+				// 	match.matchStore.popVal();
+				// }
 				return val;
 			}
 		}
 		// else case
 		var match = this.cases[i];
-		match.matchStore.push(this.what);
+		// match.matchStore.push(this.what);
 
 		var val = match.val.get();
 
-		if(match.needsNodes)
-		{
-			if(match.val.addsRefs)
-			{
-				val.__refs = [match.matchStore].concat(val.__refs);
-				val.__referencedNodes = [this.what].concat(val.__referencedNodes);
-			}
-			else
-			{
-				val.__referencedNodes = [this.what];
-				val.__refs = [match.matchStore];
-			}
-		}
+		// if(match.needsNodes)
+		// {
+		// 	if(match.val.addsRefs)
+		// 	{
+		// 		val.__refs = [match.matchStore].concat(val.__refs);
+		// 		val.__referencedNodes = [this.what].concat(val.__referencedNodes);
+		// 	}
+		// 	else
+		// 	{
+		// 		val.__referencedNodes = [this.what];
+		// 		val.__refs = [match.matchStore];
+		// 	}
+		// }
 
-		match.matchStore.pop();
+		// match.matchStore.pop();
 
 		return val;
 		// TODO Error				
@@ -2894,6 +2896,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		
 		var addsRefs = "false";
 		var returnType = null;
+		var beforeStr ="";
 		var cases = "[\n" + expr["cases"].map(function(matchExp){
 			var matchType = matchExp.type;
 			if(genericTypeParams && matchType in genericTypeParams)
@@ -2905,6 +2908,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			mergedNodes[expr.matchType] = matchStore;
 			
 			var val = makeExpr(matchExp.val, mergedNodes, genericTypeParams);
+			beforeStr += val.getBeforeStr();
 
 			var needsNodes = "false";
 			if(val.needsNodes)
@@ -2927,7 +2931,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 
 		// TODO type avec template
 		var str = "new MatchType(" + what.getNode() + ", " + cases + ", " + typeToJson(returnType) + ", " + addsRefs + ")";
-		return new Var("(" + str + ").get()", str, type);
+		return new Var("(" + str + ").get()", str, type, beforeStr);
 		// return new MatchType(expr.matchType, expr["cases"]);
 	} else if("comp" in expr)
 	{
@@ -2941,15 +2945,18 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		var funcDef = "function " + funcName + "(";
 		var localNodes = _.clone(nodes);
 		inputTypes = [];
+		var storeStr = "";
 		funcDef += _.map(expr.params, function(param, index)
 		{
-			var node = new Var(param.id, "", param.type);
+			storeStr += newVar("new Store(" + param.id + ", " + typeToJson(param.type) + ")");
+			var node = new Var(param.id, getVar(), param.type);
 			localNodes[param.id] = node;
 			inputTypes.push(param.type);
 			return param.id;
 		}).join(", ") + "){\n";
 		
 		var builtExpr = makeExpr(expr.closure, localNodes, genericTypeParams);
+		funcDef += storeStr;
 		funcDef += "return " + builtExpr.getVal() + "\n}\n";
 
 		// return new Closure(expr, nodes, genericTypeParams);
@@ -3190,7 +3197,7 @@ function makeAction(actionGraph, nodes, connections)
 		var matchVar = getVar();
 		_.each(actionGraph.cases, function(caseGraph, caseIndex)
 		{
-			if(caseIndex > 0) str += "else";
+			if(caseIndex > 0) str += "else ";
 			str += "if(" + _.map(caseGraph.vals, function(val)
 			{
 				return "(" + matchVar + " == " + makeExpr(val, nodes).getVal() + ")";
@@ -3248,7 +3255,7 @@ function makeAction(actionGraph, nodes, connections)
 		var beforeStr = ""
 		var str = newVar(makeExpr(actionGraph.matchType, nodes).getNode());
 		var matchVar = getVar();
-		str += newVar(matchVar + ".type");
+		str += newVar(matchVar + ".get().__type");
 		var typeVar = getVar();
 		_.each(actionGraph.cases, function(caseGraph, caseIndex)
 		{
@@ -3258,7 +3265,7 @@ function makeAction(actionGraph, nodes, connections)
 			var mergedNodes = _.clone(nodes);
 			mergedNodes[actionGraph.matchType] = matchStore;
 
-			if(caseIndex > 0) str += "else";
+			if(caseIndex > 0) str += "else ";
 			str += "if(isSameOrSubType(" + typeVar + ", " + typeToJson(matchType) + ")){\n";
 			var action = makeAction(caseGraph.action, mergedNodes);
 			beforeStr += action.getBeforeStr();
@@ -3794,6 +3801,7 @@ function __Obj(structDef, params, type)
 		{
 			struct[key] = field.get();
 		});
+		struct.__type = type;
 		return struct;
 	}
 
@@ -4057,7 +4065,12 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 								this.valStr += "\t" + key + " : function(){}" + ",\n";
 							}
 						}, this);
-					} else if((key != "__type") && (key != "__views"))
+					} 
+					else if(key == "__type")
+					{
+						this.valStr += "__type : " + typeToJson(field) + ",\n";
+					}
+					else if(key != "__views")
 					{
 						this.valStr += "\t" + key + " : " + field.getVal() + ",\n";
 					}
@@ -4729,7 +4742,7 @@ function FunctionTemplate(classGraph)
 		}
 
 		var fullFuncName = classGraph.id + "$" + key;
-		// instance.name = fullFuncName;		
+		instance.name = fullFuncName;		
 		this.cache[key] = instance;
 		
 		instance.internalNodes = {};
@@ -4745,7 +4758,7 @@ function FunctionTemplate(classGraph)
 			// instance.internalNodes[paramAndType[0]] = node;
 
 			var type = instantiateTemplates(paramAndType[1], templateNameToInstances);
-			var node = new Var(paramAndType[0], paramAndType[0], type);
+			var node = new Var(paramAndType[0] + ".get()", paramAndType[0], type);
 			// node.func = funcGraph.id;
 			instance.inputNodes.push(node);
 			// func.internalNodes[paramAndType[0]] = node;
@@ -4771,8 +4784,8 @@ function FunctionTemplate(classGraph)
 				return paramAndType[0];
 			}).join(", ");
 		
-		// instance.beforeStr += "function " + fullFuncName + "(" + paramStr + "){\n";
-		instance.beforeStr += "function " + classGraph.id + "(" + paramStr + "){\n";
+		instance.beforeStr += "function " + fullFuncName + "(" + paramStr + "){\n";
+		// instance.beforeStr += "function " + classGraph.id + "(" + paramStr + "){\n";
 		instance.beforeStr += instance.expr.getBeforeStr();
 		instance.beforeStr += "return " + instance.expr.getVal() + ";\n};\n";		
 		

@@ -1,3 +1,14 @@
+	
+function toto(vec)
+{
+	var hitResult = project.hitTest(new Point(vec.x, vec.y));
+					
+	if (!hitResult)
+		return -1;
+
+	return hitResult.item.data;
+}
+
 function check(test, str)
 {
 	if(!test)
@@ -1239,7 +1250,7 @@ var functions =
 				this.arrayAccess = new ArrayAccess(null, mListType(templates[0]));
 				this.getStrRef = function(params) 
 				{	
-					return "_.(" + params[1] + ".get()).map(function(val){return " + params[0] + ".get().func([val]);}).flatten(true).value()";
+					return "_(" + params[1] + ".get()).map(function(val){return " + params[0] + "(val);}).flatten(true).value()";
 				};
 				this.funcRef = function(params) 
 				{	
@@ -1481,7 +1492,8 @@ var functions =
 				],
 				getStr : function(params) 
 				{	
-					return "_.merge(_.cloneDeep(" + params[0] + ", " + params[1] + "))"
+					// return "_.merge(_.cloneDeep(" + params[0] + "), " + params[1] + ")";
+					return "merge(" + params[0] + ", " + params[1] + ")"
 				},
 				type : dictType("string", templates[0]),
 				templates : templates,
@@ -1493,6 +1505,12 @@ var functions =
 		}
 	}
 };
+
+function merge(dst, src)
+{
+	var ret = _.merge(_.cloneDeep(dst), src);
+	return ret;
+}
 
 function Func(func, type, paramsNode)
 {

@@ -1,0 +1,20 @@
+
+body { 
+  font-family: sans-serif 
+}
+
+button {
+  width: 150px;
+  height: 25px;
+  /* background-color: #eeeeee; */
+}
+
+div
+{
+	overflow: hidden;
+}
+.hgroup {
+ 
+  float : left;
+  /* background-color: #eeeeee; */
+}

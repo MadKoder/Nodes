@@ -45,9 +45,9 @@ _.merge(functions, localFunctions);
 _.merge(nodes, localFunctions, function(node, func){return funcToNodeSpec(func);});
 
 
-$.get("test.nodes", function( text ) {
+// $.get("test.nodes", function( text ) {
 // $.get("arcaNodes.nodes", function( text ) {
-// $.get("treeEdit.nodes", function( text ) {
+$.get("treeEdit.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
 
