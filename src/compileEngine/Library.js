@@ -752,6 +752,38 @@ function eq(first, second)
 	return first == second;
 }
 
+function findAllMatches(re, str) 
+{
+	if(re.test(str))
+	{
+		// TODO improve
+		var ret = [[RegExp.$1, RegExp.$2, RegExp.$3, RegExp.$4]];
+		return ret;
+	}
+	return [];
+
+}
+
+function maybeAt(array, index)
+{	
+	if(index < array.length && index >= 0)
+	{
+		return {
+			__type : {
+				base : "Just",
+				params : ["regmatch"]
+			},
+			x : array[index]
+		}
+	}
+	return {
+		__type : {
+			base : "None",
+			params : ["regmatch"]
+		}
+	}
+}
+
 var functions = 
 {
 	"head" : mluf1
@@ -1038,14 +1070,7 @@ var functions =
 	(
 		function(array, index) // The function
 		{	
-			if(index < array.length && index >= 0)
-			{
-				var builder = nodes.Just.getInstance(["regmatch"]).builder; // TODO : real type param
-				return (new builder({x: new Store(array[index], "regmatch")})).get(); 
-			}
-			// TODO version generique (ici seulement pour list de bool)
-			var builder = nodes.None.getInstance(["regmatch"]).builder;
-			return (new builder()).get();
+			return "maybeAt(" + array + ", " + index + ")";
 		},
 		function(template) // Input and output types
 		{
@@ -1161,14 +1186,7 @@ var functions =
 	(
 		function (re, str) 
 		{
-			if(re.test(str))
-			{
-				// TODO improve
-				var ret = [[RegExp.$1, RegExp.$2, RegExp.$3, RegExp.$4]];
-				return ret;
-			}
-			return [];
-
+			return "findAllMatches(" + re + ", " + str + ")";
 		},
 		inOut2("regex", "string", mListType("regmatch"))
 	),
@@ -1319,6 +1337,14 @@ var functions =
 				this.needsNodes = true;
 				this.arrayAccess = new ArrayAccess(null, mListType(templates[0]));
 				this.accumNode = new FuncInput(templates[1]);
+				this.getStrRef = function(params) 
+				{	
+					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);})";
+				};
+				this.getBeforeStr = function()
+				{
+					return "";
+				}
 				this.funcRef = function(params) 
 				{	
 					var funcInstance = params[0].get();
@@ -1386,6 +1412,14 @@ var functions =
 				this.arrayInput = new FuncInput(mListType(templates[0]));
 				this.arrayAccess = new ArrayAccess(this.arrayInput);
 				this.accumNode = new FuncInput(templates[1]);
+				this.getStrRef = function(params) 
+				{	
+					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);}," + params[2] + ".get())";
+				};
+				this.getBeforeStr = function()
+				{
+					return "";
+				};
 				this.funcRef = function(params) 
 				{	
 					var funcInstance = params[0].get();
@@ -1512,7 +1546,7 @@ function merge(dst, src)
 	return ret;
 }
 
-function Func(func, type, paramsNode)
+function _Func(func, type, paramsNode)
 {
 	this.func = func;
 	this.type = type;
@@ -1619,7 +1653,7 @@ function FunctionNode(func)
 
 		// this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
 		this.val = this.str;
-		this.nodeStr = "new Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ", " + paramsNodeStr + ")";
+		this.nodeStr = "new _Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ", " + paramsNodeStr + ")";
 		
 		this.getBeforeStr = function()
 		{
@@ -1893,7 +1927,7 @@ var nodes =
 
 					this.beforeStr = cond.getBeforeStr() + first.getBeforeStr() + second.getBeforeStr();
 					var str = "if(" + cond.getVal() + "){return " + first.getVal() + ";}else{return " + second.getVal() + ";}";
-					this.nodeStr = "new Func(function(){ " + str + ";}, " + typeToJson(typeParam) + ")"
+					this.nodeStr = "new _Func(function(){ " + str + ";}, " + typeToJson(typeParam) + ")"
 					this.val = cond.getVal() + " ? " + first.getVal() + " : " + second.getVal();
 					
 					this.getBeforeStr = function()

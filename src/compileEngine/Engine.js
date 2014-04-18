@@ -2582,7 +2582,9 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		var dictTypeParam = getDictTypeParam(ref.getType());
 		// TODO For array
 		// TODO check type of ref, type of indexKey
-		return new DictAccess(ref, indexOrKey, dictTypeParam);
+		// return new DictAccess(ref, indexOrKey, dictTypeParam);
+		var str = "new DictAccess(" + ref.getNode() + ", " + indexOrKey.getNode() + ", " + typeToJson(dictTypeParam) + ")";
+		return new Var(str + ".get()", str, dictTypeParam);
 	} else if("array" in expr)
 	{
 		var typeParam = "";
@@ -2647,7 +2649,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		
 	} else  if("string" in expr)
 	{
-		var str = "\"" + expr.string + "\"";
+		var str = "\"" + expr.string.replace(/"/g, "\\\"") + "\"";
 		return new Var(str, "new Store(" + str + ", string)", "string");
 	} else if("type" in expr)
 	{
@@ -2784,6 +2786,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		if("connections" in expr)
 		{
 			if(connectionsAllowed)
+			// if(true)
 			{
 				var signals = node.fields.__signals;
 
@@ -2931,7 +2934,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 
 		// TODO type avec template
 		var str = "new MatchType(" + what.getNode() + ", " + cases + ", " + typeToJson(returnType) + ", " + addsRefs + ")";
-		return new Var("(" + str + ").get()", str, type, beforeStr);
+		return new Var("(" + str + ").get()", str, returnType, beforeStr);
 		// return new MatchType(expr.matchType, expr["cases"]);
 	} else if("comp" in expr)
 	{
@@ -3723,7 +3726,16 @@ function makeAction(actionGraph, nodes, connections)
 					}
 			    };
 			}
-			var node = new AccessAffectation(slots, param, makeExpr(actionGraph.indexOrKey, localNodes));
+			// var node = new AccessAffectation(slots, param, makeExpr(actionGraph.indexOrKey, localNodes));
+
+			var indexOrKey = makeExpr(actionGraph.indexOrKey, localNodes);
+			var str = "";
+			str += _.map(slots, function(slot)
+			{
+				beforeStr += slot.getBeforeStr();
+				return slot.getVal() + "[" + indexOrKey.getVal() + "] = " + param.getVal() + ";\n";				
+			}).join("");
+			return new Action(str, beforeStr + param.getBeforeStr());
 		}
 		else if(type == "set")
 		{
@@ -4017,7 +4029,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					{
 						var comma = ", ";
 					}
-					signalStr += "function " + signalGraph.signal + "(){}";
+					signalStr += "function " + signalGraph.signal + "(){}, ";
 				}
 			};
 			paramStr += "]";
@@ -4303,7 +4315,12 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					return param[0];
 				}).join(", ");
 				// beforeStr += action.getBeforeStr();
-				slotStr += signalGraph.signal + " : function(self, " + signalParamStr + "){\nself.get()." + signalGraph.signal + "(" + signalParamStr + ");\n},\n";
+				slotStr += signalGraph.signal + " : function(self";
+				if(signalParamStr.length > 0)
+				{
+					slotStr += ", " + signalParamStr;
+				}
+				slotStr  += "){\nself.get()." + signalGraph.signal + "(" + signalParamStr + ");\n},\n";
 			}
 		}
 	});
@@ -4317,26 +4334,24 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	if(superClassName)
 		library.nodes[superClassName].subClasses.push(concreteName);
 	
-	return str;
-
 	for(var i = 0; i < signalAndSlotsGraph.length; i++)
 	{
 		var field = signalAndSlotsGraph[i];
 		if("slot" in field)
 		{
-			var slotGraph = field;
-			var localNodes = {"self" : node.operators.selfStore};
-			var inputs = [];
-			_.each(slotGraph.params, function(param)
-			{
-				var node = new FuncInput(param[1]);
-				localNodes[param[0]] = node;
-				inputs.push(node);
-			});
-			node.operators.slots[field.slot] = {
-				action : makeAction(slotGraph.action, localNodes),
-				inputs : inputs
-			};
+			// var slotGraph = field;
+			// var localNodes = {"self" : node.operators.selfStore};
+			// var inputs = [];
+			// _.each(slotGraph.params, function(param)
+			// {
+			// 	var node = new FuncInput(param[1]);
+			// 	localNodes[param[0]] = node;
+			// 	inputs.push(node);
+			// });
+			// node.operators.slots[field.slot] = {
+			// 	action : makeAction(slotGraph.action, localNodes),
+			// 	inputs : inputs
+			// };
 		} else
 		{
 			function StructSignal(id) {
@@ -4354,13 +4369,14 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			}
 			var signalGraph = field;
 			var inputs = [];
-			var localNodes = {"self" : node.operators.selfStore};
+			var localNodes = {"self" : new Var("self.get()", "self", type,  "")};
 			_.each(signalGraph.params, function(param)
 			{
-				var node = new FuncInput(param[1]);
+				var node = new Var(param[0] + ".get()", param[0], param[1],  "")
 				localNodes[param[0]] = node;
-				inputs.push(node);
+				// inputs.push(node);
 			});
+								
 			node.operators.slots[signalGraph.signal] =  {
 				action : new StructSignal(signalGraph.signal),
 				inputs : inputs,
@@ -4973,7 +4989,8 @@ function compileGraph(graph, lib, previousNodes)
 					}
 
 					// if(connections.length > beforeConnectionsLength)
-					if(func.needsNodes)
+					// if(func.needsNodes)
+					if(false)
 					{
 						func.signalsList = [];
 						var newConnections = _.tail(connections, beforeConnectionsLength);

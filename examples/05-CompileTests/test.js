@@ -47,7 +47,8 @@ _.merge(nodes, localFunctions, function(node, func){return funcToNodeSpec(func);
 
 // $.get("test.nodes", function( text ) {
 // $.get("arcaNodes.nodes", function( text ) {
-$.get("treeEdit.nodes", function( text ) {
+// $.get("treeEdit.nodes", function( text ) {
+$.get("editor.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
 
@@ -56,7 +57,7 @@ $.get("treeEdit.nodes", function( text ) {
 
 	$tmp.append("<div id=\"test\"></div>");
 	var $test = $("#test");
-	$.globalEval(src)
+	// $.globalEval(src)
 	// eval(src);
 	// $("#test").html(code.a.get());
 	tick();
