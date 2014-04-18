@@ -4758,7 +4758,14 @@ function FunctionTemplate(classGraph)
 			// instance.internalNodes[paramAndType[0]] = node;
 
 			var type = instantiateTemplates(paramAndType[1], templateNameToInstances);
-			var node = new Var(paramAndType[0] + ".get()", paramAndType[0], type);
+			if(instance.needsNodes)
+			{
+				var node = new Var(paramAndType[0] + ".get()", paramAndType[0], type);
+			}
+			else
+			{
+				var node = new Var(paramAndType[0], "new Store(" + paramAndType[0] + ", " + typeToJson(paramAndType[1]) + ")", paramAndType[1]);
+			}
 			// node.func = funcGraph.id;
 			instance.inputNodes.push(node);
 			// func.internalNodes[paramAndType[0]] = node;
@@ -4911,8 +4918,16 @@ function compileGraph(graph, lib, previousNodes)
 						{
 							var type = paramAndType[1];
 							// version when function gets ref 
+							if(func.needsNodes)
+							{
+								var node = new Var(paramAndType[0] + ".get()", paramAndType[0], type);
+							}
+							else
+							{
+								var node = new Var(paramAndType[0], "new Store(" + paramAndType[0] + ", " + typeToJson(paramAndType[1]) + ")", paramAndType[1]);
+							}
 							// var node = new Var(paramAndType[0] + ".get()", paramAndType[0], paramAndType[1]);
-							var node = new Var(paramAndType[0], "new Store(" + paramAndType[0] + ", " + typeToJson(paramAndType[1]) + ")", paramAndType[1]);
+							// var node = new Var(paramAndType[0], "new Store(" + paramAndType[0] + ", " + typeToJson(paramAndType[1]) + ")", paramAndType[1]);
 							node.func = funcGraph.id;
 							func.inputNodes.push(node);
 							// func.internalNodes[paramAndType[0]] = node;

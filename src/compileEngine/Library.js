@@ -706,7 +706,7 @@ function pushBack(a, v)
 	return newA;
 }
 
-function contains(array, val, func)
+function _contains(array, val, func)
 {
 	var arrayVal = array.get();
 	var arrayLength = arrayVal.length;
@@ -1464,7 +1464,7 @@ var functions =
 
 				this.getStrRef = function(params)
 				{
-					return "contains(" + params + ")";
+					return "_contains(" + params + ")";
 				}
 			}
 			return new instance(templates);
