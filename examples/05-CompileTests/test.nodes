@@ -4,22 +4,30 @@ structs:
 		float y
 		signal click(string what)
 		slot inc(Vec2 delta) : 
-			self.x = self.x + delta.x
-			self.y = self.y + delta.y
 			self.click("tata")
-	Rect :
-		Vec2 pos
-		Vec2 size
-functions:
-	T inc<T>(T v)
-		if v < 10 then inc(v + 1) else v
+# 	Rect :
+# 		Vec2 pos
+# 		Vec2 size
+# functions:
+# 	T inc<T>(T v)
+# 		if v < 10 then inc(v + 1) else v
 nodes:
-	var x = 0
-	var y = 5
-	var a = [1, 2, 3]
+	# var x = 0
+	# var y = 5
+	# var a = [1, 2, 3]
+	var sa = ["a", "b", "c"]
 	var t = "tutu"
-	var v = Vec2(inc(0), 1, click => t = what)
-	var va = [Vec2(0, 1), Vec2(10, 20)]
+	# var v = Vec2(inc(0), 1, click => t = what)
+	var va = 
+		[
+			Vec2
+			(
+				i, 
+				i,
+				click => x = what
+			) 
+			for x, i in sa
+		]
 	# var s = Vec2(a, 0)
 	# def r = Rect(s, Vec2(100, 200))
 	# def c = r.pos.x
@@ -35,10 +43,8 @@ actions :
 		# 	item = i + 1
 		# update item, i in a
 		# 	with i + 1 
-		x = inc(x)
-		v.inc(Vec2(v.x, v.y))
 		foreach va inc(Vec2(1, 1))
-		a = map(int x -> x * y, a)
+		# a = map(int x -> x * y, a)
 	# 	while s.x < 10 do :
 	# 		add(1)
 	# 		add(1)

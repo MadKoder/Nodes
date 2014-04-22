@@ -947,9 +947,10 @@ function Cache(node)
 		if(this.isDirty)
 		{
 			// this.val = this.node.get();
-			var res = this.node.update(this.val, this.ticks, this.ticks.tick);
-			this.val = res[0];
-			this.ticks = res[1];
+			// var res = this.node.update(this.val, this.ticks, this.ticks.tick);
+			this.val = this.node.get();
+			// this.val = res[0];
+			// this.ticks = res[1];
 			this.isDirty = false;
 		}
 		return this.val;		
@@ -1879,15 +1880,15 @@ function ArrayAccess(node, type) {
     }
 	var baseType = getBaseType(nodeType);
 	var templates = getTypeParams(nodeType);
-	check(baseType in library.nodes, "Var type " + baseType + " not found in library");
-	// TODO generic management
-	var baseType = getBaseType(templates[0]);
-	if(!(baseType in library.nodes))
-	{
-		error("Type "+baseType+" not found in library.");
-	}
-	var elemType = library.nodes[baseType];
-	var operators = elemType.operators;
+	// check(baseType in library.nodes, "Var type " + baseType + " not found in library");
+	// // TODO generic management
+	// var baseType = getBaseType(templates[0]);
+	// if(!(baseType in library.nodes))
+	// {
+	// 	error("Type "+baseType+" not found in library.");
+	// }
+	// var elemType = library.nodes[baseType];
+	// var operators = elemType.operators;
 
 	this.id = storeId;
 	storeId++;
@@ -1931,6 +1932,12 @@ function ArrayAccess(node, type) {
 
 			return ret;
 		}
+	}
+
+	this.getPath = function(path)
+	{		
+		var val = this.get();
+		return getPath(val, path);
 	}
 
 	this.pushCache = function(array)
@@ -2487,6 +2494,54 @@ function MatchType(what, cases, type, addsRefs)
 	}
 }
 
+function DictAccess(ref, key, dictTypeParam)
+{
+	this.ref = ref;
+	this.key = key;
+	this.type = dictTypeParam;
+	this.justBuilder = library.nodes.Just.getInstance([this.type]).builder; 
+	this.noneBuilder = library.nodes.None.getInstance([this.type]).builder; 
+	
+	this.get = function()
+	{
+		var keyVal = this.key.get();
+		var dict = this.ref.get();
+		var val = dict[keyVal];
+		if(val != undefined)
+		{
+			// TODO : optim
+			return (new this.justBuilder({x: new Store(val, this.type)})).get(); 
+		}
+		return (new this.noneBuilder()).get(); 
+	}
+
+	this.getType = function()
+	{
+		return this.type;
+	}
+
+	this.getPathFromRoot = function()
+	{
+		return [];
+	}
+
+	this.getRootNode = function()
+	{
+		return this;
+	}
+
+	this.getMinMaxTick = function(path)
+	{
+		return this.ref.getMinMaxTick(path);
+	}
+
+	this.dirty = function(path)
+	{
+		//TODO for each entry in the dict				
+		this.ref.dirty([]);
+	}
+}
+
 function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 {
 	if(isRef(expr))
@@ -2529,54 +2584,6 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		// return expr;
 	} else if("access" in expr)
 	{
-		function DictAccess(ref, key, dictTypeParam)
-		{
-			this.ref = ref;
-			this.key = key;
-			this.type = dictTypeParam;
-			this.justBuilder = library.nodes.Just.getInstance([this.type]).builder; 
-			this.noneBuilder = library.nodes.None.getInstance([this.type]).builder; 
-			
-			this.get = function()
-			{
-				var keyVal = this.key.get();
-				var dict = this.ref.get();
-				var val = dict[keyVal];
-				if(val != undefined)
-				{
-					// TODO : optim
-					return (new this.justBuilder({x: new Store(val, this.type)})).get(); 
-				}
-				return (new this.noneBuilder()).get(); 
-			}
-
-			this.getType = function()
-			{
-				return this.type;
-			}
-
-			this.getPathFromRoot = function()
-			{
-				return [];
-			}
-
-			this.getRootNode = function()
-			{
-				return this;
-			}
-
-			this.getMinMaxTick = function(path)
-			{
-				return this.ref.getMinMaxTick(path);
-			}
-
-			this.dirty = function(path)
-			{
-				//TODO for each entry in the dict				
-				this.ref.dirty([]);
-			}
-		}
-
 		var ref = makeExpr(expr.access, nodes);
 		var indexOrKey = makeExpr(expr.indexOrKey, nodes);
 		var dictTypeParam = getDictTypeParam(ref.getType());
@@ -2765,9 +2772,13 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 							return val.__type;
 						}
 					}
-					var valType = getType(val);
-					
-					if(!isSameOrSubType(val.getType(), paramSpec[1]))
+
+					var valType = val.getType();					
+					if(genericTypeParams && valType in genericTypeParams)
+					{
+						valType = genericTypeParams[valType];
+					}
+					if(!isSameOrSubType(valType, paramSpec[1]))
 					{
 						error("Parameter of index " + paramIndex + " in call of " + 
 							expr.type + " is of type " + typeToString(val.getType()) + ", required type " + typeToString(paramSpec[1]));
@@ -2820,13 +2831,15 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 					var action = makeAction(connection.action, mergedNodes);
 					if(connection.signal in signals)
 					{
-						signals[connection.signal].push(action);
+						// signals[connection.signal].push(action);
+						signals[connection.signal] = {action : connection.action, nodes : mergedNodes};
 					}
 					else
 					{
 						// Case of a function that return a structure (FunctionNode)
 						// node.addSignals();
-						signals[connection.signal] = [action];
+						// signals[connection.signal] = [action];
+						signals[connection.signal] = {action : connection.action, nodes : mergedNodes};
 					}
 				});
 				connectionSet = true;
@@ -3796,7 +3809,7 @@ function makeConcreteName(name, typeParamsInstances)
 	});
 }
 
-function __Obj(structDef, params, type)
+function __Obj(structDef, params, type, signals)
 {
 	this.structDef = structDef;
 	this.type = type;
@@ -3805,6 +3818,7 @@ function __Obj(structDef, params, type)
 	{
 		this.fields[structDef.params[i]] = param;
 	}, this);
+	this.signals = signals;
 
 	this.get = function()
 	{
@@ -3814,6 +3828,11 @@ function __Obj(structDef, params, type)
 			struct[key] = field.get();
 		});
 		struct.__type = type;
+		struct.__views = {};
+		_.each(this.signals, function(action, key)
+		{
+			struct[key] = action;
+		});
 		return struct;
 	}
 
@@ -3829,7 +3848,7 @@ function __Obj(structDef, params, type)
 
 	this.getType = function()
 	{
-		return this.structDef;
+		return this.type;
 	}
 
 	this.addSink = function(sink)
@@ -4046,6 +4065,44 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 
 			this.getNode = function()
 			{
+				signalStr = "{\n";
+				var firstField = true;
+				_.each(this.fields, function(field, key)
+				{
+					if(key == "__signals")
+					{
+						_.each(field, function(signal, key)
+						{
+							if(firstField)
+							{
+								var comma = "";
+								firstField = false;
+							}
+							else
+							{
+								var comma = ",\n\t";
+							}
+							if(signal.nodes != undefined)
+							{
+								var localNodes = _.clone(signal.nodes);
+								var signalParams = signalsParams[key];
+								var signalParamStr = _.map(signalParams, function(param)
+								{
+									var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
+									localNodes[param[0]] = node;
+									return param[0];
+								}).join(", ");
+								var action = makeAction(signal.action, localNodes);
+
+								signalStr += comma + key + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}";
+							} else
+							{
+								signalStr += comma + key + " : function(){}";
+							}
+						}, this);
+					}
+				});
+				signalStr += "}";
 				this.nodeStr = "new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\", " + signalStr + ")";
 				return this.nodeStr;
 			}
@@ -4053,8 +4110,19 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			this.getVal = function()
 			{
 				this.valStr = "{\n";
+				var firstField = true;
 				_.each(this.fields, function(field, key)
 				{
+					if(firstField)
+					{
+						var comma = "";
+						firstField = false;
+					}
+					else
+					{
+						var comma = ",\n\t";
+					}
+					
 					if(key == "__signals")
 					{
 						_.each(field, function(signal, key)
@@ -4071,20 +4139,24 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 								}).join(", ");
 								var action = makeAction(signal.action, localNodes);
 
-								this.valStr += "\t" + key + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}" + ",\n";
+								this.valStr += comma + key + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}";
 							} else
 							{
-								this.valStr += "\t" + key + " : function(){}" + ",\n";
+								this.valStr += comma + key + " : function(){}";
 							}
 						}, this);
 					} 
 					else if(key == "__type")
 					{
-						this.valStr += "__type : " + typeToJson(field) + ",\n";
+						this.valStr += comma + "__type : " + typeToJson(field);
 					}
-					else if(key != "__views")
+					else if(key == "__views")
 					{
-						this.valStr += "\t" + key + " : " + field.getVal() + ",\n";
+						this.valStr += comma + "__views : " + typeToJson(field);
+					}
+					else
+					{
+						this.valStr += comma + key + " : " + field.getVal();
 					}
 				}, this);
 				this.valStr += "}";
@@ -4780,7 +4852,7 @@ function FunctionTemplate(classGraph)
 			}
 			else
 			{
-				var node = new Var(paramAndType[0], "new Store(" + paramAndType[0] + ", " + typeToJson(paramAndType[1]) + ")", paramAndType[1]);
+				var node = new Var(paramAndType[0], "new Store(" + paramAndType[0] + ", " + typeToJson(paramAndType[1]) + ")", type);
 			}
 			// node.func = funcGraph.id;
 			instance.inputNodes.push(node);
@@ -4869,6 +4941,11 @@ function ActionParams(action, inputs)
 		}, this);
 		this.action.signal();
 	}
+}
+
+function setLibrary(lib)
+{
+	library = lib;
 }
 
 function compileGraph(graph, lib, previousNodes) 
