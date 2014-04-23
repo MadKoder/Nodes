@@ -1605,12 +1605,37 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef, 
 						inputs[arrayIndex].push(indices[arrayIndex]);
 					}
 
-					unConnect(vals[i]);
+					// unConnect(vals[i]);
 
-					var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
-					var ret = pair[0];
+					if(funcRef)
+					{
+						var savedRefs = globalRefs;
+						var savedReferencedNode = globalReferencedNodes;
+						globalRefs = globalRefs.concat(inputs);
+						globalReferencedNodes = globalReferencedNodes.concat(_.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];}));
+
+						_.each(comprehensionIndices, function(indexInput, arrayIndex)
+						{
+							if(indexInput != null)
+							{
+								globalRefs.push(indexInput);
+								globalReferencedNodes.push(indices[arrayIndex]);
+							}
+						});
+
+						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
+						var ret = pair[0];
+
+						globalRefs = savedRefs;
+						globalReferencedNodes = savedReferencedNode;			
+					}
+					else
+					{
+						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
+						var ret = pair[0];
+					}
 					
-					connect(ret, indices);
+					// connect(ret, indices);
 
 					for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 					{
@@ -3861,12 +3886,12 @@ function __Obj(structDef, params, type, signals)
 	}, this);
 	this.signals = signals;
 
-	this.get = function(refs)
+	this.get = function()
 	{
 		var struct = {};
 		_.each(this.fields, function(field, key)
 		{
-			struct[key] = field.get(refs);
+			struct[key] = field.get();
 		});
 		struct.__type = type;
 		struct.__views = {};
@@ -3903,6 +3928,32 @@ function __Obj(structDef, params, type, signals)
 		{
 			field.addSink(sink);
 		});
+	}
+
+	this.update = function(val, ticks, parentTick)
+	{
+		if(val.__type == this.fields.__type) // Check if type is same (in case of a type match)
+		{					
+			var subTicks = ticks.subs;
+			var newSubTicks = {};
+			_.each(this.fields, function(field, key){
+				if(key == "__signals")
+				{
+					val.__signals = field;
+				}
+				else if((key != "__type") &&  (key != "__id") && (key != "__views"))
+				{
+					var res = field.update(val[key], (subTicks != undefined && (key in subTicks)) ? subTicks[key] : {tick : parentTick}, ticks.tick);
+					val[key] = res[0];
+					newSubTicks[key] = res[1];
+				}
+			});
+			return mValTick(val, newSubTicks);
+		} 
+		else
+		{
+			return mValTick(this.get());
+		}
 	}
 };
 
@@ -4644,6 +4695,20 @@ function FunctionInstance(classGraph)
 		return this.name + "(" + str + ")";
 	}
 
+	this.getUpdateStr = function(params)
+	{
+		var str = "";
+		_.each(params, function(param, index)
+		{
+			str += param;
+			if(index < params.length - 1)
+			{
+				str += ", ";
+			}
+		});
+		return this.name + "$update(__val, __ticks, __parentTick, " + str + ")";
+	}
+
 	this.func = function(params) 
 	{	
 		_.each(params, function(param, i)
@@ -4931,7 +4996,13 @@ function FunctionTemplate(classGraph)
 		instance.beforeStr += "function " + fullFuncName + "(" + paramStr + "){\n";
 		// instance.beforeStr += "function " + classGraph.id + "(" + paramStr + "){\n";
 		instance.beforeStr += instance.expr.getBeforeStr();
-		instance.beforeStr += "return " + instance.expr.getVal() + ";\n};\n";		
+		instance.beforeStr += "return " + instance.expr.getVal() + ";\n};\n";
+		if(instance.needsNodes)
+		{
+			instance.beforeStr += "function " + fullFuncName + "$update(__val, __ticks, __parentTick, " + paramStr + "){\n";
+			instance.beforeStr += instance.expr.getBeforeStr();
+			instance.beforeStr += "return (" + instance.expr.getNode() + ").update(__val, __ticks, __parentTick);\n};\n";	
+		}
 		
 		// if(instance.expr.needsNodes)
 		// {
@@ -5111,7 +5182,14 @@ function compileGraph(graph, lib, previousNodes)
 						});
 						src += "function " + funcGraph.id + "(" + paramStr + "){\n";
 						src += func.expr.getBeforeStr();
-						src += "return " + func.expr.getVal() + ";\n};\n";		
+						src += "return " + func.expr.getVal() + ";\n};\n";
+						if(func.needsNodes)
+						{
+							src += "function " + funcGraph.id + "$update(__val, __ticks, __parentTick, " + paramStr + "){\n";
+							src += func.expr.getBeforeStr();
+							src += "return (" + func.expr.getNode() + ").update(__val, __ticks, __parentTick);\n};\n";
+						}
+						
 					}
 
 					// if(connections.length > beforeConnectionsLength)

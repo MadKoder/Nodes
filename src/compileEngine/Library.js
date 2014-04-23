@@ -1273,6 +1273,11 @@ var functions =
 				{	
 					return "_(" + params[1] + ".get()).map(function(val){return " + params[0] + "(val);}).flatten(true).value()";
 				};
+				this.getUpdateStr = function(params) 
+				{	
+					// TODO
+					return "_(" + params[1] + ".get()).map(function(val){return " + params[0] + "(val);}).flatten(true).value()";
+				};
 				this.funcRef = function(params) 
 				{	
 					var funcInstance = params[0].get();
@@ -1503,6 +1508,12 @@ var functions =
 				{
 					return "_contains(" + params + ")";
 				}
+
+				this.getUpdateStr = function(params)
+				{
+					// TODO
+					return "_contains(" + params + ")";
+				}
 			}
 			return new instance(templates);
 		}
@@ -1549,11 +1560,12 @@ function merge(dst, src)
 	return ret;
 }
 
-function _Func(func, type, paramsNode)
+function _Func(func, type, paramsNode, updateFunc)
 {
 	this.func = func;
 	this.type = type;
 	this.paramsNode = paramsNode;
+	this.updateFunc = updateFunc;
 	var baseType = getBaseType(type);
 	this.isObject = (
 		(baseType != "int") &&
@@ -1587,10 +1599,14 @@ function _Func(func, type, paramsNode)
 
 	this.update = function(val, ticks, parentTick)
 	{
-		// if(this.needsNodes)
-		if(false)
+		if(this.updateFunc)
 		{
-			var ret = func.update(val, ticks, parentTick, params);				
+			var ret = this.updateFunc(val, ticks, parentTick);
+			if(this.isObject && globalRefs.length > 0)
+			{
+				ret.__refs = globalRefs;
+				ret.__referencedNodes = globalReferencedNodes;
+			}		
 		}
 		else
 		{
@@ -1699,9 +1715,11 @@ function FunctionNode(func)
 		paramsNodeStr += "]";
 		// newVar(func.getStr(paramsVar), func.type);
 		// this.str += newVar(func.getStr(paramsVar));
+		var updateStr = undefined;
 		if(func.needsNodes)
 		{
 			this.str += func.getStrRef(paramsNode);
+			updateStr = func.getUpdateStr(paramsNode);
 		}
 		else
 		{
@@ -1723,7 +1741,12 @@ function FunctionNode(func)
 
 		// this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
 		this.val = this.str;
-		this.nodeStr = "new _Func(function(){ " + " return " + this.str + ";}, " + typeToJson(func.type) + ", " + paramsNodeStr + ")";
+		this.nodeStr = "new _Func(function(){return " + this.str + ";}, " + typeToJson(func.type) + ", " + paramsNodeStr;
+		if(updateStr)
+		{
+			this.nodeStr +=  ", function(__val, __ticks, __parentTick){return " + updateStr + ";}";
+		}
+		this.nodeStr += ")";
 		
 		this.getBeforeStr = function()
 		{
