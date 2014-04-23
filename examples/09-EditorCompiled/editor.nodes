@@ -488,10 +488,10 @@ nodes:
 		[]
 	vat focusCounter = 1
 	cache ui = progToUi(program, 0, focusCounter)
-	cache ui1 = progToUi(program, 1, focusCounter)
+	# cache ui1 = progToUi(program, 1, focusCounter)
 	# cache ui2 = progToUi(program, 2, focusCounter)
 	# cache ui3 = progToUi(program, 3, focusCounter)
-	cache view = ui
+	# cache view = ui
 	def uiView = UiView(ui)
 	# def uiView2 = UiView(ui1)
 	# def uiView3 = UiView(ui2)

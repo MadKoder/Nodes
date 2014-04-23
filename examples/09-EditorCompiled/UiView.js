@@ -79,7 +79,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 				$ui.button()
 				.click(function() 
 				{
-					model.click();
+					Button.click(new Store(model));
 				});
 				uiIndex++;
 				if(model.visible)

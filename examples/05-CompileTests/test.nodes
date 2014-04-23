@@ -2,32 +2,72 @@ structs:
 	Vec2 :
 		float x
 		float y
-		signal click(string what)
+		signal click(int val)
 		slot inc(Vec2 delta) : 
 			self.click("tata")
-# 	Rect :
-# 		Vec2 pos
-# 		Vec2 size
-# functions:
+		subs : 
+			Vec3:
+				float z
+	Rect :
+		Vec2 pos
+		Vec2 size
+	VecList :
+		list<Vec2>	l
+functions:
+	ref Vec2 mVec2(int x, int i)
+		Vec2
+		(
+			i, 
+			i,
+			click => x = x + i + 10
+		)
+	ref test(list<int> a, int z)
+		VecList
+		(
+			pushBack(
+				[
+					mVec2(x, i)
+					for x, i in a
+				],
+				Vec2
+				(
+					0, 
+					0,
+					click => z = z + 1
+				)
+			)
+		)			
+	ref test2(list<list<int>> aa, int x)
+		[
+			test(a, x)
+			for a in aa
+		]
 # 	T inc<T>(T v)
 # 		if v < 10 then inc(v + 1) else v
 nodes:
 	# var x = 0
 	# var y = 5
 	# var a = [1, 2, 3]
-	var sa = ["a", "b", "c"]
+	var aa = [[1, 2, 3], [4, 5]]
+	var x = 0
+	# var sa = ["a", "b", "c"]
 	var t = "tutu"
 	# var v = Vec2(inc(0), 1, click => t = what)
-	var va = 
-		[
-			Vec2
-			(
-				i, 
-				i,
-				click => x = what
-			) 
-			for x, i in sa
-		]
+	var va = test2(aa, x)
+		# [
+		# 	VecList
+		# 	([
+					
+		# 		Vec2
+		# 		(
+		# 			i, 
+		# 			i,
+		# 			click => x = x + i + 10
+		# 		)
+		# 		for x, i in a
+		# 	])
+		# 	for a in aa
+		# ]
 	# var s = Vec2(a, 0)
 	# def r = Rect(s, Vec2(100, 200))
 	# def c = r.pos.x
@@ -43,7 +83,9 @@ actions :
 		# 	item = i + 1
 		# update item, i in a
 		# 	with i + 1 
-		foreach va inc(Vec2(1, 1))
+		for a in va do
+			for v in a.l do
+				v.inc(Vec2(1, 1))
 		# a = map(int x -> x * y, a)
 	# 	while s.x < 10 do :
 	# 		add(1)

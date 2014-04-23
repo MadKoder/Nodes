@@ -1269,7 +1269,7 @@ function ComprehensionNode(nodeGraph, externNodes)
 			// TODO param nodes = union(this.nodes, externNodes)
 			// comprehensionIndices[index] = new ValInput("int");
 			var indexName = "index" + varPostfix;
-			varStr += "var " + indexName + " = new FuncInput(int);\n";		
+			varStr += "var " + indexName + " = new ValInput(int);\n";		
 			comprehensionIndices[index] = new Var(indexName + ".get()", indexName, "int");
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
 			indicesStr += indexName + ", ";
@@ -1315,7 +1315,7 @@ function ComprehensionNode(nodeGraph, externNodes)
 
 	this.getNode = function()
 	{
-		var str = "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", indices" + this.compIndex.toString() + ", arrays" + this.compIndex.toString() + ", false, ";
+		var str = "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", indices" + this.compIndex.toString() + ", arrays" + this.compIndex.toString() + ", " + funcRef.toString() + ", ";
 		if(when)
 		{
 			str += "when" + this.compIndex.toString();
@@ -1393,7 +1393,7 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef, 
 	}
 
 	this.outputList = [];
-	this.get = function()
+	this.get = function(parentRefs)
 	{
 		var arrayVals = _.map(this.arrays, function(array, index)
 		{
@@ -1417,7 +1417,7 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef, 
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].push(indices[arrayIndex]);
 					}
 					inputs[arrayIndex].push(indices[arrayIndex]);					
 				}
@@ -1433,7 +1433,7 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef, 
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].popVal();
+						comprehensionIndices[arrayIndex].pop();
 					}
 					inputs[arrayIndex].pop();					
 				}
@@ -1447,20 +1447,55 @@ function Comprehension(_expr, _inputs, _comprehensionIndices, arrays, _funcRef, 
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].pushVal(indices[arrayIndex]);
+						comprehensionIndices[arrayIndex].push(indices[arrayIndex]);
 					}
 					inputs[arrayIndex].push(indices[arrayIndex]);
 				}
 
-				var ret = expr.get(true);
+				if(funcRef)
+				{
+					// var refs = {};
+					// if(parentRefs)
+					// {
+					// 	refs.refs = parentRefs.refs.concat(inputs);
+					// 	refs.referencedNodes = parentRefs.referencedNodes.concat(_.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];}));
+					// } 
+					// else
+					// {
+					// 	refs.refs = inputs.slice(0);
+					// 	refs.referencedNodes = _.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];});
+					// } 
+					var savedRefs = globalRefs;
+					var savedReferencedNode = globalReferencedNodes;
+					globalRefs = globalRefs.concat(inputs);
+					globalReferencedNodes = globalReferencedNodes.concat(_.map(inputs, function(input, arrayIndex) {return indices[arrayIndex];}));
 
-				connect(ret, indices);
+					_.each(comprehensionIndices, function(indexInput, arrayIndex)
+					{
+						if(indexInput != null)
+						{
+							globalRefs.push(indexInput);
+							globalReferencedNodes.push(indices[arrayIndex]);
+						}
+					});
+
+					var ret = expr.get();
+
+					globalRefs = savedRefs;
+					globalReferencedNodes = savedReferencedNode;			
+				}
+				else
+				{
+					var ret = expr.get();
+				}
+
+				// connect(ret, indices);
 
 				for(var arrayIndex = 0; arrayIndex < inputs.length; arrayIndex++)
 				{
 					if(comprehensionIndices[arrayIndex] != undefined)
 					{
-						comprehensionIndices[arrayIndex].popVal();
+						comprehensionIndices[arrayIndex].pop();
 					}
 					inputs[arrayIndex].pop();					
 				}
@@ -2799,6 +2834,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			if(connectionsAllowed)
 			// if(true)
 			{
+				node.needsNodes = true;				
 				var signals = node.fields.__signals;
 
 				var type = node.getType();
@@ -2913,6 +2949,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		var addsRefs = "false";
 		var returnType = null;
 		var beforeStr ="";
+		var matchNeedsNodes = false;
 		var cases = "[\n" + expr["cases"].map(function(matchExp){
 			var matchType = matchExp.type;
 			if(genericTypeParams && matchType in genericTypeParams)
@@ -2931,6 +2968,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			{
 				needsNodes = "true";
 				addsRefs = "true";
+				matchNeedsNodes = true;
 			}
 
 			if(returnType == null)
@@ -2947,7 +2985,10 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 
 		// TODO type avec template
 		var str = "new MatchType(" + what.getNode() + ", " + cases + ", " + typeToJson(returnType) + ", " + addsRefs + ")";
-		return new Var("(" + str + ").get()", str, returnType, beforeStr);
+		var ret = new Var("(" + str + ").get()", str, returnType, beforeStr);
+		if(matchNeedsNodes)
+			ret.needsNodes = true;
+		return ret;
 		// return new MatchType(expr.matchType, expr["cases"]);
 	} else if("comp" in expr)
 	{
@@ -3820,12 +3861,12 @@ function __Obj(structDef, params, type, signals)
 	}, this);
 	this.signals = signals;
 
-	this.get = function()
+	this.get = function(refs)
 	{
 		var struct = {};
 		_.each(this.fields, function(field, key)
 		{
-			struct[key] = field.get();
+			struct[key] = field.get(refs);
 		});
 		struct.__type = type;
 		struct.__views = {};
@@ -3833,6 +3874,11 @@ function __Obj(structDef, params, type, signals)
 		{
 			struct[key] = action;
 		});
+		if(globalRefs.length > 0)
+		{
+			struct.__refs = globalRefs;
+			struct.__referencedNodes = globalReferencedNodes;
+		}
 		return struct;
 	}
 
@@ -4392,7 +4438,10 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				{
 					slotStr += ", " + signalParamStr;
 				}
-				slotStr  += "){\nself.get()." + signalGraph.signal + "(" + signalParamStr + ");\n},\n";
+				slotStr += "){\nvar __selfVal = self.get();\nvar __pushedRefs = [];\nif(\"__refs\" in __selfVal)\n{\n_.each(__selfVal.__refs, function(ref, i){\n";
+				slotStr += "ref.push(__selfVal.__referencedNodes[i]);\n__pushedRefs.push(ref);\n});\n}\n"
+				slotStr += "__selfVal." + signalGraph.signal + "(" + signalParamStr + ");\n";
+				slotStr += "_.each(__pushedRefs, function(ref, i)\n{\nref.pop();\n});\n},\n";
 			}
 		}
 	});

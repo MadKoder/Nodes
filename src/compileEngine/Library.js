@@ -9,6 +9,9 @@ function toto(vec)
 	return hitResult.item.data;
 }
 
+var globalRefs = [];
+var globalReferencedNodes = [];
+
 function check(test, str)
 {
 	if(!test)
@@ -1551,9 +1554,22 @@ function _Func(func, type, paramsNode)
 	this.func = func;
 	this.type = type;
 	this.paramsNode = paramsNode;
-	this.get = function()
+	var baseType = getBaseType(type);
+	this.isObject = (
+		(baseType != "int") &&
+		(baseType != "float") &&
+		(baseType != "string") &&
+		(baseType != "list") &&
+		(baseType != "dict"))
+	this.get = function(refs)
 	{
-		return this.func();
+		var ret = this.func();
+		if(this.isObject && globalRefs.length > 0)
+		{
+			ret.__refs = globalRefs;
+			ret.__referencedNodes = globalReferencedNodes;
+		}
+		return ret;
 	}
 
 	this.getType = function()
@@ -1584,8 +1600,12 @@ function FunctionNode(func)
 		var fields = f;
 
 		this.id = funcNodeId++;
-		this.func = func;
-		this.needsNodes = func.needsNodes;
+		this.func = func;		
+		var paramsNeedNodes = _.any(fields, function(field)
+		{
+			return field.needsNodes;
+		});
+		this.needsNodes = func.needsNodes || paramsNeedNodes;
 		this.addsRefs = func.needsNodes;
 		this.signals = {};
 		this.hasSignals = false;
@@ -1647,7 +1667,19 @@ function FunctionNode(func)
 		}
 		else
 		{
-			this.str += func.getStr(paramsVal);
+			if(paramsNeedNodes)
+			{
+				var paramsNodeGet = _.map(params, function(param, index)
+					{
+						var node = param.getNode();
+						return "(" + node + ").get()"
+					});
+				this.str += func.getStr(paramsNodeGet);
+			}
+			else
+			{
+				this.str += func.getStr(paramsVal);
+			}
 		}
 		this.varName = getVar();
 
