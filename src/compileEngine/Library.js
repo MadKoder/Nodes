@@ -1149,7 +1149,7 @@ var functions =
 	(
 		function (fst, scd) 
 		{
-			return fst + scd;
+			return fst + " + " + scd;
 		},
 		inOut2("string", "string", "string")
 	),
@@ -1349,6 +1349,11 @@ var functions =
 				{	
 					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);})";
 				};
+				this.getUpdateStr = function(params) 
+				{	
+					// TODO
+					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);})";
+				};
 				this.getBeforeStr = function()
 				{
 					return "";
@@ -1422,6 +1427,11 @@ var functions =
 				this.accumNode = new FuncInput(templates[1]);
 				this.getStrRef = function(params) 
 				{	
+					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);}," + params[2] + ".get())";
+				};
+				this.getUpdateStr = function(params) 
+				{	
+					// TODO
 					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);}," + params[2] + ".get())";
 				};
 				this.getBeforeStr = function()

@@ -2,6 +2,14 @@ $(document).ready(function ()
 {
 
 
+var code;
+var uiIndex = 0;
+var $tmp = $("#tmp");
+var doingFocus;
+var requestFocus;
+var focusCounter = 0;
+
+
 function mf1(func1, inAndOutTypes)
 {
 	return {
@@ -26,13 +34,6 @@ function enclose(str, parentType)
 	}
 }
 
-
-var code;
-var uiIndex = 0;
-var $tmp = $("#tmp");
-var doingFocus;
-var requestFocus;
-var focusCounter = 0;
 
 var modelToUi = {};
 function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
@@ -62,7 +63,8 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 				}
 				$ui.change(function(event) 
 				{
-					rootUi.signal("onChange",  [new Store($(this).val())], path);
+					// rootUi.signal("onChange",  [new Store($(this).val())], path);
+					TextInput.onChange(new Store(model), new Store($(this).val()));
 				});
 				uiIndex++;
 				return $ui;
@@ -107,7 +109,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 				$ui.button()
 				.click(function() 
 				{
-					model.click();
+					Button.click(new Store(model));
 				});
 				uiIndex++;
 				if(model.visible)
@@ -362,7 +364,7 @@ $.get("editor.nodes", function( text ) {
 		FieldDef : FieldDef,
 		SignalDef : SignalDef,
 		SlotDef : SlotDef,
-
+		FuncDef : FuncDef
 
 	}
 
@@ -518,6 +520,14 @@ $.get("editor.nodes", function( text ) {
 			} else if("func" in structOrfunc)
 			{
 				var func = structOrfunc.func;
+				// var builtFuncs = buildStruct(func);
+				var builtFuncs = build("FuncDef",
+				[
+					func.id,
+					buildParamsDef(func.in),
+					buildExpr(func.out.val)
+				]);
+				prog.get().functions.push(builtFuncs);
 				// prog.get().functions.push(new library.nodes.Function.builder(
 				// {
 				// 	id : new Store(func.id)

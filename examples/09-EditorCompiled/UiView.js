@@ -34,7 +34,8 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 				}
 				$ui.change(function(event) 
 				{
-					rootUi.signal("onChange",  [new Store($(this).val())], path);
+					// rootUi.signal("onChange",  [new Store($(this).val())], path);
+					TextInput.onChange(new Store(model), new Store($(this).val()));
 				});
 				uiIndex++;
 				return $ui;

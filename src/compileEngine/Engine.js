@@ -897,28 +897,28 @@ function Cache(node)
 	var type = node.getType();
 	var baseType = getBaseType(type);
 	var templates = getTypeParams(type);
-	var typeObj = (templates.length > 0) ? 
-		library.nodes[baseType].getInstance(templates) :
-		library.nodes[type];
-	if(typeObj != undefined && "operators" in typeObj)
-	{
-		var operators = typeObj.operators;
-		//this.signalOperator = operators.signal;
-	}
+	// var typeObj = (templates.length > 0) ? 
+	// 	library.nodes[baseType].getInstance(templates) :
+	// 	library.nodes[type];
+	// if(typeObj != undefined && "operators" in typeObj)
+	// {
+	// 	var operators = typeObj.operators;
+	// 	//this.signalOperator = operators.signal;
+	// }
 
-	if(this.type != null)
-	{
-		var baseType = getBaseType(this.type);
-		var templates = getTypeParams(this.type);
-		var typeObj = (templates.length > 0) ? 
-			library.nodes[baseType].getInstance(templates) :
-			library.nodes[this.type];
-		if(typeObj != undefined && "operators" in typeObj)
-		{
-			var operators = typeObj.operators;
-			//this.signalOperator = operators.signal;
-		}
-	}
+	// if(this.type != null)
+	// {
+	// 	var baseType = getBaseType(this.type);
+	// 	var templates = getTypeParams(this.type);
+	// 	var typeObj = (templates.length > 0) ? 
+	// 		library.nodes[baseType].getInstance(templates) :
+	// 		library.nodes[this.type];
+	// 	if(typeObj != undefined && "operators" in typeObj)
+	// 	{
+	// 		var operators = typeObj.operators;
+	// 		//this.signalOperator = operators.signal;
+	// 	}
+	// }
 
 	this.path = [];
 
@@ -2570,9 +2570,27 @@ function DictAccess(ref, key, dictTypeParam)
 		if(val != undefined)
 		{
 			// TODO : optim
-			return (new this.justBuilder({x: new Store(val, this.type)})).get(); 
+			// return (new this.justBuilder({x: new Store(val, this.type)})).get(); 
+			return {
+				__type : {
+					base : "Just",
+					params : [this.type]
+				},
+				x : val
+			}
 		}
-		return (new this.noneBuilder()).get(); 
+		// return (new this.noneBuilder()).get(); 
+		return {
+			__type : {
+				base : "None",
+				params : [this.type]
+			}
+		}
+	}
+
+	this.getPath = function(path)
+	{
+		return getPath(this.get(), path);
 	}
 
 	this.getType = function()
@@ -2716,7 +2734,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		
 	} else  if("string" in expr)
 	{
-		var str = "\"" + expr.string.replace(/"/g, "\\\"") + "\"";
+		var str = "\"" + expr.string.replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"";
 		return new Var(str, "new Store(" + str + ", string)", "string");
 	} else if("type" in expr)
 	{
@@ -3039,6 +3057,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		
 		var builtExpr = makeExpr(expr.closure, localNodes, genericTypeParams);
 		funcDef += storeStr;
+		funcDef += builtExpr.getBeforeStr();
 		funcDef += "return " + builtExpr.getVal() + "\n}\n";
 
 		// return new Closure(expr, nodes, genericTypeParams);
