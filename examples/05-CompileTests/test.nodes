@@ -53,7 +53,7 @@ nodes:
 	# var sa = ["a", "b", "c"]
 	var t = "tutu"
 	# var v = Vec2(inc(0), 1, click => t = what)
-	var va = test2(aa, x)
+	cache va = test2(aa, x)
 		# [
 		# 	VecList
 		# 	([

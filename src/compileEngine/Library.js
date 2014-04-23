@@ -1584,6 +1584,44 @@ function _Func(func, type, paramsNode)
 			param.addSink(sink);
 		});
 	};
+
+	this.update = function(val, ticks, parentTick)
+	{
+		// if(this.needsNodes)
+		if(false)
+		{
+			var ret = func.update(val, ticks, parentTick, params);				
+		}
+		else
+		{
+			// var minMax = [0, 0];
+			// function upMinMax(old, current)
+			// {
+			// 	return [Math.min(old[0], current[0]), Math.max(old[1], current[1])];
+			// }
+			var max = 0;
+			_.each(this.paramsNode, function(node)
+			{
+				var minMax = node.getMinMaxTick([]);
+				// min = Math.min(min, minMax[0]);
+				max = Math.max(max, minMax[1]);
+			});
+
+			if(ticks.tick >= max)
+			{
+				return [val, ticks];
+			}
+
+			var ret = mValTick(this.func());
+		}
+
+		// Setup signals for this function
+		if(this.hasSignals)
+		{
+			ret[0].__signals = this.signals;				
+		}
+		return ret;
+	};
 }
 
 var globalTick = 0;

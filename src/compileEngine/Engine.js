@@ -947,10 +947,10 @@ function Cache(node)
 		if(this.isDirty)
 		{
 			// this.val = this.node.get();
-			// var res = this.node.update(this.val, this.ticks, this.ticks.tick);
-			this.val = this.node.get();
-			// this.val = res[0];
-			// this.ticks = res[1];
+			var res = this.node.update(this.val, this.ticks, this.ticks.tick);
+			// this.val = this.node.get();
+			this.val = res[0];
+			this.ticks = res[1];
 			this.isDirty = false;
 		}
 		return this.val;		
@@ -4933,11 +4933,11 @@ function FunctionTemplate(classGraph)
 		instance.beforeStr += instance.expr.getBeforeStr();
 		instance.beforeStr += "return " + instance.expr.getVal() + ";\n};\n";		
 		
-		if(instance.expr.needsNodes)
-		{
-			instance.needsNodes = true;
-			instance.__refs = instance.inputNodes.slice(0);
-		}
+		// if(instance.expr.needsNodes)
+		// {
+		// 	instance.needsNodes = true;
+		// 	instance.__refs = instance.inputNodes.slice(0);
+		// }
 
 		if("type" in instance)
 		{
