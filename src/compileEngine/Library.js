@@ -1648,6 +1648,18 @@ function _Func(func, type, paramsNode, updateFunc)
 		}
 		return ret;
 	};
+
+	this.getMinMaxTick = function(path)
+	{
+		var min = 0, max = 0;
+		_.each(this.paramsNode, function(param)
+		{
+			var minMax = param.getMinMaxTick([]);
+			min = Math.max(min, minMax[0]);
+			max = Math.max(max, minMax[1]);
+		})
+		return [min, max];
+	};
 }
 
 var globalTick = 0;

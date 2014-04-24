@@ -127,21 +127,31 @@ function List(val)
 	this.update = function(val, ticks, parentTick)
 	{
 		// The entire list has changed
-		if(ticks.tick < this.tick)
+		// if(ticks.tick < this.tick)
+		// {
+		// 	return mValTick(this.get());	
+		// } else // Only elements of the list may have changed
+		// {
+		// 	var subTicks = ticks.subs;
+		// 	var newSubTicks = new Array(this.list.length);
+		// 	_.each(this.list, function(item, i)
+		// 	{
+		// 		var ret = item.update(val[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
+		// 		val[i] = ret[0];
+		// 		newSubTicks[i] = ret[1];
+		// 	});
+		// 	return mValTick(val, newSubTicks);
+		// }
+
+		var subTicks = ticks.subs;
+		var newSubTicks = new Array(this.list.length);
+		_.each(this.list, function(item, i)
 		{
-			return mValTick(this.get());	
-		} else // Only elements of the list may have changed
-		{
-			var subTicks = ticks.subs;
-			var newSubTicks = new Array(this.list.length);
-			_.each(this.list, function(item, i)
-			{
-				var ret = item.update(val[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
-				val[i] = ret[0];
-				newSubTicks[i] = ret[1];
-			});
-			return mValTick(val, newSubTicks);
-		}
+			var ret = item.update(val[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
+			val[i] = ret[0];
+			newSubTicks[i] = ret[1];
+		});
+		return mValTick(val, newSubTicks);
 	}
 	
 	this.updatePath = function(val, ticks, parentTick, path)
@@ -2474,7 +2484,7 @@ function MatchType(what, cases, type, addsRefs)
 			var match = this.cases[i];
 			if(sameTypes(type,  match.type))
 			{
-				match.matchStore.push(this.what);
+				// match.matchStore.push(this.what);
 				if(match.needsNodes)
 				{
 					upVal.__refs.shift();
@@ -2502,7 +2512,7 @@ function MatchType(what, cases, type, addsRefs)
 		}
 		// else case
 		var match = this.cases[i];
-		match.matchStore.push(this.what);
+		// match.matchStore.push(this.what);
 
 		if(match.needsNodes)
 		{
@@ -2528,7 +2538,7 @@ function MatchType(what, cases, type, addsRefs)
 			}
 		}
 
-		match.matchStore.pop();
+		// match.matchStore.pop();
 
 		return [val, ticks];
 	}
@@ -3951,7 +3961,7 @@ function __Obj(structDef, params, type, signals)
 
 	this.update = function(val, ticks, parentTick)
 	{
-		if(val.__type == this.fields.__type) // Check if type is same (in case of a type match)
+		if(val.__type == this.type) // Check if type is same (in case of a type match)
 		{					
 			var subTicks = ticks.subs;
 			var newSubTicks = {};
@@ -3974,6 +3984,21 @@ function __Obj(structDef, params, type, signals)
 			return mValTick(this.get());
 		}
 	}
+
+	this.getMinMaxTick = function(path)
+	{
+		var maxTicks = 0, maxOfMinTicks = 0;
+		_.each(this.fields, function(field, key){
+			if((key != "__type") && (key != "__signals") && (key != "__views"))
+			{
+				var itemMinMaxTicks = field.getMinMaxTick([]);
+				maxTicks = Math.max(maxTicks, itemMinMaxTicks[1]);
+				maxOfMinTicks = Math.max(maxOfMinTicks, itemMinMaxTicks[0]);
+			}
+		});
+
+		return [maxOfMinTicks, maxTicks];
+	};
 };
 
 var structId = 0;
