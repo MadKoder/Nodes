@@ -1273,7 +1273,7 @@ var functions =
 				{	
 					return "_(" + params[1] + ".get()).map(function(val){return " + params[0] + "(val);}).flatten(true).value()";
 				};
-				this.getUpdateStr = function(params) 
+				this.getUpdate = function(params) 
 				{	
 					// TODO
 					return "_(" + params[1] + ".get()).map(function(val){return " + params[0] + "(val);}).flatten(true).value()";
@@ -1349,7 +1349,7 @@ var functions =
 				{	
 					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);})";
 				};
-				this.getUpdateStr = function(params) 
+				this.getUpdate = function(params) 
 				{	
 					// TODO
 					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);})";
@@ -1429,7 +1429,7 @@ var functions =
 				{	
 					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);}," + params[2] + ".get())";
 				};
-				this.getUpdateStr = function(params) 
+				this.getUpdate = function(params) 
 				{	
 					// TODO
 					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);}," + params[2] + ".get())";
@@ -1519,7 +1519,7 @@ var functions =
 					return "_contains(" + params + ")";
 				}
 
-				this.getUpdateStr = function(params)
+				this.getUpdate = function(params)
 				{
 					// TODO
 					return "_contains(" + params + ")";
@@ -1570,19 +1570,13 @@ function merge(dst, src)
 	return ret;
 }
 
-function _Func(func, type, paramsNode, updateFunc)
+function _Func(func, isObject, updateFunc)
 {
 	this.func = func;
-	this.type = type;
-	this.paramsNode = paramsNode;
+	// this.type = type;
 	this.updateFunc = updateFunc;
-	var baseType = getBaseType(type);
-	this.isObject = (
-		(baseType != "int") &&
-		(baseType != "float") &&
-		(baseType != "string") &&
-		(baseType != "list") &&
-		(baseType != "dict"))
+	// var baseType = getBaseType(type);
+	this.isObject = isObject;
 	this.get = function(refs)
 	{
 		var ret = this.func();
@@ -1592,11 +1586,6 @@ function _Func(func, type, paramsNode, updateFunc)
 			ret.__referencedNodes = globalReferencedNodes;
 		}
 		return ret;
-	}
-
-	this.getType = function()
-	{
-		return this.type;
 	}
 
 	this.addSink = function(sink)
@@ -1624,21 +1613,21 @@ function _Func(func, type, paramsNode, updateFunc)
 			// function upMinMax(old, current)
 			// {
 			// 	return [Math.min(old[0], current[0]), Math.max(old[1], current[1])];
+			// // }
+			// var max = 0;
+			// _.each(this.paramsNode, function(node)
+			// {
+			// 	var minMax = node.getMinMaxTick([]);
+			// 	// min = Math.min(min, minMax[0]);
+			// 	max = Math.max(max, minMax[1]);
+			// });
+
+			// if(ticks.tick >= max)
+			// {
+			// 	return [val, ticks];
 			// }
-			var max = 0;
-			_.each(this.paramsNode, function(node)
-			{
-				var minMax = node.getMinMaxTick([]);
-				// min = Math.min(min, minMax[0]);
-				max = Math.max(max, minMax[1]);
-			});
 
-			if(ticks.tick >= max)
-			{
-				return [val, ticks];
-			}
-
-			var ret = mValTick(this.func());
+			var ret = mValTick(this.get());
 		}
 
 		// Setup signals for this function
@@ -1741,11 +1730,12 @@ function FunctionNode(func)
 		if(func.needsNodes)
 		{
 			this.str += func.getStrRef(paramsNode);
-			updateStr = func.getUpdateStr(paramsNode);
+			updateStr = func.getUpdate(paramsNode);
 		}
 		else
 		{
-			if(paramsNeedNodes)
+			// if(paramsNeedNodes)
+			if(false)
 			{
 				var paramsNodeGet = _.map(params, function(param, index)
 					{
@@ -1763,10 +1753,19 @@ function FunctionNode(func)
 
 		// this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
 		this.val = this.str;
-		this.nodeStr = "new _Func(function(){return " + this.str + ";}, " + typeToJson(func.type) + ", " + paramsNodeStr;
+
+		var baseType = getBaseType(func.type);
+		var isStruct = (
+			(baseType != "int") &&
+			(baseType != "float") &&
+			(baseType != "string") &&
+			(baseType != "list") &&
+			(baseType != "dict"));
+
+		this.nodeStr = "new _Func(function(){\n\treturn " + this.str + ";\n},\n" + isStruct.toString();
 		if(updateStr)
 		{
-			this.nodeStr +=  ", function(__val, __ticks, __parentTick){return " + updateStr + ";}";
+			this.nodeStr +=  "\n, function(__val, __ticks, __parentTick){\n\treturn " + updateStr + ";\n}";
 		}
 		this.nodeStr += ")";
 		
@@ -1781,14 +1780,31 @@ function FunctionNode(func)
 			return this.nodeStr;
 		}
 
+		this.getUpdate = function()
+		{
+			if(func.needsNodes)
+			{
+				return "return " + updateStr + ";\n"
+			}
+			return "return mValTick(" + this.str + ");\n";
+		}
+
+		this.getBeforeUpdate = function()
+		{
+			return this.beforeStr;
+		}
+
 		this.getVal = function()
 		{
 			return this.val;
 		}
 
-		this.getVar = function()
+		this.getAddSinkStr = function(sink)
 		{
-			return this.varName;
+			return  _.map(params, function(param, index)
+			{
+				return param.getAddSinkStr(sink);
+			}).join("");
 		}
 
 		this.get = function()
@@ -2357,6 +2373,14 @@ var nodes =
 							}).join(", ") + "])";
 					}
 					
+					this.getVal = function()
+					{
+						return "[" + _.map(this.fields, function(field)
+							{
+								return field.getVal();
+							}).join(", ") + "]";
+					}
+
 					// this.get = function()
 					// {
 					// 	return _.map(this.fields, function(field){return field.get();});

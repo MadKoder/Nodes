@@ -48,8 +48,10 @@ nodes:
 	# var x = 0
 	# var y = 5
 	# var a = [1, 2, 3]
+
 	var aa = [[1, 2, 3], [4, 5]]
 	var x = 0
+	cache y = x + 1
 	# var sa = ["a", "b", "c"]
 	var t = "tutu"
 	# var v = Vec2(inc(0), 1, click => t = what)
@@ -78,7 +80,8 @@ nodes:
 	# def b = if a <= 10 then a else 20
 	# var b = inc(a)
 actions :
-	tick : 
+	tick :
+		x = x + 1 
 		# for item, i in a do 
 		# 	item = i + 1
 		# update item, i in a

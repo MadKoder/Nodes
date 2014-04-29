@@ -1,0 +1,30 @@
+structs:
+	Vec2 :
+		float x
+		float y
+		signal click(int val)
+		slot inc(Vec2 delta) : 
+			# self.x = self.x + delta.x
+			# self.y = self.y + delta.y
+			self.click()
+		subs : 
+			Vec3:
+				float z
+	Rect :
+		Vec2 pos
+		Vec2 size
+functions:
+	ref inc(float x)
+		x + 1
+	ref transform(list<Vec2> v, string t)
+		[
+			Vec2(inc(e.x), e.y + 2, click => e.x = e.x + 10) for e in v
+		]
+nodes:
+	var v = [Vec2(0, 0), Vec2(1, 1)]
+	var t = "toto"
+	cache v2 = transform(v, t)
+actions :
+	tick :
+		for e in v2 do
+			e.inc(Vec2(1, 1))

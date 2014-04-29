@@ -62,6 +62,8 @@ $.get( "arcaNodes.nodes", function( text ) {
 
 	var codeGraph = codeToGraph(text, library, parser);
 	var code = compileGraph(codeGraph, library);
+
+
 	$.globalEval(code);
 
 	function isValidKeyCode(keyCode)

@@ -9,6 +9,7 @@ var doingFocus;
 var requestFocus;
 var focusCounter = 0;
 
+
 function mf1(func1, inAndOutTypes)
 {
 	return {
