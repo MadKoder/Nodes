@@ -1,0 +1,27 @@
+structs:
+	Vec2 :
+		float x
+		float y
+		signal click(int val)
+		slot inc(Vec2 delta) : 
+			self.click()
+		subs : 
+			Vec3:
+				float z
+	Obj :
+		subs :
+			Group :
+				list<Vec2>	children
+			Leaf :
+				int x
+functions:
+	ref transform(Obj obj)
+		type obj:
+			Group :	[v.x for v in obj.children]
+			_ :	[0]
+nodes:
+	var obj = Group([Vec2(0, 0), Vec2(1, 1), Vec3(4, 5 , 6)])
+	cache v2 = transform(obj)
+actions :
+	tick :
+		obj = Group([Vec2(10, 1), Vec2(1, 1), Vec3(4, 5 , 6)])

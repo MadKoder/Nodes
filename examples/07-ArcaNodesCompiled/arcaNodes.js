@@ -310,12 +310,7 @@ $.get( "arcaNodes.nodes", function( text ) {
 		// 		}
 		// 	});
 		// });
-	});
-	
-	var mazeLengthSink = new Sink(mazeLength, function()
-	{
-		console.log("maze length changed");
-	});
+	});	
 	
 	$lifes = $('#lifes')
 	$lifes.html(lifes.get());

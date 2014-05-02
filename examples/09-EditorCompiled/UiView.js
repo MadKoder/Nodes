@@ -141,7 +141,9 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 						model.mouseLeave();
 					}
 				);
-			} else if((ticks.subs == undefined) || (ticks.subs.children == undefined) || (ticks.subs.children.subs == undefined))
+			} 
+			else if((ticks.subs == undefined) || (ticks.subs.children == undefined) || (ticks.subs.children.subs == undefined))
+			// else if(true)
 			{
 				var $ui = view;
 				$ui.empty();
@@ -216,8 +218,6 @@ function UiView(ui)
 	var $ui = $("#ui" + mainUiIndex);
 	mainUiIndex++;	
 
-	ui.addSink(this);			
-	
 	var $root = null;
 	this.tick = globalTick;
 	this.dirty = function()

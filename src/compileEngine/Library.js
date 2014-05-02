@@ -241,6 +241,10 @@ function mf1(func1, inAndOutTypes)
 		getBeforeStr : function()
 		{
 			return "";
+		},
+		getBeforeUpdate : function()
+		{
+			return "";
 		}
 	}
 }
@@ -274,6 +278,10 @@ function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 				},
 				type : inAndOutTypes.output,
 				getBeforeStr : function()
+				{
+					return "";
+				},
+				getBeforeUpdate : function()
 				{
 					return "";
 				}
@@ -364,6 +372,10 @@ function mf2(func2, inAndOutTypes)
 		getBeforeStr : function()
 		{
 			return "";
+		},
+		getBeforeUpdate : function()
+		{
+			return "";
 		}
 	}
 }
@@ -421,7 +433,11 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 				getBeforeStr : function()
 				{
 					return "";
-				}			
+				},
+				getBeforeUpdate : function()
+				{
+					return "";
+				}
 			}
 		},
 		getType : function(templates)
@@ -1358,6 +1374,10 @@ var functions =
 				{
 					return "";
 				}
+				this.getBeforeUpdate = function()
+				{
+					return "";
+				}
 				this.funcRef = function(params) 
 				{	
 					var funcInstance = params[0].get();
@@ -1435,6 +1455,10 @@ var functions =
 					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);}," + params[2] + ".get())";
 				};
 				this.getBeforeStr = function()
+				{
+					return "";
+				};
+				this.getBeforeUpdate = function()
 				{
 					return "";
 				};
@@ -1573,10 +1597,9 @@ function merge(dst, src)
 function _Func(func, isObject, updateFunc)
 {
 	this.func = func;
-	// this.type = type;
-	this.updateFunc = updateFunc;
-	// var baseType = getBaseType(type);
 	this.isObject = isObject;
+	this.updateFunc = updateFunc;
+
 	this.get = function(refs)
 	{
 		var ret = this.func();
@@ -1588,52 +1611,40 @@ function _Func(func, isObject, updateFunc)
 		return ret;
 	}
 
-	this.addSink = function(sink)
-	{
-		_.each(this.paramsNode, function(param)
-		{
-			param.addSink(sink);
-		});
-	};
 
 	this.update = function(val, ticks, parentTick)
 	{
 		if(this.updateFunc)
 		{
 			var ret = this.updateFunc(val, ticks, parentTick);
-			if(this.isObject && globalRefs.length > 0)
-			{
-				ret.__refs = globalRefs;
-				ret.__referencedNodes = globalReferencedNodes;
-			}		
+			
 		}
 		else
 		{
-			// var minMax = [0, 0];
-			// function upMinMax(old, current)
-			// {
-			// 	return [Math.min(old[0], current[0]), Math.max(old[1], current[1])];
-			// // }
-			// var max = 0;
-			// _.each(this.paramsNode, function(node)
-			// {
-			// 	var minMax = node.getMinMaxTick([]);
-			// 	// min = Math.min(min, minMax[0]);
-			// 	max = Math.max(max, minMax[1]);
-			// });
-
-			// if(ticks.tick >= max)
-			// {
-			// 	return [val, ticks];
-			// }
-
 			var ret = mValTick(this.get());
 		}
-
-		// Setup signals for this function
-		if(this.hasSignals)
+		if(this.isObject && globalRefs.length > 0)
 		{
-			ret[0].__signals = this.signals;				
+			ret.__refs = globalRefs;
+			ret.__referencedNodes = globalReferencedNodes;
+		}
+		return ret;
+	};
+}
+
+function __UpdateFunc(updateFunc, isObject, paramsNode)
+{
+	this.updateFunc = updateFunc;
+	this.isObject = isObject;
+	this.paramsNode = paramsNode;
+	
+	this.update = function(val, ticks, parentTick)
+	{
+		var ret = this.updateFunc(val, ticks, parentTick);
+		if(this.isObject && globalRefs.length > 0)
+		{
+			ret.__refs = globalRefs;
+			ret.__referencedNodes = globalReferencedNodes;
 		}
 		return ret;
 	};
@@ -1648,7 +1659,7 @@ function _Func(func, isObject, updateFunc)
 			max = Math.max(max, minMax[1]);
 		})
 		return [min, max];
-	};
+	}
 }
 
 var globalTick = 0;
@@ -1686,9 +1697,11 @@ function FunctionNode(func)
 			src
 		}, this);
 		this.beforeStr = "";
+		this.beforeUpdate = "";
 		this.str = "";
 
 		this.beforeStr += func.getBeforeStr();
+		// this.beforeUpdate += func.getBeforeUpdate();
 		var inputStr = "";
 		if("inputNodes" in func)
 		{
@@ -1703,6 +1716,15 @@ function FunctionNode(func)
 			this.beforeStr += param.getBeforeStr();
 			// return getVar(); // + ".get()";
 			return param.getVal();
+		}, this);
+		var paramsUpdate = _.map(params, function(param)
+		{
+			// this.beforeUpdate += param.getBeforeUpdate();
+			// if("getUpdateNode" in param)
+			{
+				return param.getUpdateNode();
+			}
+			return param.getNode();
 		}, this);
 		var paramsNodeStr = "[";
 		var paramsNode = _.map(params, function(param, index)
@@ -1727,10 +1749,14 @@ function FunctionNode(func)
 		// newVar(func.getStr(paramsVar), func.type);
 		// this.str += newVar(func.getStr(paramsVar));
 		var updateStr = undefined;
+		// var updateStrNoNodes = "";
+		var updateNodeFunc = "";
 		if(func.needsNodes)
 		{
-			this.str += func.getStrRef(paramsNode);
-			updateStr = func.getUpdate(paramsNode);
+			this.str = func.getStrRef(paramsNode);
+			// updateNodeFunc = func.getStrRef(paramsUpdate);
+			updateNodeFunc = func.getUpdate(paramsUpdate);
+			updateStr = func.getUpdate(paramsUpdate);
 		}
 		else
 		{
@@ -1742,11 +1768,13 @@ function FunctionNode(func)
 						var node = param.getNode();
 						return "(" + node + ").get()"
 					});
-				this.str += func.getStr(paramsNodeGet);
+				this.str = func.getStr(paramsNodeGet);
 			}
 			else
 			{
+				// updateStrNoNodes = func.getStr(paramsUpdate);
 				this.str += func.getStr(paramsVal);
+				updateNodeFunc = "mValTick(" + func.getStr(paramsVal) + ")";
 			}
 		}
 		this.varName = getVar();
@@ -1768,6 +1796,8 @@ function FunctionNode(func)
 			this.nodeStr +=  "\n, function(__val, __ticks, __parentTick){\n\treturn " + updateStr + ";\n}";
 		}
 		this.nodeStr += ")";
+
+		var updateNode = "new __UpdateFunc(function(__val, __ticks, __parentTick){\n\treturn " + updateNodeFunc + ";\n},\n" + isStruct.toString() + ", [" + paramsUpdate + "])";
 		
 		this.getBeforeStr = function()
 		{
@@ -1784,13 +1814,26 @@ function FunctionNode(func)
 		{
 			if(func.needsNodes)
 			{
-				return "return " + updateStr + ";\n"
+				return updateStr;
 			}
-			return "return mValTick(" + this.str + ");\n";
+			return "mValTick(" + this.val + ")";
+		}
+
+		this.getUpdateNode = function()
+		{
+			// if(func.needsNodes)
+			{
+				return updateNode;
+			}
+			return this.nodeStr;
 		}
 
 		this.getBeforeUpdate = function()
 		{
+			if(func.needsNodes)
+			{
+				return this.beforeUpdate;
+			}
 			return this.beforeStr;
 		}
 
@@ -1952,6 +1995,50 @@ function Tuple(fields)
 	}
 };
 
+function __updateIf(val, ticks, parentTick, cond, first, second)
+{
+	// If condition didn't change, update result
+	var minMax = cond.getMinMaxTick([]);
+	if(ticks.tick >= minMax[1])
+	{
+		var condRes = cond.update(undefined, ticks, parentTick);
+		if(condRes[0])
+		{
+			if(ticks.tick >= first.getMinMaxTick([])[1])
+			{
+				return mValTick(val, ticks.subs);
+			}
+			else
+			{
+				return first.update(val, ticks, parentTick);
+			}
+		}
+		else
+		{
+			if(ticks.tick >= second.getMinMaxTick([])[1])
+			{
+				return mValTick(val, ticks.subs);
+			}
+			else
+			{
+				return second.update(val, ticks, parentTick);
+			}
+		}							
+	}
+	else // We don't know, so we get the new value
+	{
+		var condRes = cond.update(undefined, ticks, parentTick);
+		if(condRes[0])
+		{
+			return first.update(val, ticks, parentTick);			
+		}
+		else
+		{
+			return second.update(val, ticks, parentTick);
+		}
+	}
+};
+
 var nodes = 
 {
 	"string" :
@@ -2069,6 +2156,16 @@ var nodes =
 					this.getNode = function()
 					{
 						return this.nodeStr;
+					}
+
+					this.getUpdate = function()
+					{
+						return "__updateIf(__val, __ticks, __parentTick, " + cond.getNode() + ", " + first.getNode() + ", " + second.getNode() + ")";
+					}
+
+					this.getUpdateNode = function()
+					{
+						return "new __UpdateFunc(function(__val, __ticks, __parentTick){return __updateIf(__val, __ticks, __parentTick, " + cond.getUpdateNode() + ", " + first.getUpdateNode() + ", " + second.getUpdateNode() + ");}, " + typeToJson(typeParam) + ")";
 					}
 
 					this.getVal = function()
@@ -2373,6 +2470,15 @@ var nodes =
 							}).join(", ") + "])";
 					}
 					
+					this.getUpdate = function()
+					{
+						// TODO
+						return "mValTick([" + _.map(this.fields, function(field)
+							{
+								return field.getVal();
+							}).join(", ") + "])";
+					}
+
 					this.getVal = function()
 					{
 						return "[" + _.map(this.fields, function(field)

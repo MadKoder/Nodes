@@ -350,7 +350,10 @@ $.get("editor.nodes", function( text ) {
 	setLibrary(library);
 	code = compileGraph(codeGraph, library);
 
+
 	$.globalEval(code)
+	program.addSink(uiView);
+	program.addSink(uiView2);
 	
 	var types = {
 		Ref : Ref,
@@ -500,7 +503,7 @@ $.get("editor.nodes", function( text ) {
 
 	//var txt = JSON.stringify(codeGraph, undefined, 4);
 	var prog = program;
-	$.get("test2.json", function(graph)
+	$.get("test3.json", function(graph)
 	{
 		// TODO enable
 		// return;

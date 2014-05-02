@@ -493,7 +493,7 @@ nodes:
 	# cache ui3 = progToUi(program, 3, focusCounter)
 	# cache view = ui
 	def uiView = UiView(ui)
-	def uiView2 = UiView(ui)
+	# def uiView2 = UiView(ui)
 	# def uiView3 = UiView(ui2)
 	# def uiView4 = UiView(ui3)
 	# def txt = TextInput(toto, set => toto = text)
