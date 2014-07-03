@@ -440,6 +440,20 @@ CompIterator =
 		return res;
 	}
 
+ListView = 
+	"$[" _ val:Val _ "for " _ it:Id _ index:("," _ i:Id {return i;})? _ "in " _ array:Var _ "]" 
+	{
+		var res = {
+			"listView" : val,
+			"for" : it,
+			"in" : array,
+		};
+		if(index != null)
+		{
+			res["index"] = index;
+		}
+		return res;
+	}
 
 IdOrDestructId = 
 	Id
@@ -721,7 +735,8 @@ PrimaryExpression =
 	/ Closure
 	/ Range
 	/ Select
-	/ Comprehension 
+	/ Comprehension
+	/ ListView 
 	/ Array 
 	/ Dict
 	/ ArrayDictAccess

@@ -1,134 +1,21 @@
 {
-    "constants": [],
-    "nodes": [
-        [
-            {
-                "val": 1,
-                "var": "a"
-            }
-        ],
-        [
-            {
-                "val": {
-                    "type": "Program",
-                    "params": [
-                        {
-                            "array": []
-                        }
-                    ]
-                },
-                "var": "program"
-            }
-        ],
-        [
-            {
-                "val": {
-                    "type": "VGroup",
-                    "params": [
-                        {
-                            "comp": {
-                                "type": "Button",
-                                "params": [
-                                    [
-                                        "function",
-                                        "id"
-                                    ]
-                                ]
-                            },
-                            "it": [
-                                {
-                                    "for": "function",
-                                    "in": [
-                                        "program",
-                                        "functions"
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                },
-                "def": "ui"
-            }
-        ],
-        [
-            {
-                "val": {
-                    "type": "UiView",
-                    "params": [
-                        [
-                            "ui"
-                        ]
-                    ]
-                },
-                "def": "uiView"
-            }
-        ]
-    ],
-    "actions": [
-        {
-            "slots": [
-                {
-                    "set": {
-                        "merge": [
-                            "program"
-                        ],
-                        "with": [
-                            {
-                                "paths": [
-                                    [
-                                        "functions"
-                                    ]
-                                ],
-                                "val": {
-                                    "type": "pushFront",
-                                    "params": [
-                                        [
-                                            "program",
-                                            "functions"
-                                        ],
-                                        {
-                                            "type": "Function",
-                                            "params": [
-                                                {
-                                                    "string": "fun2"
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    "slots": [
-                        [
-                            "program"
-                        ]
-                    ]
-                }
-            ],
-            "id": [
-                "tick"
-            ]
-        }
-    ],
-    "connections": [],
     "structsAndFuncs": [
         {
-            "struct": {
-                "name": "Vec2",
-                "fields": [
-                    [
-                        "x",
-                        "float"
-                    ],
-                    [
-                        "y",
-                        "float"
-                    ]
+            "func": {
+                "id": "addVec2",
+                "in": [
                 ],
-                "subs": []
+                "out": {
+                    "type": null,
+                    "val": {
+                        "type": "Vec2",
+                        "params": [
+                        ]
+                    }
+                },
+                "nodes": [],
+                "type": null
             }
         }
-    ],
-    "events": []
+    ]
 }

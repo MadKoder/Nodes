@@ -45,7 +45,7 @@ _.merge(functions, localFunctions);
 _.merge(nodes, localFunctions, function(node, func){return funcToNodeSpec(func);});
 
 
-$.get("test3.nodes", function( text ) {
+$.get("testModelView.nodes", function( text ) {
 // $.get("arcaNodes.nodes", function( text ) {
 // $.get("treeEdit.nodes", function( text ) {
 // $.get("editor.nodes", function( text ) {
@@ -63,7 +63,7 @@ $.get("test3.nodes", function( text ) {
 	// $("#test").html(code.a.get());
 	// tick();
 	tick();
-	$test.html(v2.get()[0]);
+	$test.html(v.get()[0]);
 	// $test.html(t.get());
 }
 , "text" // Commenter pour lire du json

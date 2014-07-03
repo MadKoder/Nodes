@@ -25,7 +25,7 @@ function mValTick(val, subs)
 	{
 		_.each(subs, function(sub)
 		{
-			minTick = Math.min(minTick, sub.tick);
+			minTick = Math.min(minTick, sub.min);
 		});
 	}
 	return [val, {tick : globalTick, min : minTick, subs : subs}];
@@ -2583,6 +2583,14 @@ function Seq(slots) {
 	this.getType = function()
 	{
 		return "Seq";
+	}
+}
+
+var list = 
+{
+	pushFront : function(l, val)
+	{
+		l.pushFront(val.get());
 	}
 }
 

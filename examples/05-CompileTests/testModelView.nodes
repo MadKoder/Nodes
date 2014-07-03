@@ -1,0 +1,39 @@
+# views :
+# 	mView(int m)
+# 		m + 1
+# 	mView(list<int> m)
+# 		[i + 1 for i in m]
+# nodes:
+# 	model m = 0
+# 	model m = [0, 1, 2]
+
+# 	view v = m + 1
+# actions :
+# 	tick :
+# 		m = 1
+
+# views:
+# 	v(list<int> l)
+# 		[i + 1 for i in l]	
+
+# templates :
+# 	vec(int i)
+# 		Vec2(i, i)
+# templates:
+# 	incList(list<int> l)
+# 		[i + 1 for i in l]
+# 	inc(int i)
+# 		i + 1
+nodes:
+	# var l = [1, 2, 3]
+	# def v = $[i + 1 for i in l]
+	var l = [[1, 2, 3], [4, 5]]
+	def v = $[$[i + 1 for i in l2] for l2 in l]
+	# def v = $[length(l2) for l2 in l]
+actions :
+	tick :
+		for l2 in l do 
+			# l2 = 0	
+			l2.pushFront(1)
+		# l.pushFront([3, 4])
+# 		l = [2, 2, 3, 4]

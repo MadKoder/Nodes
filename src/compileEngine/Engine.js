@@ -253,6 +253,35 @@ function getPath(struct, path)
 	}
 }
 
+function dirtyPath(graph, path)
+{
+	if(path.length == 1)
+	{
+		var key = path[0];
+		if(_.isNumber(key))
+		{
+			key = key.toString();
+		}
+		graph.max = globalTick;
+		graph.subs[key] = {min : globalTick, max : globalTick, subs : {}};
+	}
+	else
+	{
+		var subPath = path.slice(0);
+		var key = subPath.shift();
+		if(_.isNumber(key))
+		{
+			key = key.toString();
+		}
+		if(!(key in graph.subs))
+		{
+			graph.subs[key] = {min : graph.min, max : globalTick, subs : {}};
+		}
+		graph.max = globalTick;
+		dirtyPath(graph.subs[key], subPath);
+	}
+}
+
 function setPath(struct, path, val)
 {
 	if(path.length == 1)
@@ -267,6 +296,25 @@ function setPath(struct, path, val)
 	}
 }
 
+function pushFront(array, val)
+{
+	array.unshift(val);
+}
+
+function changeArrayPath(struct, path, val, instruction)
+{
+	if(path.length == 1)
+	{
+		instruction(struct[path[0]], val);
+	}
+	else
+	{
+		var subPath = path.slice(0);
+		var key = subPath.shift();
+		changeArrayPath(struct[key], subPath, val, instruction);
+	}
+}
+
 function Store(v, type) 
 {
 	this.val = v;
@@ -276,13 +324,15 @@ function Store(v, type)
 	this.tag = 0;
 	
 	this.sinks = [];
+	this.listViews = [];
 	this.path = [];
 	
 	// DEBUG
 	this.id = storeId;
 	storeId++;
 
-	this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
+	// this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
+	this.tickGraph = {min : 0, max : 0, subs : {}}; // Why not ?
 
 	this.needsNodes = false;
 	
@@ -395,34 +445,6 @@ function Store(v, type)
 
 	this.dirty = function(path)
 	{
-		function dirtyPath(graph, path)
-		{
-			if(path.length == 1)
-			{
-				var key = path[0];
-				if(_.isNumber(key))
-				{
-					key = key.toString();
-				}
-				graph.max = globalTick;
-				graph.subs[key] = {min : globalTick, max : globalTick, subs : {}};
-			}
-			else
-			{
-				var subPath = path.slice(0);
-				var key = subPath.shift();
-				if(_.isNumber(key))
-				{
-					key = key.toString();
-				}
-				if(!(key in graph.subs))
-				{
-					graph.subs[key] = {min : graph.min, max : globalTick, subs : {}};
-				}
-				graph.max = globalTick;
-				dirtyPath(graph.subs[key], subPath);
-			}
-		}
 		globalTick++;
 		if(path.length == 0)
 		{
@@ -437,6 +459,10 @@ function Store(v, type)
 		{
 			sink.dirty()
 		});
+		_.each(this.listViews, function(view)
+		{
+			view.dirty(path);
+		});
 		if(path == undefined)
 		{
 			throw "Path undefined in dirty"
@@ -445,9 +471,38 @@ function Store(v, type)
 		// this.dirtyList.push(path)
 	}
 	
+	this.pushFront = function(val, path)
+	{
+		globalTick++;
+		if(path.length == 0)
+		{
+			this.val.unshift(val);
+			this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
+		}
+		else
+		{
+			changeArrayPath(this.val, path, val, pushFront);
+			dirtyPath(this.tickGraph, path);
+		}
+
+		_.each(this.sinks, function(sink)
+		{
+			sink.dirty()
+		});
+		_.each(this.listViews, function(view)
+		{
+			view.pushFront(val, path);
+		});
+	}
+
 	this.addSink = function(sink)
 	{
 		this.sinks.push(sink);
+	};
+
+	this.addListView = function(lv)
+	{
+		this.listViews.push(lv);
 	};
 	
 	this.signal = function(signal, params, path)
@@ -1219,6 +1274,448 @@ function cartesianProductOf(arrays) {
 };
 
 var compIndex = 0;
+
+function ListViewNode(nodeGraph, externNodes)
+{
+	this.nodes = {};
+	
+	// TODO  connections
+	var iterator = nodeGraph;
+	this.arrays = new Array(1);
+	var inputs = new Array(1);
+	var destructInputs = new Array(1);
+	var comprehensionIndices = new Array(1);
+
+	this.id = storeId;
+	storeId++;
+
+	// TODO replace SubStores by FuncInput (for reccursion)
+	// And cleanup SubStores of push, pop, dirty ...
+	this.compIndex = compIndex;
+	var beforeStr = "";
+	var inputStr = "[";
+	var indicesStr = "[";
+	var varStr = "";
+	var varPostfix = "";
+	var varIndex = 0;
+	var arrayAccessNames = [];
+	var indicesNames = [];
+
+	varPostfix = compIndex.toString() + "_" + varIndex.toString();
+	varIndex++;
+	var expr = makeExpr(iterator["in"], externNodes);
+	
+	var arrayStr = expr.getNode();
+	var inputType = expr.getType();
+	if(getBaseType(inputType) != "list")
+	{
+		error("Comprehension input parameter " + iterator["in"] + " is not a list : " + inputType);
+	}
+	var inputTemplateType = getTypeParams(inputType)[0];
+
+	var inputGraph = iterator["for"];
+	
+	beforeStr += expr.getBeforeStr();
+	var arrayAccessName = "aa" + varPostfix;
+	arrayAccessNames.push(arrayAccessName);
+	varStr += "var " + arrayAccessName + " = new ArrayAccess(arrays" + compIndex.toString() + "[0]);\n";
+	inputStr += arrayAccessName;
+	this.nodes[inputGraph] = new Var(arrayAccessName + ".get()", arrayAccessName, inputTemplateType);
+	if("index" in iterator)
+	{
+		// TODO  Path ?
+		// TODO param nodes = union(this.nodes, externNodes)
+		// comprehensionIndices[index] = new ValInput("int");
+		var indexName = "index" + varPostfix;
+		varStr += "var " + indexName + " = new ValInput(int);\n";		
+		comprehensionIndices[0] = new Var(indexName + ".get()", indexName, "int");
+		this.nodes[iterator["index"]] = comprehensionIndices[index];
+		// indicesStr += ((index > 0) ? ", " : "") + indexName;
+		indicesStr += "true";
+		indicesNames.push(indexName);
+	} else
+	{
+		indicesStr += "false";
+	}		
+
+	inputStr += "]"
+	indicesStr += "]"
+	var mergedNodes = _.merge(this.nodes, externNodes);
+	
+	if("listView" in nodeGraph["listView"])
+	{
+		var listViewExpr = makeExpr(nodeGraph["listView"], mergedNodes);
+	}
+	else
+	{
+		var expr = makeExpr(nodeGraph["listView"], mergedNodes);
+	}
+
+	var funcRef = false; // If the expression is a function that needs references (for making connections)
+	this.needsNodes = false;
+	this.addsRefs = false;
+	if(expr.needsNodes)
+	{
+		funcRef = true;
+		this.needsNodes = true;
+		this.addsRefs = true;
+	} 
+
+
+	this.getBeforeStr = function()
+	{
+		var str = beforeStr + arrayStr + varStr + inputStr + indicesStr + "function comp" + this.compIndex.toString() + "(" + arrayAccessNames.join(", ");
+		if(indicesNames.length > 0)
+		{
+			str += ", " + indicesNames.join(", ");
+		}
+		str += "){\n" + expr.getBeforeStr() + "return " + expr.getVal() + ";\n}\n";
+		if("when" in nodeGraph)
+		{		
+			str += "var when" + this.compIndex.toString() + " = " + when.getNode() + ";\n";
+		}
+		return "";
+		// "var comp" + this.compIndex.toString() + " = new Func(function(){ " + " return " + expr.getStr() + ";}, " + typeToJson(expr.getType()) + ");\n";
+		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
+	}
+
+	this.getBeforeUpdate = function()
+	{
+		var str = beforeStr + arraysStr + varStr + inputStr + indicesStr + expr.getBeforeUpdate() +
+		// "var comp" + this.compIndex.toString() + " = " + expr.getVal() + ";\n";
+		"function comp" + this.compIndex.toString() + "(__val, __ticks, __parentTick, " + arrayAccessNames.join(", ");
+		if(indicesNames.length > 0)
+		{
+			str += ", " + indicesNames.join(", ")
+		}
+		str += "){\n" + expr.getBeforeUpdate() + "return " + expr.getUpdate() + ";\n}\n";
+		if("when" in nodeGraph)
+		{		
+			str += "var when" + this.compIndex.toString() + " = " + when.getNode() + ";\n";
+		}
+		return "";
+		// "var comp" + this.compIndex.toString() + " = new Func(function(){ " + " return " + expr.getStr() + ";}, " + typeToJson(expr.getType()) + ");\n";
+		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
+	}
+
+	this.getNode = function()
+	{
+		// var str = "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", indices" + this.compIndex.toString() + ", arrays" + this.compIndex.toString() + ", " + funcRef.toString() + ", ";
+		// var str = "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", indices" + this.compIndex.toString() + ", arrays" + this.compIndex.toString() + ", " + funcRef.toString() + ", ";
+		
+		if(listViewExpr)
+		{
+			var str = "new ListView(function(" + arrayAccessNames.join(", ");
+			if(indicesNames.length > 0)
+			{
+				str += ", " + indicesNames.join(", ");
+			}
+			str += "){\n" + listViewExpr.getBeforeStr() + "return " + listViewExpr.getNode() + ";\n},\n";
+			str += indicesStr + ",\n" + arrayStr + ",\n" + funcRef.toString() + ")";
+			return str;
+		} else
+		{
+			var str = "new ListView(function(" + arrayAccessNames.join(", ");
+			if(indicesNames.length > 0)
+			{
+				str += ", " + indicesNames.join(", ");
+			}
+			str += "){\n" + expr.getBeforeStr() + "return new View(function(" + arrayAccessNames.join(", ");
+			if(indicesNames.length > 0)
+			{
+				str += ", " + indicesNames.join(", ");
+			}
+			str += "){ return " + expr.getVal() + "}," + arrayAccessNames.join(", ") + ");\n},\n";
+			str += indicesStr + ",\n" + arrayStr + ",\n" + funcRef.toString() + ")";
+			return str;
+		}
+	}
+
+	this.getVal = function()
+	{
+		return "(" + this.getNode() 
+			+ ").get()";
+	}
+
+	this.getUpdate = function()
+	{
+		return "(" + this.getUpdateNode() + ").update(__val, __ticks, __parentTick)";
+	}
+
+	this.getUpdateNode = function()
+	{
+		var str = "new Comprehension(function(__val, __ticks, __parentTick, " + arrayAccessNames.join(", ");
+		if(indicesNames.length > 0)
+		{
+			str += ", " + indicesNames.join(", ");
+		}
+		str += "){\nreturn " + expr.getUpdate() + ";\n},\n";
+		str += indicesStr + ",\n" + arraysStr + ",\n" + funcRef.toString() + ", ";
+		if(when)
+		{
+			str += when.getNode();
+		}
+		else
+		{
+			str += "undefined";	
+		}
+		str += ")";
+		return str;
+	}
+
+	this.getType = function()
+	{
+		return mt("list", [expr.getType()]);
+	}
+}
+
+function View(func, model)
+{
+	this.func = func;
+	this.model = model;
+	this.view = func(model);
+
+	this.get = function()
+	{
+		return this.view;
+	}
+
+	this.dirty = function()
+	{
+		this.view = func(this.model);
+	}
+
+	this.pushFront = function(val, path)
+	{
+		// this.model.unshift(val);
+		this.view = func(this.model);
+	}
+}
+
+function ListView(_expr, _comprehensionIndices, array, _funcRef)
+{
+	this.array = array;
+	this.array.addListView(this);
+	var expr = _expr;
+	var comprehensionIndices = _comprehensionIndices;
+	var funcRef = _funcRef;
+	this.views = [];
+
+	this.outputList = [];
+	this.compute = function(parentRefs)
+	{
+		var arrayVal = this.array.get();
+		
+		this.views = _.map(arrayVal, function(val, i) 
+		{
+			if(comprehensionIndices[0] != undefined)
+			{
+				var ret = expr(new SimpleArrayAccess(this.array, i), new Store(i));
+			}
+			else
+			{
+				var ret = expr(new SimpleArrayAccess(this.array, i));
+			}
+			return ret;
+		}, this);
+
+		return _.map(this.views, function(view)
+		{
+			return view.get();
+		})
+	};
+
+	this.val = this.compute();
+
+	this.get = function(parentRefs)
+	{
+		return this.val;
+	}
+	
+	this.pushFront = function(val, path)
+	{
+		if(path.length == 0)
+		{
+			this.views.unshift(expr(new Store(val)));
+			this.val.unshift(this.views[0].get());
+		}
+		else
+		{
+			var view = this.views[path[0]];
+			view.pushFront(val, path.slice(1));
+			this.val[path[0]] = view.get();
+		}
+	}
+
+	this.dirty = function(path)
+	{
+		if(path.length == 1)
+		{
+			var view = this.views[path[0]];
+			view.dirty();
+			this.val[path[0]] = view.get();
+		}
+		else
+		{
+			var view = this.views[path[0]];
+			view.pushFront(val, path.slice(1));
+			this.val[path[0]] = view.get();
+		}
+	}
+
+	this.getMinMaxTick = function(path)
+	{
+		var maxTicks = 0, maxOfMinTicks = 0;
+		_.each(this.arrays, function(array){
+			var arrayMinMaxTicks = array.getMinMaxTick([]);
+			maxTicks = Math.max(maxTicks, arrayMinMaxTicks[1]);
+			maxOfMinTicks = Math.max(maxOfMinTicks, arrayMinMaxTicks[0]);
+		});
+
+		return [maxOfMinTicks, maxTicks];
+	}
+
+	// TODO ameliorer
+	this.update = function(upVal, ticks, parentTick)
+	{
+		var maxTicks = 0, maxOfMinTicks = 0;
+		_.each(this.arrays, function(array){
+			var arrayMinMaxTicks = array.getMinMaxTick([]);
+			maxTicks = Math.max(maxTicks, arrayMinMaxTicks[1]);
+			maxOfMinTicks = Math.max(maxOfMinTicks, arrayMinMaxTicks[0]);
+		});
+
+		// No array has been updated after value
+		if(ticks.tick >= maxTicks)
+			return mValTick(upVal, ticks.sub);
+
+		// Parts of array have changed after value, but arrays size didn't
+		var subTicks = ticks.subs;
+		var arrayVals = _.map(this.arrays, function(array, index)
+		{
+			var val = array.get();
+			return val;
+		});
+			
+		var indicesArray = cartesianProductOf(_.map(arrayVals, function(array)
+		{
+			return _.range(array.length);
+		}));
+		
+		if(ticks.tick >= maxOfMinTicks)
+		{
+			
+			if(when != undefined)
+			{
+				this.outputList = [];
+				var newTicks = [];
+				_.each(indicesArray, function(indices)
+				{
+					if(when.get())
+					{
+						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
+						var ret = pair[0];						
+						this.outputList.push(ret);
+						newTicks.push(pair[1]);
+					}
+				}, this);
+			}
+			else
+			{
+				var newTicks = new Array(indicesArray.length);
+				var vals = upVal;
+				_.each(indicesArray, function(indices, i) 
+				{
+					if(funcRef)
+					{
+
+						var pair = expr(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick, new SimpleArrayAccess(this.arrays[0], indices[0]));
+						var ret = pair[0];
+					}
+					else
+					{
+						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
+						var ret = pair[0];
+					}
+					
+					vals[i] = ret;
+					newTicks[i] = pair[1];
+				}, this);
+			}
+			
+			return mValTick(vals, newTicks);
+		}
+		else
+		{
+			if(when != undefined)
+			{
+				this.outputList = [];
+				var newTicks = [];
+				_.each(indicesArray, function(indices)
+				{
+					if(when.get())
+					{
+						var pair = expr(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
+						var ret = pair[0];						
+						this.outputList.push(ret);
+						newTicks.push(pair[1]);
+					}
+				}, this);
+			}
+			else
+			{
+				var newTicks = new Array(indicesArray.length);
+				var newVals = _.map(indicesArray, function(indices, i) 
+				{				
+					if(funcRef)
+					{
+
+						var pair = expr(undefined, {tick : parentTick}, parentTick, new SimpleArrayAccess(this.arrays[0], indices[0]));
+						var ret = pair[0];
+					}
+					else
+					{
+						var pair = expr(undefined, {tick : parentTick}, parentTick, new SimpleArrayAccess(this.arrays[0], indices[0]));
+						var ret = pair[0];
+					}
+					
+					newTicks[i] = pair[1];
+					return ret;
+				}, this);
+			}
+
+			return mValTick(newVals, newTicks);
+		}
+	};
+	
+	this.getType = function(path)
+	{
+		return mt("list", [expr.getType()]);
+	}
+	
+	this.addSink = function(sink)
+	{
+		// _.each(this.arrays, function(array){array.addSink(sink);});
+		expr.addSink(sink);
+	};
+
+	this.updatePath = function(val, ticks, parentTick, path)
+	{
+		// TODO use path ?
+		return this.update(val, ticks, parentTick);
+	}
+
+	this.getRootNode = function()
+	{
+		return this;
+	}
+
+	this.getPathFromRoot = function()
+	{
+		return [];
+	}
+}
+
 function ComprehensionNode(nodeGraph, externNodes)
 {
 	this.nodes = {};
@@ -1428,6 +1925,12 @@ function SimpleArrayAccess(array, index)
 {
 	this.array = array;
 	this.index = index;
+	this.listViews = [];
+	
+	this.addListView = function(lv)
+	{
+		this.listViews.push(lv);
+	}
 
 	this.get = function()
 	{
@@ -2156,6 +2659,17 @@ function ArrayAccess(node) {
 		var array = this.node.get();
 		setPath(array[index], path, val);
 		this.node.dirty([index].concat(path));
+
+		index = this.savedStack.pop();
+		this.stack.push(index);
+	}
+
+	this.pushFront = function(val)
+	{
+		var index = this.stack.pop();
+		this.savedStack.push(index);
+
+		this.node.pushFront(val, [index]);
 
 		index = this.savedStack.pop();
 		this.stack.push(index);
@@ -3195,6 +3709,9 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 	} else if("comp" in expr)
 	{
 		return new ComprehensionNode(expr, nodes);
+	} else if("listView" in expr)
+	{
+		return new ListViewNode(expr, nodes);
 	} else if("select" in expr)
 	{
 		return new Select(expr, nodes);
@@ -3736,7 +4253,7 @@ function makeAction(actionGraph, nodes, connections)
 		if("var" in actionGraph)
 		{
 			var node = compileRef(actionGraph["var"], nodes); 
-			var str = node.getType() + "." + actionGraph["signal"] + "(" + node.getNode();
+			var str = getBaseType(node.getType()) + "." + actionGraph["signal"] + "(" + node.getNode();
 			if(paramsStr.length > 0)
 			{
 				str += ", " + paramsStr;
@@ -4134,7 +4651,9 @@ function __Obj(structDef, params, type, signals)
 			var struct = {};
 			_.each(this.fields, function(field, key)
 			{
-				struct[key] = field.update(undefined, {tick : parentTick}, ticks.tick);
+				var ret = field.update(undefined, {tick : parentTick}, ticks.tick);
+				struct[key] = ret[0];
+				newSubTicks[key] = ret[1];
 			});
 			struct.__type = type;
 			struct.__views = {};

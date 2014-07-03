@@ -142,8 +142,8 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 					}
 				);
 			} 
-			else if((ticks.subs == undefined) || (ticks.subs.children == undefined) || (ticks.subs.children.subs == undefined))
-			// else if(true)
+			// else if((ticks.subs == undefined) || (ticks.subs.children == undefined) || (ticks.subs.children.subs == undefined))
+			else if(true)
 			{
 				var $ui = view;
 				$ui.empty();
@@ -173,10 +173,19 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 					// requestFocus = false;
 					var newUi = buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick);
 					// var newUi = buildUi($(child), model.children[index], type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick);
-					var next = $uiChild.next();
-					if(previousType != newUi.attr("modelType"))
+					if($uiChild.length == 0)
 					{
-						$uiChild.replaceWith(newUi);
+						$ui.append(newUi);
+					}
+					else
+					{
+						var next = $uiChild.next();					
+						$uiChild = next;
+					
+						if(previousType != newUi.attr("modelType"))
+						{
+							$uiChild.replaceWith(newUi);
+						}
 					}
 					// $ui.append(newUi);
 					// if(model.children[index].__type == "TextInput")
@@ -187,8 +196,7 @@ function buildUi(view, model, parentType, path, rootUi, ticks, parentTick)
 					// 	});
 					// }
 
-					// newUis = newUis.add(buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick));
-					$uiChild = next;
+					// newUis = newUis.add(buildUi($uiChild, child, type, path.concat(["children", index]), rootUi, childrenTicks[index], ticks.tick));					
 				});
 				// $ui.empty();
 				// $ui.append(newUis);

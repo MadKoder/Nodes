@@ -353,7 +353,8 @@ $.get("editor.nodes", function( text ) {
 
 	$.globalEval(code)
 	program.addSink(uiView);
-	program.addSink(uiView2);
+	// expr.addSink(uiView);
+	// program.addSink(uiView2);
 	
 	var types = {
 		Ref : Ref,
@@ -530,6 +531,7 @@ $.get("editor.nodes", function( text ) {
 					buildParamsDef(func.in),
 					buildExpr(func.out.val)
 				]);
+				// expr.set(buildExpr(func.out.val));
 				prog.get().functions.push(builtFuncs);
 				// prog.get().functions.push(new library.nodes.Function.builder(
 				// {
@@ -546,8 +548,14 @@ $.get("editor.nodes", function( text ) {
 			}
 		});
 		globalTick++;
+		tick();
 		prog.dirty([]);
+		// expr.dirty([]);
 	}, "json");
+
+	
+	// prog.dirty([]);
+	
 	// var $ui = $("#ui");	
 	// var ui = code.ui.get();
 
