@@ -1549,10 +1549,14 @@ function ListView(_expr, _comprehensionIndices, array, _funcRef)
 
 	this.dirty = function(path)
 	{
-		if(path.length == 1)
+		if(path.length == 0)
+		{
+			this.val = this.compute();
+		} 
+		else if(path.length == 1)
 		{
 			var view = this.views[path[0]];
-			view.dirty();
+			view.dirty([]);
 			this.val[path[0]] = view.get();
 		}
 		else

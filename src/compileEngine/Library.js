@@ -2590,7 +2590,7 @@ var list =
 {
 	pushFront : function(l, val)
 	{
-		l.pushFront(val.get());
+		l.pushFront(val.get(), []);
 	}
 }
 
