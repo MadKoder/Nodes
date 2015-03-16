@@ -1,0 +1,179 @@
+	Expr :
+		subs :
+			Func :
+				string			type
+				list<Expr>		params
+			Ref :
+				list<string>	path
+			LitExpr :
+				subs :
+					IntExpr :
+						int x
+					StrExpr :
+						string str
+
+	Ui : 
+		bool	visible
+		signal 	mouseEnter
+		signal 	mouseLeave
+		subs :
+			Group:
+				list<Ui> children	
+				subs :
+					HGroup
+					VGroup
+			Button :
+				string desc
+				string image
+				signal click(string what)
+				slot onClick(string what):
+					self.click(what)
+			TextInput :
+				string desc
+				signal set(string text)
+				signal focus(int what)
+				signal onBuilt()
+				slot onChange(string text):
+					self.set(text)
+				subs : 
+					FocusTextInput :
+						int 	focusCounter
+			Text :
+				string txt						
+
+			FuncUi(Func func) :
+
+				def ui = HGroup
+				([
+					VGroup
+					(
+						[
+							Button
+							(
+								true
+								,type stored :
+									Just<UiStore> : if stored.x.visible then "Fold" else "Unfold"
+									_ : "Fold"
+								,
+								"",
+								click => expr.__views[viewId] = type stored :
+									Just<UiStore> : stored.x \ visible = if stored.x.visible then false else true
+									_ : UiStore(false, 0, false)
+							),
+							txtIn(expr.type),
+							FocusTextInput
+							(
+								true,
+								"",
+								type stored :
+									Just<UiStore> : stored.x.focusCounter
+									_ : 0
+								,set => 
+									loc newExpr = strToExpr(text)
+									type newExpr do :
+										Func => 
+											newExpr.__views[viewId] = UiStore(true, focusCounter, false)
+											focusCounter = focusCounter + 1
+									# loc newUi = exprToUi(newExpr, viewId, focusCounter)
+									# loc a = newUi.__id
+									# globalFocus = newUi.__id
+									# newExpr.__views[viewId] = newUi
+									expr.params = pushBack
+										(
+											expr.params,
+											newExpr
+										)
+								# ,	onBuilt =>
+								# 	self.focus(self)
+							)
+						],
+						mouseEnter =>
+							expr.__views[viewId] = type stored :
+								Just<UiStore> : stored.x \ hover = true
+								_ : UiStore(true, 0, true)
+						,mouseLeave =>
+							expr.__views[viewId] = type stored :
+								Just<UiStore> : stored.x \ hover = false
+								_ : UiStore(true, 0, false)
+					),
+					VGroup
+					(
+						type stored :
+							Just<UiStore> : stored.x.visible
+							_ : true
+						,[
+							mHGroup
+							(
+								[
+									exprToUi(param, viewId, focusCounter),
+									Button
+									(
+										let 
+											paramStored = param.__views[viewId]
+										in type paramStored :
+											Just<UiStore> : paramStored.x.hover
+											_ : false
+										,
+										"",
+										"remove.png",
+										click => expr.params = remove(expr.params, i)
+									)
+								],
+								mouseEnter =>
+									loc paramStored = param.__views[viewId]
+									param.__views[viewId] = type paramStored :
+										Just<UiStore> : paramStored.x \ hover = true
+										_ : UiStore(true, 0, true)
+								,mouseLeave =>
+									loc paramStored = param.__views[viewId]
+									param.__views[viewId] = type paramStored :
+										Just<UiStore> : paramStored.x \ hover = false
+										_ : UiStore(true, 0, false)
+							)
+							# exprToUi(param)
+							for param, i in expr.params
+						]
+					)
+				])
+
+				ParamsUi(list<Expr> params) : 
+					params.insert(Expr e, int i) =>
+						ui.children.insert(exprToUi(e), i)
+					VGroup
+					(
+						type stored :
+							Just<UiStore> : stored.x.visible
+							_ : true
+						,[
+							mHGroup
+							(
+								[
+									exprToUi(param, viewId, focusCounter),
+									Button
+									(
+										let 
+											paramStored = param.__views[viewId]
+										in type paramStored :
+											Just<UiStore> : paramStored.x.hover
+											_ : false
+										,
+										"",
+										"remove.png",
+										click => expr.params = remove(expr.params, i)
+									)
+								],
+								mouseEnter =>
+									loc paramStored = param.__views[viewId]
+									param.__views[viewId] = type paramStored :
+										Just<UiStore> : paramStored.x \ hover = true
+										_ : UiStore(true, 0, true)
+								,mouseLeave =>
+									loc paramStored = param.__views[viewId]
+									param.__views[viewId] = type paramStored :
+										Just<UiStore> : paramStored.x \ hover = false
+										_ : UiStore(true, 0, false)
+							)
+							# exprToUi(param)
+							for param, i in expr.params
+						]
+					)

@@ -672,7 +672,7 @@ function checkList(type)
 
 function checkDictType(type)
 {
-	check(getBaseType(type) == "dict", "Type " + getBaseType(type) + " is not a list");
+	check(getBaseType(type) == "dict", "Type " + getBaseType(type) + " is not a dict");
 }
 
 function checkFuncType(type)
@@ -1603,62 +1603,12 @@ function _Func(func, isObject, updateFunc)
 	this.get = function(refs)
 	{
 		var ret = this.func();
-		if(this.isObject && globalRefs.length > 0)
-		{
-			ret.__refs = globalRefs;
-			ret.__referencedNodes = globalReferencedNodes;
-		}
+		// if(this.isObject && globalRefs.length > 0)
+		// {
+		// 	ret.__refs = globalRefs;
+		// 	ret.__referencedNodes = globalReferencedNodes;
+		// }
 		return ret;
-	}
-
-
-	this.update = function(val, ticks, parentTick)
-	{
-		if(this.updateFunc)
-		{
-			var ret = this.updateFunc(val, ticks, parentTick);
-			
-		}
-		else
-		{
-			var ret = mValTick(this.get());
-		}
-		if(this.isObject && globalRefs.length > 0)
-		{
-			ret.__refs = globalRefs;
-			ret.__referencedNodes = globalReferencedNodes;
-		}
-		return ret;
-	};
-}
-
-function __UpdateFunc(updateFunc, isObject, paramsNode)
-{
-	this.updateFunc = updateFunc;
-	this.isObject = isObject;
-	this.paramsNode = paramsNode;
-	
-	this.update = function(val, ticks, parentTick)
-	{
-		var ret = this.updateFunc(val, ticks, parentTick);
-		if(this.isObject && globalRefs.length > 0)
-		{
-			ret.__refs = globalRefs;
-			ret.__referencedNodes = globalReferencedNodes;
-		}
-		return ret;
-	};
-
-	this.getMinMaxTick = function(path)
-	{
-		var min = 0, max = 0;
-		_.each(this.paramsNode, function(param)
-		{
-			var minMax = param.getMinMaxTick([]);
-			min = Math.max(min, minMax[0]);
-			max = Math.max(max, minMax[1]);
-		})
-		return [min, max];
 	}
 }
 
@@ -1717,15 +1667,7 @@ function FunctionNode(func)
 			// return getVar(); // + ".get()";
 			return param.getVal();
 		}, this);
-		var paramsUpdate = _.map(params, function(param)
-		{
-			// this.beforeUpdate += param.getBeforeUpdate();
-			// if("getUpdateNode" in param)
-			{
-				return param.getUpdateNode();
-			}
-			return param.getNode();
-		}, this);
+		
 		var paramsNodeStr = "[";
 		var paramsNode = _.map(params, function(param, index)
 		{
@@ -1748,15 +1690,10 @@ function FunctionNode(func)
 		paramsNodeStr += "]";
 		// newVar(func.getStr(paramsVar), func.type);
 		// this.str += newVar(func.getStr(paramsVar));
-		var updateStr = undefined;
-		// var updateStrNoNodes = "";
-		var updateNodeFunc = "";
+		
 		if(func.needsNodes)
 		{
 			this.str = func.getStrRef(paramsNode);
-			// updateNodeFunc = func.getStrRef(paramsUpdate);
-			updateNodeFunc = func.getUpdate(paramsUpdate);
-			updateStr = func.getUpdate(paramsUpdate);
 		}
 		else
 		{
@@ -1774,7 +1711,6 @@ function FunctionNode(func)
 			{
 				// updateStrNoNodes = func.getStr(paramsUpdate);
 				this.str += func.getStr(paramsVal);
-				updateNodeFunc = "mValTick(" + func.getStr(paramsVal) + ")";
 			}
 		}
 		this.varName = getVar();
@@ -1790,14 +1726,7 @@ function FunctionNode(func)
 			(baseType != "list") &&
 			(baseType != "dict"));
 
-		this.nodeStr = "new _Func(function(){\n\treturn " + this.str + ";\n},\n" + isStruct.toString();
-		if(updateStr)
-		{
-			this.nodeStr +=  "\n, function(__val, __ticks, __parentTick){\n\treturn " + updateStr + ";\n}";
-		}
-		this.nodeStr += ")";
-
-		var updateNode = "new __UpdateFunc(function(__val, __ticks, __parentTick){\n\treturn " + updateNodeFunc + ";\n},\n" + isStruct.toString() + ", [" + paramsUpdate + "])";
+		this.nodeStr = "new _Func(function(){\n\treturn " + this.str + ";\n},\n" + isStruct.toString() + ")";
 		
 		this.getBeforeStr = function()
 		{
@@ -1810,33 +1739,7 @@ function FunctionNode(func)
 			return this.nodeStr;
 		}
 
-		this.getUpdate = function()
-		{
-			if(func.needsNodes)
-			{
-				return updateStr;
-			}
-			return "mValTick(" + this.val + ")";
-		}
-
-		this.getUpdateNode = function()
-		{
-			// if(func.needsNodes)
-			{
-				return updateNode;
-			}
-			return this.nodeStr;
-		}
-
-		this.getBeforeUpdate = function()
-		{
-			if(func.needsNodes)
-			{
-				return this.beforeUpdate;
-			}
-			return this.beforeStr;
-		}
-
+		
 		this.getVal = function()
 		{
 			return this.val;

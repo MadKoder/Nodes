@@ -10,11 +10,6 @@ function setEngineLodash(l)
 	_=l;
 }
 
-function isRef(v)
-{
-	return _.isArray(v) || (_.isString(v) && (v[0] != "'" || v[v.length - 1] != "'"));
-}
-
 function getId(node)
 {
 	return "id" in node ? node.id : (("def" in node) ? node.def : ("var" in node ? node["var"] : node["cache"]))
@@ -294,11 +289,6 @@ function setPath(struct, path, val)
 		var key = subPath.shift();
 		setPath(struct[key], subPath, val);
 	}
-}
-
-function pushFront(array, val)
-{
-	array.unshift(val);
 }
 
 function changeArrayPath(struct, path, val, instruction)
@@ -1127,11 +1117,6 @@ function StoreFunctionTemplate(t, name)
 		return this.name;
 	};
 
-	this.getUpdateNode = function()
-	{
-		return this.name;
-	};
-	
 	this.getTemplate = function()
 	{
 		return this.template;
@@ -1379,25 +1364,6 @@ function ListViewNode(nodeGraph, externNodes)
 		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
 	}
 
-	this.getBeforeUpdate = function()
-	{
-		var str = beforeStr + arraysStr + varStr + inputStr + indicesStr + expr.getBeforeUpdate() +
-		// "var comp" + this.compIndex.toString() + " = " + expr.getVal() + ";\n";
-		"function comp" + this.compIndex.toString() + "(__val, __ticks, __parentTick, " + arrayAccessNames.join(", ");
-		if(indicesNames.length > 0)
-		{
-			str += ", " + indicesNames.join(", ")
-		}
-		str += "){\n" + expr.getBeforeUpdate() + "return " + expr.getUpdate() + ";\n}\n";
-		if("when" in nodeGraph)
-		{		
-			str += "var when" + this.compIndex.toString() + " = " + when.getNode() + ";\n";
-		}
-		return "";
-		// "var comp" + this.compIndex.toString() + " = new Func(function(){ " + " return " + expr.getStr() + ";}, " + typeToJson(expr.getType()) + ");\n";
-		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
-	}
-
 	this.getNode = function()
 	{
 		// var str = "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", indices" + this.compIndex.toString() + ", arrays" + this.compIndex.toString() + ", " + funcRef.toString() + ", ";
@@ -1435,32 +1401,6 @@ function ListViewNode(nodeGraph, externNodes)
 	{
 		return "(" + this.getNode() 
 			+ ").get()";
-	}
-
-	this.getUpdate = function()
-	{
-		return "(" + this.getUpdateNode() + ").update(__val, __ticks, __parentTick)";
-	}
-
-	this.getUpdateNode = function()
-	{
-		var str = "new Comprehension(function(__val, __ticks, __parentTick, " + arrayAccessNames.join(", ");
-		if(indicesNames.length > 0)
-		{
-			str += ", " + indicesNames.join(", ");
-		}
-		str += "){\nreturn " + expr.getUpdate() + ";\n},\n";
-		str += indicesStr + ",\n" + arraysStr + ",\n" + funcRef.toString() + ", ";
-		if(when)
-		{
-			str += when.getNode();
-		}
-		else
-		{
-			str += "undefined";	
-		}
-		str += ")";
-		return str;
 	}
 
 	this.getType = function()
@@ -1840,25 +1780,6 @@ function ComprehensionNode(nodeGraph, externNodes)
 		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
 	}
 
-	this.getBeforeUpdate = function()
-	{
-		var str = beforeStr + arraysStr + varStr + inputStr + indicesStr + expr.getBeforeUpdate() +
-		// "var comp" + this.compIndex.toString() + " = " + expr.getVal() + ";\n";
-		"function comp" + this.compIndex.toString() + "(__val, __ticks, __parentTick, " + arrayAccessNames.join(", ");
-		if(indicesNames.length > 0)
-		{
-			str += ", " + indicesNames.join(", ")
-		}
-		str += "){\n" + expr.getBeforeUpdate() + "return " + expr.getUpdate() + ";\n}\n";
-		if("when" in nodeGraph)
-		{		
-			str += "var when" + this.compIndex.toString() + " = " + when.getNode() + ";\n";
-		}
-		return "";
-		// "var comp" + this.compIndex.toString() + " = new Func(function(){ " + " return " + expr.getStr() + ";}, " + typeToJson(expr.getType()) + ");\n";
-		// "var comp = {get : function(){return " + expr.getStr() + ".get();}};\n";
-	}
-
 	this.getNode = function()
 	{
 		// var str = "new Comprehension(comp" + this.compIndex.toString() + " , inputs" + this.compIndex.toString() + ", indices" + this.compIndex.toString() + ", arrays" + this.compIndex.toString() + ", " + funcRef.toString() + ", ";
@@ -1891,32 +1812,6 @@ function ComprehensionNode(nodeGraph, externNodes)
 	{
 		return "(" + this.getNode() 
 			+ ").get()";
-	}
-
-	this.getUpdate = function()
-	{
-		return "(" + this.getUpdateNode() + ").update(__val, __ticks, __parentTick)";
-	}
-
-	this.getUpdateNode = function()
-	{
-		var str = "new Comprehension(function(__val, __ticks, __parentTick, " + arrayAccessNames.join(", ");
-		if(indicesNames.length > 0)
-		{
-			str += ", " + indicesNames.join(", ");
-		}
-		str += "){\nreturn " + expr.getUpdate() + ";\n},\n";
-		str += indicesStr + ",\n" + arraysStr + ",\n" + funcRef.toString() + ", ";
-		if(when)
-		{
-			str += when.getNode();
-		}
-		else
-		{
-			str += "undefined";	
-		}
-		str += ")";
-		return str;
 	}
 
 	this.getType = function()
@@ -2856,11 +2751,10 @@ function Cloner(ref)
 
 var varId = 0;
 
-function Var(valStr, nodeStr, type, beforeStr, nodeId, updateNode)
+function Var(valStr, nodeStr, type, beforeStr, nodeId)
 {
 	this.valStr = valStr;
 	this.nodeStr = nodeStr;
-	this.updateNode = nodeStr;
 	this.type = type;
 	this.nodeId = nodeId;
 	this.id = varId++;
@@ -2873,16 +2767,6 @@ function Var(valStr, nodeStr, type, beforeStr, nodeId, updateNode)
 		this.beforeStr = "";
 	}
 
-	if(updateNode != undefined)
-	{
-		this.updateNode = updateNode;
-	}
-	else
-	{
-		this.updateNode = nodeStr;
-	}
-
-
 	this.getVal = function()
 	{
 		return this.valStr;
@@ -2893,16 +2777,6 @@ function Var(valStr, nodeStr, type, beforeStr, nodeId, updateNode)
 		return this.nodeStr;
 	}
 
-	this.getUpdateNode = function()
-	{
-		return this.updateNode;
-	}
-
-	this.getUpdate = function()
-	{
-		return "(" + this.updateNode + ").update(__val, __ticks, __parentTick)";
-	}
-
 	this.getType = function()
 	{
 		return this.type;
@@ -2911,11 +2785,6 @@ function Var(valStr, nodeStr, type, beforeStr, nodeId, updateNode)
 	this.getBeforeStr = function()
 	{
 		return this.beforeStr;
-	}
-
-	this.getBeforeUpdate = function()
-	{
-		return this.beforeUpdate;
 	}
 
 	this.getAddSinkStr = function(sink)
@@ -2953,16 +2822,6 @@ function Def(valStr, nodeStr, type, beforeStr, node)
 		return this.nodeStr;
 	}
 
-	this.getUpdateNode = function()
-	{
-		return this.nodeStr;
-	}
-
-	this.getUpdate = function()
-	{
-		return this.nodeStr + ".update(__val, __ticks, __parentTick)";
-	}
-
 	this.getType = function()
 	{
 		return this.type;
@@ -2971,11 +2830,6 @@ function Def(valStr, nodeStr, type, beforeStr, node)
 	this.getBeforeStr = function()
 	{
 		return this.beforeStr;
-	}
-
-	this.getBeforeUpdate = function()
-	{
-		return "";
 	}
 
 	this.getAddSinkStr = function(sink)
@@ -3001,12 +2855,6 @@ function Constant(valStr, type, beforeStr)
 	this.getVal = function()
 	{
 		return this.valStr;
-	}
-
-	this.getUpdateNode = function()
-	{
-		// TODO
-		return "";
 	}
 
 	this.getType = function()
@@ -3212,7 +3060,6 @@ function DictAccess(ref, key, dictTypeParam)
 		if(val != undefined)
 		{
 			// TODO : optim
-			// return (new this.justBuilder({x: new Store(val, this.type)})).get(); 
 			return {
 				__type : {
 					base : "Just",
@@ -3221,7 +3068,6 @@ function DictAccess(ref, key, dictTypeParam)
 				x : val
 			}
 		}
-		// return (new this.noneBuilder()).get(); 
 		return {
 			__type : {
 				base : "None",
@@ -3234,41 +3080,14 @@ function DictAccess(ref, key, dictTypeParam)
 	{
 		return getPath(this.get(), path);
 	}
-
-	this.getType = function()
-	{
-		return this.type;
-	}
-
-	this.getPathFromRoot = function()
-	{
-		return [];
-	}
-
-	this.getRootNode = function()
-	{
-		return this;
-	}
-
-	this.getMinMaxTick = function(path)
-	{
-		return this.ref.getMinMaxTick(path);
-	}
-
-	this.dirty = function(path)
-	{
-		//TODO for each entry in the dict				
-		this.ref.dirty([]);
-	}
 }
 
 function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 {
-	if(isRef(expr))
+	if(_.isArray(expr) || (_.isString(expr) && (expr[expr] != "'" || expr[expr.length - 1] != "'")))
 	{
-		var ref = expr;
-		
-		var compiledRef = compileRef(ref, nodes);
+		// expr is a reference
+		var compiledRef = compileRef(expr, nodes);
 		// Utilise par les actions d'affectations, pour copier la valeur et non la reference
 		if(cloneIfRef && !(compiledRef.isConstant))
 		{
@@ -3294,14 +3113,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		{
 			type = "bool";
 		}
-		// newVar("new Store(" + expr.toString() + ", \"" + type + "\")", type);
-		// newVar(expr.toString(), type);
 		return new Var(expr.toString(), "new Store(" + expr.toString() + ", \"" + type + "\")", type);
-		// return new Var(expr.toString(), type);
-		// return new Store(expr, type);
-		// return newVar(expr.toString(), type);
-		// return newVar(type) + " = " + expr.toString + ";";
-		// return expr;
 	} else if("access" in expr)
 	{
 		var ref = makeExpr(expr.access, nodes);
@@ -3309,7 +3121,6 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		var dictTypeParam = getDictTypeParam(ref.getType());
 		// TODO For array
 		// TODO check type of ref, type of indexKey
-		// return new DictAccess(ref, indexOrKey, dictTypeParam);
 		var str = "new DictAccess(" + ref.getNode() + ", " + indexOrKey.getNode() + ", " + typeToJson(dictTypeParam) + ")";
 		return new Var(str + ".get()", str, dictTypeParam);
 	} else if("array" in expr)
@@ -3318,7 +3129,6 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		var beforeStr = "";
 		var valStr = "[";
 		var nodeStr = "[";
-		var updateStr = "["
 		_.each(expr.array, function(elt, index)
 		{
 			var expr = makeExpr(elt, nodes);
@@ -3334,14 +3144,12 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 
 			var comma = (index == 0) ? "" : ", ";
 			valStr += comma + expr.getVal();
-			nodeStr += comma + expr.getNode();
-			updateStr += comma + expr.getUpdateNode();
+			nodeStr += comma + expr.getNode();			
 		}, "[");
 		valStr += "]";
 		nodeStr += "]";
-		updateStr += "]";
 		
-		return new Var(valStr, "new List(" + nodeStr + ")", mListType(typeParam), beforeStr, undefined, "new List(" + updateStr + ")");		
+		return new Var(valStr, "new List(" + nodeStr + ")", mListType(typeParam), beforeStr, undefined);		
 	} else if("dict" in expr)
 	{
 		var d = _.mapValues(expr.dict, function(val)
@@ -3368,13 +3176,12 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			{
 				valType = newType;
 			}
-			else if(valType != newType)
+			else if(!sameTypes(valType, newType))
 			{
 				error("Dict value types are not the same, found " + valType + " and " + newType);
 			}
 		});
 
-		// return new Dict(d, valType);
 		return new Var(dictVal, "new Dict(" + dictVar + ", \"" + typeToJson(valType) + "\")", {base : "dict", params : ["string", valType]});
 		
 	} else  if("string" in expr)
@@ -3393,7 +3200,6 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		{
 			var node = makeExpr(expr.type, nodes);
 			var closure = node.get();
-			// var type = getOutType(closure.getType());
 			var type = "closure";
 			var typeParams = [];
 			var nodeSpec = new funcToNodeSpec(closure);
@@ -3670,42 +3476,9 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			return "{\nval : " + val.getNode() + ",\n type : " + typeToJson(matchType) + ",\n needsNodes : " + needsNodes + "\n}";
 		}, this).join(",\n ") + "\n]";
 
-		var updateCases = "[\n" + expr["cases"].map(function(matchExp){
-			var matchType = matchExp.type;
-			if(genericTypeParams && matchType in genericTypeParams)
-			{
-				matchType = genericTypeParams[matchType];
-			}
-			var matchStore = new Var(what.getVal(), what.getNode(), matchType != "_" ? matchType : what.getType());
-			var mergedNodes = _.clone(nodes);
-			mergedNodes[expr.matchType] = matchStore;
-			
-			var val = makeExpr(matchExp.val, mergedNodes, genericTypeParams);
-			
-			var needsNodes = "false";
-			if(val.needsNodes)
-			{
-				needsNodes = "true";
-				addsRefs = "true";
-				matchNeedsNodes = true;
-			}
-
-			if(returnType == null)
-			{
-				returnType = val.getType();
-			}
-			else
-			{
-				returnType = getCommonSuperClass(returnType, val.getType());
-			}
-			
-			return "{\nval : " + val.getUpdateNode() + ",\n type : " + typeToJson(matchType) + ",\n needsNodes : " + needsNodes + "\n}";
-		}, this).join(",\n ") + "\n]";
-
 		// TODO type avec template
 		var str = "new MatchType(" + what.getNode() + ", " + cases + ", " + typeToJson(returnType) + ", " + addsRefs + ")";
-		var updateStr = "new MatchType(" + what.getNode() + ", " + updateCases + ", " + typeToJson(returnType) + ", " + addsRefs + ")";
-		var ret = new Var("(" + str + ").get()", str, returnType, "", undefined, updateStr);
+		var ret = new Var("(" + str + ").get()", str, returnType, "", undefined);
 		if(matchNeedsNodes)
 			ret.needsNodes = true;
 		return ret;
@@ -4855,8 +4628,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			this.addsRefs = false;
 			var paramStr = "[";
 			var signalStr = "[";
-			var paramUpdateStr = "[\n"
-			var paramUpdateNode = "[\n"
 			this.instanceName = concreteName + instanceIndex.toString();
 			instanceIndex++;
 
@@ -4892,15 +4663,11 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 					}
 					if(fieldVal.isConstant)
 					{
-						paramStr += comma + "new Store(" + fieldVal.getVal() + ", " + typeToJson(fieldVal.getType()) + ")";
-						paramUpdateStr += comma + "new Store(" + fieldVal.getVal() + ")";
-						paramUpdateNode += comma + "new Store(" + fieldVal.getVal() + ")";
+						paramStr += comma + "new Store(" + fieldVal.getVal() + ", " + typeToJson(fieldVal.getType()) + ")";						
 					}
 					else
 					{
-						paramStr += comma + fieldVal.getNode();
-						paramUpdateStr += comma + "function(__val, __ticks, __parentTick){return " + fieldVal.getUpdate() + ";}";
-						paramUpdateNode += comma + fieldVal.getUpdateNode();
+						paramStr += comma + fieldVal.getNode();						
 					}
 					beforeStr += fieldVal.getBeforeStr();
 				} else if("signal" in field)
@@ -4937,8 +4704,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				}
 			};
 			paramStr += "]";
-			paramUpdateStr += "]";
-			paramUpdateNode += "]";
 			signalStr += "]";
 
 			this.updateIndex = globalUpdateIndex++;
@@ -4994,100 +4759,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 				signalStr += "}";
 				this.nodeStr = "new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\", " + signalStr + ")";
 				return this.nodeStr;
-			}
-
-			this.getUpdateNode = function()
-			{
-				signalStr = "{\n";
-				var firstField = true;
-				_.each(this.fields, function(field, key)
-				{
-					if(key == "__signals")
-					{
-						_.each(field, function(signal, key)
-						{
-							if(firstField)
-							{
-								var comma = "";
-								firstField = false;
-							}
-							else
-							{
-								var comma = ",\n\t";
-							}
-							if(signal.nodes != undefined)
-							{
-								var localNodes = _.clone(signal.nodes);
-								var signalParams = signalsParams[key];
-								var signalParamStr = _.map(signalParams, function(param)
-								{
-									var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
-									localNodes[param[0]] = node;
-									return param[0];
-								}).join(", ");
-								var action = makeAction(signal.action, localNodes);
-
-								signalStr += comma + key + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}";
-							} else
-							{
-								signalStr += comma + key + " : function(){}";
-							}
-						}, this);
-					}
-				});
-				signalStr += "}";
-				
-				return "new __Obj(" + concreteName + ", " + paramUpdateNode +  ", \"" + concreteName + "\", " + signalStr + ")";				
-			}
-
-			this.getBeforeUpdate = function()
-			{
-				var str = beforeStr;
-				return str;
-			}
-
-			this.getUpdate = function()
-			{	
-				signalStr = "{\n";
-				var firstField = true;
-				_.each(this.fields, function(field, key)
-				{
-					if(key == "__signals")
-					{
-						_.each(field, function(signal, key)
-						{
-							if(firstField)
-							{
-								var comma = "";
-								firstField = false;
-							}
-							else
-							{
-								var comma = ",\n\t";
-							}
-							if(signal.nodes != undefined)
-							{
-								var localNodes = _.clone(signal.nodes);
-								var signalParams = signalsParams[key];
-								var signalParamStr = _.map(signalParams, function(param)
-								{
-									var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
-									localNodes[param[0]] = node;
-									return param[0];
-								}).join(", ");
-								var action = makeAction(signal.action, localNodes);
-
-								signalStr += comma + key + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}";
-							} else
-							{
-								signalStr += comma + key + " : function(){}";
-							}
-						}, this);
-					}
-				});
-				signalStr += "}";
-				
-				return "__updateObj(" + concreteName + ", " + paramUpdateStr +  ", \"" + concreteName + "\", " + signalStr + ", __val, __ticks, __parentTick)";
 			}
 
 			this.getVal = function()
@@ -5589,20 +5260,6 @@ function FunctionInstance(classGraph)
 		return this.name + "(" + str + ")";
 	}
 
-	this.getUpdate = function(params)
-	{
-		var str = "";
-		_.each(params, function(param, index)
-		{
-			str += param;
-			if(index < params.length - 1)
-			{
-				str += ", ";
-			}
-		});
-		return this.name + "$update(__val, __ticks, __parentTick, " + str + ")";
-	}
-
 	this.func = function(params) 
 	{	
 		_.each(params, function(param, i)
@@ -6064,17 +5721,17 @@ function compileGraph(graph, lib, previousNodes)
 						src += "\nfunction " + funcGraph.id + "(" + paramStr + "){\n";
 						src += func.expr.getBeforeStr();
 						src += "return " + func.expr.getVal() + ";\n};\n";
-						if(func.needsNodes)
-						{
-							src += "\nfunction " + funcGraph.id + "$update(__val, __ticks, __parentTick, " + paramStr + "){\n";
-							src += "var __tick = __ticks.tick;\n";
-							src += "var __paramNodes = [" + paramStr + "];\n";
-							src += "var __nbParams = __paramNodes.length;\n";
-							src += "for(var __i = 0; __i < __nbParams; ++__i){\n";
-							src += "if(__tick < __paramNodes[__i].getMinMaxTick([])[1]){\n";
-							src += "return " + func.expr.getUpdate() + ";}}\n";
-							src += "return [__val, __ticks];\n}\n";
-						}
+						// if(func.needsNodes)
+						// {
+						// 	src += "\nfunction " + funcGraph.id + "$update(__val, __ticks, __parentTick, " + paramStr + "){\n";
+						// 	src += "var __tick = __ticks.tick;\n";
+						// 	src += "var __paramNodes = [" + paramStr + "];\n";
+						// 	src += "var __nbParams = __paramNodes.length;\n";
+						// 	src += "for(var __i = 0; __i < __nbParams; ++__i){\n";
+						// 	src += "if(__tick < __paramNodes[__i].getMinMaxTick([])[1]){\n";
+						// 	src += "return " + func.expr.getUpdate() + ";}}\n";
+						// 	src += "return [__val, __ticks];\n}\n";
+						// }
 					}
 				}
 			}
@@ -6312,9 +5969,8 @@ function compileGraph(graph, lib, previousNodes)
 		var eventGraph = eventsGraph[i];
 		var condition = makeExpr(eventGraph["when"], nodes);
 		var action = makeAction(eventGraph["do"], nodes, connectionsGraph);
-		var event = new Var("", "new Event(" + condition.getNode() + ", {signal:function(){" + action.getNode() + "}})", "", condition.getBeforeStr() + action.getBeforeStr());
-		src += event.getBeforeStr();
-		src += "var __event" + eventIndex.toString() + " = " + event.getNode() + ";\n";
+		src += condition.getBeforeStr() + action.getBeforeStr();
+		src += "var __event" + eventIndex.toString() + " = new Event(" + condition.getNode() + ", {signal:function(){" + action.getNode() + "}});\n";
 		src += condition.getAddSinkStr("__event" + eventIndex.toString());
 		eventIndex++;
     }

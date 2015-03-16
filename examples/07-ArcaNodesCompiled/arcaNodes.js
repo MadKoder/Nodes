@@ -129,8 +129,8 @@ $.get( "arcaNodes.nodes", function( text ) {
 	});
 	r.setFinish();
 	
-	// var manImage = r.image("manLeft-1.png", 0, 0, 32, 32);
-	var manImage = r.image("http://madkoder.esy.es/images/manLeft-1.png", 0, 0, 32, 32);
+	var manImage = r.image("manLeft-1.png", 0, 0, 32, 32);
+	//var manImage = r.image("http://madkoder.esy.es/images/manLeft-1.png", 0, 0, 32, 32);
 	var _manSize = manSize.get();
 	var _monsters = newMonsters;
 	var tick   = Bacon.interval(20);
@@ -194,7 +194,8 @@ $.get( "arcaNodes.nodes", function( text ) {
 	
 	function createMonster(model)
 	{
-		var monster = r.image("http://madkoder.esy.es/images/monsterLeft-1.png", 0, 0, 32, 32);
+		//var monster = r.image("http://madkoder.esy.es/images/monsterLeft-1.png", 0, 0, 32, 32);
+		var monster = r.image("monsterLeft-1.png", 0, 0, 32, 32);
 		return monster;
 	}
 	
@@ -205,8 +206,11 @@ $.get( "arcaNodes.nodes", function( text ) {
 			// y : model.pos.y - 16,
 			// src : "http://madkoder.esy.es/images/monsterLeft-" + (Math.floor(model.animState * 2 / maxAnimState.get())+ 1) + ".png"
 		// });
-		view.attr({
+		/*view.attr({
 			src : "http://madkoder.esy.es/images/monsterLeft-" + (Math.floor(model.animState * 2 / maxAnimState.get())+ 1) + ".png"
+		}); */
+		view.attr({
+			src : "monsterLeft-" + (Math.floor(model.animState * 2 / maxAnimState.get())+ 1) + ".png"
 		});
 		var str = "T" + (model.pos.x - 16).toString() + "," + (model.pos.y - 16).toString();
 		view.transform(str);
@@ -324,7 +328,8 @@ $.get( "arcaNodes.nodes", function( text ) {
 		
 		animate(manImage, facing.get());
 		manImage.attr({x : manPos.get().x - _manSize * .5, y : manPos.get().y  - _manSize * .5});
-		manImage.attr({src : "http://madkoder.esy.es/images/manLeft-" + (Math.floor(animState.get() * 2 / maxAnimState.get())+ 1) + ".png"})
+		//manImage.attr({src : "http://madkoder.esy.es/images/manLeft-" + (Math.floor(animState.get() * 2 / maxAnimState.get())+ 1) + ".png"})
+		manImage.attr({src : "manLeft-" + (Math.floor(animState.get() * 2 / maxAnimState.get())+ 1) + ".png"})
 		if(invincibleCounter.get() % 16 > 8)
 			manImage.hide();
 		else

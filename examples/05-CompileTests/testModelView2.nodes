@@ -1,0 +1,10 @@
+functions:
+	ref listView(list<int> l):
+		[i * 10 for i in l]
+		pushFront => self.pushFront(i * 10)
+nodes:
+	var l = [1, 2, 3]
+	var v0 = listView(l)
+actions :
+	tick :
+		l.pushFront(4)

@@ -160,6 +160,10 @@ Function =
 		{
 			func.nodes = body.nodes;
 			func.out.val = body.val;
+			if("connections" in body)
+			{
+				func.connections = body.connections;
+			}
 		}
 		if(typeParams != null)
 		{
@@ -178,8 +182,10 @@ Function =
 
 FuncBody =
 	_ val:Val {return {nodes : [], val : val};}
-	/ _  "(" _ nodes:(nodes:Nodes _ "," {return nodes;})? _ val:Val _ ")"
-		{return {nodes : nodes ? nodes : [], val : val};}
+	/ _  "(" _ val:Val _ "," _ connections:(Connections) _")"
+		{return {nodes : [], val : val, connections : connections};}
+/*	/ _  "(" _ nodes:(nodes:Nodes _ "," {return nodes;})? _ val:Val _ ")"
+		{return {nodes : nodes ? nodes : [], val : val};} */
 	
 TypeAndId =
   type:Type _ id:Id { return {type:type, id:id};}

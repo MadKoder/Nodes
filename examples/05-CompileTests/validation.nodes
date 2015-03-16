@@ -1,0 +1,71 @@
+functions:
+	intToFacing(int v) 
+		match mod(v, 4):
+			0 : "right" 
+			1 : "up" 
+			2 : "left" 
+			_ : "down"
+	facingToInt(string f) 
+		match f:
+			"right" : 0
+			"up" : 1
+			"left" : 2
+			_ : 3
+structs:
+	Maybe<T> :
+		subs :
+			Just :
+				T x
+			None
+	Vec2 :
+		float x
+		float y
+		signal click(int val)
+		slot inc(Vec2 delta) : 
+			self.click("tata")
+		subs : 
+			Vec3:
+				float z
+	Rect :
+		Vec2 pos
+		Vec2 size
+	Monster :
+		Vec2 pos
+		string facing
+		int animState
+		signal click(int val)
+		slot changeDir(int dirDelta) : 
+			self.facing = intToFacing(facingToInt(self.facing) + dirDelta)
+functions:
+	ref intListToMonsterList(list<int> l, int x)
+		[
+			Monster
+			(
+				Vec2(i, i + x),
+				"right",
+				i * 10,
+				click => 
+					x = x + val
+					i = i + val
+			)
+			for i in l
+		]
+	 # TODO template de value
+	dictAccess<K>(dict<K, int> d, K a)
+		let t = d[a]
+		in type t :
+			Just<int> : t.x
+			_ : 0
+nodes:
+	var intList = [1, 2, 3]
+	var x = 0
+	def monsterListDef = intListToMonsterList(intList, x)
+	var monsterListVar = intListToMonsterList(intList, x)
+	def listAccess = at(monsterListDef, 1)
+	var d = {a : 1, b : 2}
+	var dAccessJust = dictAccess(d, "b")
+	var dAccessNone = dictAccess(d, "c")
+actions:
+	tick:
+		for monster in monsterListDef do
+			monster.click(2)

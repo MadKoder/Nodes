@@ -24,16 +24,45 @@
 # 		[i + 1 for i in l]
 # 	inc(int i)
 # 		i + 1
+structs:
+	ListV : 
+		signal click(string what)
+		slot onClick(string what):
+			self.click(what)
+	Vec2 :
+		float x
+		float y
+functions:
+	ref listToView(list<int> l)
+		ListV
+		(
+			click => l.pushFront(10)
+		)
+	listToView2(list<int> l)
+		$[i + 1 for i in l]
 nodes:
-	# var l = [1, 2, 3]
-	# def v = $[i + 1 for i in l]
-	var l = [[1, 2, 3], [4, 5]]
-	def v = $[$[i + 1 for i in l2] for l2 in l]
+	var l = [1, 2, 3]
+	def v0 = $[i + 1 for i in l]
+	def v = pushFront(v0, 100)
+	var x = 0
+	def z = x + 1
+	# def y = x + 1
+	def vec = Vec2(x + 1, x)
+	# def v = listToView2(l)
+	def v2 = listToView(l)
+	# var l = [[1, 2, 3], [4, 5]]
+	# def v = $[$[i * 2  for i in l2] for l2 in l]
 	# def v = $[length(l2) for l2 in l]
 actions :
 	tick :
-		for l2 in l do 
-			# l2 = 0	
-			l2.pushFront(1)
-		# l.pushFront([3, 4])
-# 		l = [2, 2, 3, 4]
+		# for l2 in l do :
+		# 	# l2 = 0	
+		# 	l2 = [0]
+		# 	l2.pushFront(1)
+		l.pushFront(40)
+		# l = [2, 2, 3, 4]
+		v2.onClick("")
+		x = 65
+events:
+	z == 0:
+		x = 2

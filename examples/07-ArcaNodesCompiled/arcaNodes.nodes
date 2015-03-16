@@ -36,12 +36,13 @@ functions:
 		Vec2(v0.x + v1.x, v0.y + v1.y)
 	inRect(Vec2 v, Rect r) 
 		(v.x >= r.pos.x) && (v.y >= r.pos.y) && (v.x < (r.pos.x + r.size.x)) && (v.y < (r.pos.y + r.size.y))
-	occupiedCells(Bounds b, int cellSize) :
-		top = floor(b.topLeft.y / cellSize)
-		left = floor(b.topLeft.x / cellSize)
-		bottom = floor(b.bottomRight.y / cellSize)
-		right = floor(b.bottomRight.x / cellSize)
-		[Vec2(i, j) for i in range(left, right + 1), j in range(top, bottom + 1)]
+	occupiedCells(Bounds b, int cellSize)
+		let :
+			top = floor(b.topLeft.y / cellSize)
+			left = floor(b.topLeft.x / cellSize)
+			bottom = floor(b.bottomRight.y / cellSize)
+			right = floor(b.bottomRight.x / cellSize)
+		in [Vec2(i, j) for i in range(left, right + 1), j in range(top, bottom + 1)]
 	Bounds monsterBounds(Vec2 pos)
 structs:
 	Monster :
