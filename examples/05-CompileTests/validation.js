@@ -79,16 +79,20 @@ $.get("validation.nodes", function( text ) {
 	validArray(intList.get(), [3, 4, 5], "int list");
 	valid(monsterListDef.get()[1].pos.y, 10, "Monster list def");
 	valid(monsterListVar.get()[1].pos.y, 2, "Monster list var");
+	valid(listAccess.get().pos.y, 10, "List access");
 	valid(x.get(), 6, "var");
 	valid(dAccessJust.get(), 2, "Dict access Just");
 	valid(dAccessNone.get(), 0, "Dict access None");
 
-	appendText(intList.get());
-	appendText(monsterListDef.get()[1].pos.y);
-	appendText(monsterListVar.get()[1].pos.y);
-	appendText(x.get());
-	appendText(dAccessJust.get());
-	appendText(dAccessNone.get());
+	 appendText(ui.get().children[0].children[1].x);
+	// appendText(intList.get());
+	// appendText(monsterListDef.get()[1].pos.y);
+	// appendText(monsterListVar.get()[1].pos.y);
+	// appendText(x.get());
+	// appendText(dAccessJust.get());
+	// appendText(dAccessNone.get());
+	// appendText(listAccess.get().pos.y);
+
 
 
 	// $tmp.append("<div id=\"d\"></div>");

@@ -78,17 +78,6 @@ function getStrType()
 function List(val)
 {
 	this.list = val;
-	// this.typeParam = null;
-	// _.each(this.list, function(item)
-	// {
-	// 	if(this.typeParam == null)
-	// 	{
-	// 		this.typeParam = item.getType();
-	// 	} else
-	// 	{
-	// 		this.typeParam = getCommonSuperClass(this.typeParam, item.getType())
-	// 	}
-	// }, this);
 	this.tick = globalTick;
 
 	this.needsNodes =  _.any(this.list, function(elt)
@@ -118,73 +107,6 @@ function List(val)
 		this.list = value;
 		this.tick = globalTick;
     }
-	
-	this.update = function(val, ticks, parentTick)
-	{
-		// The entire list has changed
-		// if(ticks.tick < this.tick)
-		// {
-		// 	return mValTick(this.get());	
-		// } else // Only elements of the list may have changed
-		// {
-		// 	var subTicks = ticks.subs;
-		// 	var newSubTicks = new Array(this.list.length);
-		// 	_.each(this.list, function(item, i)
-		// 	{
-		// 		var ret = item.update(val[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
-		// 		val[i] = ret[0];
-		// 		newSubTicks[i] = ret[1];
-		// 	});
-		// 	return mValTick(val, newSubTicks);
-		// }
-
-		if(val)
-		{			
-			var subTicks = ticks.subs;
-			var newSubTicks = new Array(this.list.length);
-			_.each(this.list, function(item, i)
-			{
-				var ret = item.update(val[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
-				val[i] = ret[0];
-				newSubTicks[i] = ret[1];
-			});
-			return mValTick(val, newSubTicks);
-		}
-		else
-		{
-			var newSubTicks = [];
-			return mValTick(this.list.map(function(item)
-			{
-				var ret = item.update(undefined, {tick : parentTick}, parentTick);
-				newSubTicks.push(ret[1]);
-				return ret[0];
-			}));
-		}
-	}
-	
-	this.updatePath = function(val, ticks, parentTick, path)
-	{
-		// TODO use path ?
-		return this.update(val, ticks, parentTick);
-	}
-
-	this.getMinMaxTick = function(path)
-	{
-		var maxTicks = 0, maxOfMinTicks = 0;
-		_.each(this.list, function(item){
-			var itemMinMaxTicks = item.getMinMaxTick([]);
-			maxTicks = Math.max(maxTicks, itemMinMaxTicks[1]);
-			maxOfMinTicks = Math.max(maxOfMinTicks, itemMinMaxTicks[0]);
-		});
-
-		return [maxOfMinTicks, maxTicks];
-	}
-
-	// this.getType = function()
-	// {
-	// 	return mListType(this.typeParam);
-	// }
-
 
 	this.addSink = function(sink)
 	{
@@ -248,35 +170,6 @@ function getPath(struct, path)
 	}
 }
 
-function dirtyPath(graph, path)
-{
-	if(path.length == 1)
-	{
-		var key = path[0];
-		if(_.isNumber(key))
-		{
-			key = key.toString();
-		}
-		graph.max = globalTick;
-		graph.subs[key] = {min : globalTick, max : globalTick, subs : {}};
-	}
-	else
-	{
-		var subPath = path.slice(0);
-		var key = subPath.shift();
-		if(_.isNumber(key))
-		{
-			key = key.toString();
-		}
-		if(!(key in graph.subs))
-		{
-			graph.subs[key] = {min : graph.min, max : globalTick, subs : {}};
-		}
-		graph.max = globalTick;
-		dirtyPath(graph.subs[key], subPath);
-	}
-}
-
 function setPath(struct, path, val)
 {
 	if(path.length == 1)
@@ -291,79 +184,28 @@ function setPath(struct, path, val)
 	}
 }
 
-function changeArrayPath(struct, path, val, instruction)
-{
-	if(path.length == 1)
-	{
-		instruction(struct[path[0]], val);
-	}
-	else
-	{
-		var subPath = path.slice(0);
-		var key = subPath.shift();
-		changeArrayPath(struct[key], subPath, val, instruction);
-	}
-}
-
 function Store(v, type) 
 {
 	this.val = v;
 	this.type = type;
 
-	this.deltas = [];
-	this.tag = 0;
-	
 	this.sinks = [];
-	this.listViews = [];
-	this.path = [];
 	
 	// DEBUG
 	this.id = storeId;
 	storeId++;
 
-	// this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
-	this.tickGraph = {min : 0, max : 0, subs : {}}; // Why not ?
-
 	this.needsNodes = false;
-	
-	this.dirtyList = [];
-	// if(type != null)
-	// {
-	// 	var baseType = getBaseType(type);
-	// 	var templates = getTypeParams(type);
-	// 	var typeObj = (templates.length > 0) ? 
-	// 		library.nodes[baseType].getInstance(templates) :
-	// 		library.nodes[type];
-	// 	if(typeObj != undefined && "operators" in typeObj)
-	// 	{
-	// 		var operators = typeObj.operators;
-	// 		//this.signalOperator = operators.signal;
-	// 	}
-	// }
-
-	this.pushPath = function(path)
-	{
-		this.path = this.path.concat([path]);
-	};
-	
-	this.popPath = function()
-	{
-		this.path.pop();
-	};
 
 	this.get = function()
 	{
-		if(this.path.length == 0)
-		{
-			return this.val;
-		}
-		return getPath(this.val, this.path);
+		return this.val;
 	};
 
 	this.set = function(val)
 	{
 		this.val = val;
-		this.dirty([]);
+		this.dirty();
 	};
 	
 	this.setPath = function(val, path)
@@ -376,112 +218,14 @@ function Store(v, type)
 		{
 			setPath(this.val, path, val);
 		}
-		this.dirty(path);
+		this.dirty();
 	};
 
-	this.getMinMaxTick = function(path)
+	this.dirty = function()
 	{
-		function getMinMaxTick(graph, path)
-		{
-			if(path.length == 1)
-			{
-				var key = path[0];
-				if(_.isNumber(key))
-				{
-					key = key.toString();
-				}
-				if(!(key in graph.subs))
-				{
-					return [graph.min, graph.min];
-				}
-				var sub = graph.subs[key];
-				return [sub.min, sub.max];
-			}
-			else
-			{
-				var subPath = path.slice(0);
-				var key = subPath.shift();
-				if(_.isNumber(key))
-				{
-					key = key.toString();
-				}
-				if(!(key in graph.subs))
-				{
-					return [graph.min, graph.min];
-				}
-				return getMinMaxTick(graph.subs[key], subPath);
-			}
-		}
-		if(path.length == 0)
-		{
-			return [this.tickGraph.min, this.tickGraph.max];
-		}
-		return getMinMaxTick(this.tickGraph, path);
-	}
-
-	this.update = function(val, ticks, parentTick)
-	{
-		return mValTick(this.val);
-	}
-
-	this.updatePath = function(val, ticks, parentTick, path)
-	{
-		if(path.length == 0)
-		{
-			return mValTick(this.val);
-		}
-		return mValTick(this.getPath(path))
-	}
-
-	this.dirty = function(path)
-	{
-		globalTick++;
-		if(path.length == 0)
-		{
-			this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
-		}
-		else
-		{
-			dirtyPath(this.tickGraph, path);
-		}
-
 		_.each(this.sinks, function(sink)
 		{
 			sink.dirty()
-		});
-		_.each(this.listViews, function(view)
-		{
-			view.dirty(path);
-		});
-		if(path == undefined)
-		{
-			throw "Path undefined in dirty"
-		}
-		// TODO maybe later
-		// this.dirtyList.push(path)
-	}
-	
-	this.pushFront = function(val, path)
-	{
-		globalTick++;
-		if(path.length == 0)
-		{
-			this.val.unshift(val);
-			this.tickGraph = {min : globalTick, max : globalTick, subs : {}};
-		}
-		else
-		{
-			changeArrayPath(this.val, path, val, pushFront);
-			dirtyPath(this.tickGraph, path);
-		}
-
-		_.each(this.sinks, function(sink)
-		{
-			sink.dirty()
-		});
-		_.each(this.listViews, function(view)
-		{
-			view.pushFront(val, path);
 		});
 	}
 
@@ -490,42 +234,10 @@ function Store(v, type)
 		this.sinks.push(sink);
 	};
 
-	this.addListView = function(lv)
-	{
-		this.listViews.push(lv);
-	};
-	
 	this.signal = function(signal, params, path)
 	{
-		// operators.signal(this.val, signal, params, [], new NodeAccess(this.val, this.type));
 		operators.signal(this.val, signal, params, path, this);
-		// this.dirty();
 	};
-	
-	this.addDelta = function(delta)
-	{
-		this.deltas.push(delta);
-		this.tag++;
-		_.each(this.sinks, function(sink)
-		{
-			sink.dirty()
-		});
-	}
-	
-	this.getDeltas = function(tag)
-	{
-		if(tag < this.tag)
-		{
-			if(tag < 0)
-			{
-				return [new ListDelta(this.val, 0, [])];
-			}
-			
-			return this.deltas.slice(tag - this.tag);
-		}
-		
-		return [];
-	}
 	
 	this.getType = function()
 	{
@@ -538,22 +250,7 @@ function Store(v, type)
 		{
 			return this.val;
 		}
-		return getPath(this.val, this.path.concat(path));
-	}
-
-	this.getField = function(fieldName)
-	{
-		return this.val[fieldName];
-	}
-
-	this.getPathFromRoot = function()
-	{
-		return this.path;
-	}
-
-	this.getRootNode = function()
-	{
-		return this;
+		return getPath(this.val, path);
 	}
 }
 
@@ -2159,88 +1856,6 @@ function Comprehension(_expr, _comprehensionIndices, arrays, _funcRef, _when)
 	}
 }
 
-function Select(nodeGraph, externNodes)
-{
-	this.nodes = {};
-	
-	// TODO  connections
-	var rootNode = makeNode(nodeGraph.select, externNodes);
-	var pathStore = null;
-	if(nodeGraph.path)
-	{
-		// TODO utiliser le type component, car le root n'est pas forcement de ce type
-		pathStore = new SubStore(mt("list", [rootNode.getType()]));
-	}
-	var matches = _.map(nodeGraph.matches, function(match)
-	{
-		var type = match.selector.type;
-		var elementStore = new SubStore(type);
-		var newNodes = {};
-		newNodes[match.selector["id"]] = elementStore;
-		if(pathStore != null)
-		{
-			newNodes[nodeGraph.path] = pathStore;
-		}
-		var mergedNodes = _.merge(_.clone(externNodes), newNodes);
-		var val = makeExpr(match.val, mergedNodes);
-		return	{
-			"type" : type,
-			"elementStore" : elementStore,
-			"val" : val
-		};
-	});
-	
-	this.get = function()
-	{
-		var root = rootNode.get();
-				
-		function select(val, path)
-		{
-			var type = val.__type;
-			if(pathStore != null)
-			{
-				pathStore.set(path);
-			}
-			var ret = [];
-			for(var i = 0; i < matches.length; ++i)
-			{
-				var match = matches[i];
-				if(match.type == type)
-				{
-					match.elementStore.set(val);
-					ret.push(match.val.get());
-					break;
-				}
-			}
-			
-			if("children" in val)
-			{
-				ret = _.reduce(root.children, function(accum, val)
-				{
-					return accum.concat(select(val, path.concat([val])));
-				}, ret);
-			}
-			
-			return ret;
-		}
-		
-		var ret = select(root, [root]);
-		
-		return ret;
-	};
-	
-	this.getType = function(path)
-	{
-		// TODO check all selectors have same return type
-		return mt("select", [matches[0].val.getType()]);
-	}
-	
-	this.addSink = function(sink)
-	{
-		rootNode.addSink(sink);
-	};
-}
-
 function getNode(name, nodes)
 {
 	var node = nodes[name];
@@ -2275,36 +1890,6 @@ function StructAccess(node, path, type) {
     this.node = node;
     this.path = path;
     this.type = type;
- //    if(val == undefined)
- //    {
-	// 	var nodeType = node.getType();	
- //    }
- //    else
- //    {
- //    	var nodeType = val.__type;
- //    }
-	// var baseType = getBaseType(nodeType);
-	// var templates = getTypeParams(nodeType);
-	// check(baseType in library.nodes, "Var type " + baseType + " not found in library");
-	// var typeObj = (templates.length > 0) ? 
-	// 	library.nodes[baseType].getInstance(templates) :
-	// 	library.nodes[baseType];
-	// var operators = typeObj.operators;
-	// this.getPathOperator = operators.getPath;
-	// this.setPathOperator = operators.setPath;
-	// this.updateOperator = operators.update;
-	
-	// var fields = typeObj.fields;
-	// var hiddenFields = typeObj.hiddenFields;
-	// try
-	// {
-	// 	this.type = getFieldType(fields.concat(hiddenFields), path);
-	// }
-	// catch(err)
-	// {
-	// 	console.log(err);
-	// 	error("No field " + path + " in node of type " + node.getType());		
-	// }
 
 	this.get = function()
 	{
@@ -2330,7 +1915,6 @@ function StructAccess(node, path, type) {
 	{
 		currentPath = currentPath.concat(this.path);
 		operators.signal(this.node.get(), signal, params, this.path, {root : rootAndPath.root, path : rootAndPath.path.concat(this.path)});
-		// this.node.dirty();
 		currentPath = currentPath.slice(0, -this.path.length);
 	};
 	
@@ -2338,12 +1922,7 @@ function StructAccess(node, path, type) {
 	{
 		this.node.dirty(this.path.concat(path));
 	}
-	
-	this.addDelta = function(delta)
-	{
-		this.node.deltas.push(delta);
-	}
-	
+
 	this.getType = function()
 	{
 		return this.type;
@@ -2353,71 +1932,10 @@ function StructAccess(node, path, type) {
 	{
 		this.node.addSink(sink);
 	};
-
-	this.update = function(val, ticks, parentTick)
-	{
-		if(val)
-		{			
-			var minMax = this.node.getMinMaxTick(this.path.concat(path));
-			if(ticks.tick >= minMax[1])
-			{
-				return [val, ticks];
-			} 	
-			var val = this.node.get();
-			return mValTick(getPath(val, this.path));
-		}
-		else
-		{
-			return mValTick(getPath(this.node.get(), this.path));
-		}
-		// TODO ameliorer ... par ex stocker les operator dans la valeur (== methode virtuelle)
-		// Dispatch dynamique, si le node est un store, la valeur peut etre d'un type herite, 
-		// et meme changer au cours du temps
-		// if(_.isObject(val) && "__type" in val)
-		// {
-		// 	var operators = library.nodes[typeToCompactString(val.__type)].operators;
-		// 	this.getPathOperator = operators.getPath;
-		// }
-		// return mValTick(this.getPathOperator(val, this.path));
-	}
-
-	this.getMinMaxTick = function(path)
-	{
-		return this.node.getMinMaxTick(this.path.concat(path));
-	}
-
-	this.getPathFromRoot = function()
-	{
-		return this.node.getPathFromRoot().concat(this.path);
-	}
-
-	this.getRootNode = function()
-	{
-		return this.node.getRootNode();
-	}
 }
 
 function ArrayAccess(node) {
     this.node = node;
- //    if(type != undefined)
- //    {
- //    	var nodeType = type;	
- //    }
- //    else
- //    {
- //    	var nodeType = node.getType();
- //    }
-	// var baseType = getBaseType(nodeType);
-	// var templates = getTypeParams(nodeType);
-	// check(baseType in library.nodes, "Var type " + baseType + " not found in library");
-	// // TODO generic management
-	// var baseType = getBaseType(templates[0]);
-	// if(!(baseType in library.nodes))
-	// {
-	// 	error("Type "+baseType+" not found in library.");
-	// }
-	// var elemType = library.nodes[baseType];
-	// var operators = elemType.operators;
 
 	this.id = storeId;
 	storeId++;
@@ -3489,9 +3007,6 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 	} else if("listView" in expr)
 	{
 		return new ListViewNode(expr, nodes);
-	} else if("select" in expr)
-	{
-		return new Select(expr, nodes);
 	} else if("closure" in expr)
 	{
 		var funcName = "lambda" + lambdaIndex.toString();

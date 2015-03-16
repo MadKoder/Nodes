@@ -36,6 +36,21 @@ structs:
 		signal click(int val)
 		slot changeDir(int dirDelta) : 
 			self.facing = intToFacing(facingToInt(self.facing) + dirDelta)
+	Obj :
+		subs :
+			Group :
+				list<Obj>		children
+			Leaf :
+				int x
+	Ui : 
+		subs :
+			UiGroup:
+				list<Ui> children
+				signal add(Obj what)
+				slot onAdd(Obj what):
+					self.add(what)
+			UiLeaf :
+				int x
 functions:
 	ref intListToMonsterList(list<int> l, int x)
 		[
@@ -56,6 +71,14 @@ functions:
 		in type t :
 			Just<int> : t.x
 			_ : 0
+	ref Ui objToUi(Obj obj)
+		type obj:
+			Group : UiGroup
+				(
+					[objToUi(child) for child in obj.children],
+					add => obj.children = pushBack(obj.children, what)
+				)
+			Leaf : UiLeaf(obj.x)
 nodes:
 	var intList = [1, 2, 3]
 	var x = 0
@@ -65,7 +88,25 @@ nodes:
 	var d = {a : 1, b : 2}
 	var dAccessJust = dictAccess(d, "b")
 	var dAccessNone = dictAccess(d, "c")
+	var graph = Group
+		([
+			Group
+			([
+				Leaf(1), 
+				Leaf(2)
+			]),
+			Leaf(3)
+		])
+	def ui = objToUi(graph)
 actions:
+	tickUi(Ui ui):
+		type ui do :
+			UiGroup => 
+				ui.add(Leaf(10))
+				for child in ui.children do
+					tickUi(child)
 	tick:
 		for monster in monsterListDef do
 			monster.click(2)
+		tickUi(ui)
+

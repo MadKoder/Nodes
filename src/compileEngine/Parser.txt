@@ -327,49 +327,6 @@ Closure =
 			"params" : params
 		};
 	}
-
-Select =
-	"select " _ id:Var _ path:("along " _ path:Id {return path;})? _ "(" _ matches:SelectMatches _ ")" _
-	{
-		var ret = {
-			select : id,
-			matches : matches
-		};
-		if(path)
-		{
-			ret.path = path;
-		};
-		return ret;
-	}
-
-SelectMatches = 
-	head:SelectMatch _ tail:(_ "," _ s:SelectMatch {return s})* 
-	{
-		return [head].concat(tail);
-	}
-		
-SelectMatch =
-	_ selector:Selector _ ":" _ val:Val 
-	{
-		var ret = {
-			selector : selector,
-			val : val
-		};
-		return ret;
-	}
-  
-Selector =
-	type:Id _ id:(Id)?  
-	{
-		var ret = {
-			type : type,
-		};
-		if(id)
-		{
-			ret.id = id
-		}
-		return ret;
-	}
 	
 Dict = 
 	"{" _ head:DictEntry? tail:( _ "," _ (i:DictEntry) {return i})* _ "}"
@@ -489,7 +446,6 @@ Action "Action" =
   / ForAction
   / MatchAction
   / MatchTypeAction
-  / SelectAction
   / SlotCall
   / Update
   /  _ "(" _ actions:Actions _ ")" _ 
@@ -626,38 +582,6 @@ CondUpdate =
 			"if" : cond
 		};
 	}
-
-SelectAction =
-	_ "select" _ it:Var _ "apply" _ "(" _ actions:SelectorActions _ ")"
-	{
-		var res =  {
-			"select" : it,
-			"apply" : actions
-		};
-		return res;
-	}
-	
-SelectorActions = 
-	head:SelectorAction _ tail:(_ "," _ s:SelectorAction {return s})* 
-   {
-      return [head].concat(tail);
-   }
-		
-SelectorAction =
-	selector:Selector _ ":" _ ("(")?_ val:SelectorAffectations _ (")")?
-	{
-		var ret = {
-			selector : selector,
-			affectations : val
-		};
-		return ret;
-	}
-	
-SelectorAffectations =
-	head:MergeAffectation _ tail:( _ "," _ (i:MergeAffectation) {return i})* 
-	{
-		return [head].concat(tail);
-	}
 	
 Foreach =
 	_ "foreach " _ id:Var _ signal:Id _ params:("(" _ params:ExpressionList? _ ")" {return params})?
@@ -740,7 +664,6 @@ PrimaryExpression =
 	/ FunctionCall
 	/ Closure
 	/ Range
-	/ Select
 	/ Comprehension
 	/ ListView 
 	/ Array 
