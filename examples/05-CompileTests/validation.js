@@ -84,7 +84,10 @@ $.get("validation.nodes", function( text ) {
 	valid(dAccessJust.get(), 2, "Dict access Just");
 	valid(dAccessNone.get(), 0, "Dict access None");
 
-	 appendText(ui.get().children[0].children[1].x);
+	// valid(ui.get().children[0].children[2].x, 10, "Recursive signal and ref mutation");
+		valid(ui.get().children[2].x, 10, "Recursive signal and ref mutation");
+
+	//appendText(ui.get().children[0].children[2].x);
 	// appendText(intList.get());
 	// appendText(monsterListDef.get()[1].pos.y);
 	// appendText(monsterListVar.get()[1].pos.y);

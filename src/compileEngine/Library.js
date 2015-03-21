@@ -1602,13 +1602,7 @@ function _Func(func, isObject, updateFunc)
 
 	this.get = function(refs)
 	{
-		var ret = this.func();
-		// if(this.isObject && globalRefs.length > 0)
-		// {
-		// 	ret.__refs = globalRefs;
-		// 	ret.__referencedNodes = globalReferencedNodes;
-		// }
-		return ret;
+		return this.func();
 	}
 }
 

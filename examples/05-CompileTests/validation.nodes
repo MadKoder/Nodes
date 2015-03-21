@@ -42,13 +42,11 @@ structs:
 				list<Obj>		children
 			Leaf :
 				int x
-	Ui : 
+	Ui : 		
 		subs :
 			UiGroup:
 				list<Ui> children
 				signal add(Obj what)
-				slot onAdd(Obj what):
-					self.add(what)
 			UiLeaf :
 				int x
 functions:
@@ -72,11 +70,17 @@ functions:
 			Just<int> : t.x
 			_ : 0
 	ref Ui objToUi(Obj obj)
+	ref Ui groupToUi(Group g)
+		UiGroup
+		(
+			[objToUi(child) for child in g.children],
+			add => g.children = pushBack(g.children, what)
+		)
+	ref Ui objToUi(Obj obj)
 		type obj:
-			Group : UiGroup
+			Group : groupToUi
 				(
-					[objToUi(child) for child in obj.children],
-					add => obj.children = pushBack(obj.children, what)
+					obj					
 				)
 			Leaf : UiLeaf(obj.x)
 nodes:

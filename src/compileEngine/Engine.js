@@ -1893,7 +1893,7 @@ function StructAccess(node, path, type) {
 
 	this.get = function()
 	{
-		return this.node.getPath(this.path);
+		return getPath(this.node.get(), this.path);
 	};
 	
 	this.set = function(val)
@@ -3193,7 +3193,7 @@ function makeAction(actionGraph, nodes, connections)
 	{
 		var list = compileRef(actionGraph["foreach"], nodes);
 		var itName = "it" + locIndex;
-		var beforeStr = itName + " = new ArrayAccess(" + list.getNode() + ");\n";
+		var beforeStr = "var " + itName + " = new ArrayAccess(" + list.getNode() + ");\n";
 
 		var str = newVar(list.getVal() + ".length - 1");
 		var counter = getVar();
@@ -3321,11 +3321,11 @@ function makeAction(actionGraph, nodes, connections)
 			}
 		}
 
-		var beforeStr = ""
-		var str = newVar(makeExpr(actionGraph.matchType, nodes).getNode());
+		var beforeStr = newVar(makeExpr(actionGraph.matchType, nodes).getNode());
 		var matchVar = getVar();
-		str += newVar(matchVar + ".get().__type");
+		beforeStr += newVar(matchVar + ".get().__type");
 		var typeVar = getVar();
+		var str = ""
 		_.each(actionGraph.cases, function(caseGraph, caseIndex)
 		{
 			// TODO manage default case
@@ -3447,7 +3447,7 @@ function makeAction(actionGraph, nodes, connections)
 	{
 		var list = compileRef(actionGraph["in"], nodes);
 		var itName = "it" + locIndex;
-		var beforeStr = itName + " = new ArrayAccess(" + list.getNode() + ");\n";
+		var beforeStr = "var " + itName + " = new ArrayAccess(" + list.getNode() + ");\n";
 
 		var localNodes = _.clone(nodes);
 		localNodes[actionGraph["for"]] = new Var(itName + ".get()", itName, getListTypeParam(list.getType()));
@@ -3467,10 +3467,11 @@ function makeAction(actionGraph, nodes, connections)
 			localNodes
 		);
 
-		beforeStr += action.getBeforeStr();
+		// beforeStr += action.getBeforeStr();
 		
 		str += "for(; " + counter + " >= 0; " + counter + "--){\n";
 		str += itName + ".push(" + counter + ");\n";
+		str += action.getBeforeStr();
 		str += action.getNode();
 		str += itName + ".pop();\n}\n";
 		return new Action(str, beforeStr);
@@ -3480,7 +3481,7 @@ function makeAction(actionGraph, nodes, connections)
 	{
 		var list = compileRef(actionGraph["in"], nodes);
 		var itName = "it" + locIndex;
-		var beforeStr = itName + " = new ArrayAccess(" + list.getNode() + ");\n";
+		var beforeStr = "var " + itName + " = new ArrayAccess(" + list.getNode() + ");\n";
 
 		var localNodes = _.clone(nodes);
 		localNodes[actionGraph["update"]] = new Var(itName + ".get()", itName, getListTypeParam(list.getType()));
