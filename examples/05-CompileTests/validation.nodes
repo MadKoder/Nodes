@@ -20,9 +20,9 @@ structs:
 	Vec2 :
 		float x
 		float y
-		signal click(int val)
 		slot inc(Vec2 delta) : 
-			self.click("tata")
+			self.x = self.x + delta.x
+			self.y = self.y + delta.y
 		subs : 
 			Vec3:
 				float z
@@ -85,6 +85,7 @@ functions:
 			Leaf : UiLeaf(obj.x)
 nodes:
 	var intList = [1, 2, 3]
+	var filteredList = [x for x in intList when x < 3]
 	var x = 0
 	def monsterListDef = intListToMonsterList(intList, x)
 	var monsterListVar = intListToMonsterList(intList, x)
@@ -102,6 +103,17 @@ nodes:
 			Leaf(3)
 		])
 	def ui = objToUi(graph)
+	def ifExpr = if x == 6 then 10 else 0
+	def mapLambda = map(int val -> val + 10, intList)
+	var updatedAndMergedList = [Vec2(0., 1.), Vec2(2., 3.)]
+	var forEachList = [Vec2(0., 1.), Vec2(2., 3.)]
+	var ifAction = true
+	var whileAction = 0
+	var eventTest = 0
+	var matchTest = match 0:
+		0 : true
+		1 : false
+		_ : false
 actions:
 	tickUi(Ui ui):
 		type ui do :
@@ -113,4 +125,14 @@ actions:
 		for monster in monsterListDef do
 			monster.click(2)
 		tickUi(ui)
-
+		update vec, i in updatedAndMergedList
+			with vec \ x = 20. + i if vec.x > 1.
+		foreach forEachList inc(Vec2(1., 1.))
+		if ifAction then ifAction = false
+		while whileAction < 10 do 
+			whileAction = whileAction + 1
+		eventTest = 1
+events:
+	eventTest == 1 :
+		eventTest = 2
+		eventTest = eventTest + 1

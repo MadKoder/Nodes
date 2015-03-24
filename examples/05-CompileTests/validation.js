@@ -29,6 +29,7 @@ $.get("validation.nodes", function( text ) {
 	{
 		$tmp.append("<div>" + txt + "</div>");
 	}
+	validated = true;
 	function valid(a, b, testName)
 	{
 		if(a === b)
@@ -38,6 +39,7 @@ $.get("validation.nodes", function( text ) {
 		else
 		{
 			$tmp.append("<div> " + testName + " Nope !!!!!!!!! </div>");
+			validated = false;
 		}
 	}
 	function eqArray(a0, a1)
@@ -73,9 +75,15 @@ $.get("validation.nodes", function( text ) {
 		else
 		{
 			$tmp.append("<div> " + testName + " Nope !!!!!!!!! </div>");
+			validated = false;
 		}
 	}
 
+	valid(ifAction.get(), false, "If action");
+	valid(whileAction.get(), 10, "While action");
+	valid(eventTest.get(), 3, "Event");
+	valid(matchTest.get(), true, "Match");
+	validArray(filteredList.get(), [1, 2], "Filtered list");
 	validArray(intList.get(), [3, 4, 5], "int list");
 	valid(monsterListDef.get()[1].pos.y, 10, "Monster list def");
 	valid(monsterListVar.get()[1].pos.y, 2, "Monster list var");
@@ -84,8 +92,15 @@ $.get("validation.nodes", function( text ) {
 	valid(dAccessJust.get(), 2, "Dict access Just");
 	valid(dAccessNone.get(), 0, "Dict access None");
 
-	// valid(ui.get().children[0].children[2].x, 10, "Recursive signal and ref mutation");
-		valid(ui.get().children[2].x, 10, "Recursive signal and ref mutation");
+	valid(ui.get().children[0].children[2].x, 10, "Recursive signal and ref mutation");
+	valid(ifExpr.get(), 10, "If expression");
+	validArray(mapLambda.get(), [13, 14, 15], "Map lambda");
+	valid(updatedAndMergedList.get()[1].x, 21, "updatedAndMergedList 1"); // if condition true
+	valid(updatedAndMergedList.get()[0].x, 0, "updatedAndMergedList 2"); // if condition false
+	valid(forEachList.get()[1].x, 3, "For each"); // if condition false
+
+	$("#validated").append("<div>" + (validated ? "OK" : "Nope !!!!!!!!!!") + "</div>");
+		// valid(ui.get().children[2].x, 10, "Recursive signal and ref mutation");
 
 	//appendText(ui.get().children[0].children[2].x);
 	// appendText(intList.get());
