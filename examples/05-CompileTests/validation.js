@@ -83,6 +83,10 @@ $.get("validation.nodes", function( text ) {
 	valid(whileAction.get(), 10, "While action");
 	valid(eventTest.get(), 3, "Event");
 	valid(matchTest.get(), true, "Match");
+	validArray(rangeTest.get(), [0, 1], "Range");
+	valid(matchActionTest.get(), 10, "Match action");
+	validArray(templateOfTemplateTest.get(), [[1, 2], [3, 4]], "Template of template");
+	validArray(multiComprehension.get(), [[3], [6]], "Multi comprehension");
 	validArray(filteredList.get(), [1, 2], "Filtered list");
 	validArray(intList.get(), [3, 4, 5], "int list");
 	valid(monsterListDef.get()[1].pos.y, 10, "Monster list def");
@@ -98,6 +102,7 @@ $.get("validation.nodes", function( text ) {
 	valid(updatedAndMergedList.get()[1].x, 21, "updatedAndMergedList 1"); // if condition true
 	valid(updatedAndMergedList.get()[0].x, 0, "updatedAndMergedList 2"); // if condition false
 	valid(forEachList.get()[1].x, 3, "For each"); // if condition false
+	valid(structAcessTest.get().size.x, 12, "Struct access");
 
 	$("#validated").append("<div>" + (validated ? "OK" : "Nope !!!!!!!!!!") + "</div>");
 		// valid(ui.get().children[2].x, 10, "Recursive signal and ref mutation");

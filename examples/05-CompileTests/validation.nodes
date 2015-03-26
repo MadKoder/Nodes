@@ -83,6 +83,8 @@ functions:
 					obj					
 				)
 			Leaf : UiLeaf(obj.x)
+	list<list<int>> incListOfList(list<list<int>> l)
+		[[j + 1 for j in i] for i in l]
 nodes:
 	var intList = [1, 2, 3]
 	var filteredList = [x for x in intList when x < 3]
@@ -114,6 +116,11 @@ nodes:
 		0 : true
 		1 : false
 		_ : false
+	var rangeTest = [0..2]
+	var multiComprehension = [[x + i + j for x, j in a when (x == 2) || (x == 4)] for a, i in [[1, 2], [3, 4]]]
+	var matchActionTest = 0
+	var templateOfTemplateTest = incListOfList([[0, 1], [2, 3]])
+	var	structAcessTest = Rect(Vec2(0, 1), Vec2(2, 3))
 actions:
 	tickUi(Ui ui):
 		type ui do :
@@ -132,6 +139,12 @@ actions:
 		while whileAction < 10 do 
 			whileAction = whileAction + 1
 		eventTest = 1
+		match matchActionTest do :
+			10 => matchActionTest = 0
+			0 => matchActionTest = 10
+			_ => matchActionTest = 0
+		structAcessTest.size.x = structAcessTest.pos.y + 10
+		structAcessTest.size.inc(Vec2(1, 1))
 events:
 	eventTest == 1 :
 		eventTest = 2
