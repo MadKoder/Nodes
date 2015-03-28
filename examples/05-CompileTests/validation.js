@@ -21,6 +21,7 @@ $.get("validation.nodes", function( text ) {
 	$.globalEval(src)
 
 	tick();
+	testAction();
 
 	// $tmp.append("<div id=\"aa\"></div>");
 	// $("#aa").html(aa.get().join());
@@ -79,12 +80,15 @@ $.get("validation.nodes", function( text ) {
 		}
 	}
 
+	valid(clonerTest.get(), 2, "Cloner");
 	valid(ifAction.get(), false, "If action");
 	valid(whileAction.get(), 10, "While action");
 	valid(eventTest.get(), 3, "Event");
 	valid(matchTest.get(), true, "Match");
+	// valid(reduceTest.get(), 3, "Reduce");
 	validArray(rangeTest.get(), [0, 1], "Range");
 	valid(matchActionTest.get(), 10, "Match action");
+	validArray(mapTemplateTest.get(), [[1], [3]], "Map template");
 	validArray(templateOfTemplateTest.get(), [[1, 2], [3, 4]], "Template of template");
 	validArray(multiComprehension.get(), [[3], [6]], "Multi comprehension");
 	validArray(filteredList.get(), [1, 2], "Filtered list");

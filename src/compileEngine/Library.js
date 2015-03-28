@@ -1229,19 +1229,20 @@ var functions =
 		guessTypeParams : function(params)
 		{
 			var list = params[1];
-			var temp0 = getListTypeParam(list.getType());	
+			var listTypeParam = getListTypeParam(list.getType());	
+			// If the function is generic
 			if(params[0].template)
 			{
-				var tmp = new Store(null, temp0);
+				// Use the type param of the list to get the concrete type of the function
+				var tmp = new Store(null, listTypeParam);
 				var funcTemplates = params[0].template.guessTypeParams([tmp]);
-				// var funcType = getFuncType(params[0], [temp0]);
 				var funcType = getFuncType(params[0], funcTemplates);
 			}
 			else
 			{
 				var funcType = params[0].getType();
 			}
-			return [temp0, getOutType(funcType)];
+			return [listTypeParam, getOutType(funcType)];
 		},		
 		build : function(templates)
 		{

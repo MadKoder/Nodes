@@ -121,6 +121,14 @@ nodes:
 	var matchActionTest = 0
 	var templateOfTemplateTest = incListOfList([[0, 1], [2, 3]])
 	var	structAcessTest = Rect(Vec2(0, 1), Vec2(2, 3))
+	var v = Vec2(0, 0)
+	var clonerTest = 1
+	var mapTemplateTest = map(tail, [[0, 1], [2, 3]])
+	# var reduceTest = reduce
+	# 	(
+	# 		int accum, int elem -> accum + elem,
+	# 		[0, 1, 2]
+	# 	)
 actions:
 	tickUi(Ui ui):
 		type ui do :
@@ -145,6 +153,10 @@ actions:
 			_ => matchActionTest = 0
 		structAcessTest.size.x = structAcessTest.pos.y + 10
 		structAcessTest.size.inc(Vec2(1, 1))
+		loc newClonerTest = clonerTest + 1
+		clonerTest = newClonerTest
+	testAction:
+		v.inc(1)
 events:
 	eventTest == 1 :
 		eventTest = 2

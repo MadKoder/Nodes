@@ -78,7 +78,6 @@ function getStrType()
 function List(val)
 {
 	this.list = val;
-	this.tick = globalTick;
 
 	this.needsNodes =  _.any(this.list, function(elt)
 	{
@@ -92,29 +91,6 @@ function List(val)
 			return item.get();
 		});
     }
-	
-	this.getPath = function(path)
-    {
-    	// TODO use path ?
-		return this.list.map(function(item)
-		{
-			return item.get();
-		});
-    }
-	
-	this.signal = function(value)
-    {
-		this.list = value;
-		this.tick = globalTick;
-    }
-
-	this.addSink = function(sink)
-	{
-		_.each(this.list, function(item)
-			{
-				item.addSink(sink);
-			});
-	}
 }
 
 function Dict(val, keyType)
@@ -223,183 +199,10 @@ function Store(v, type)
 	{
 		this.sinks.push(sink);
 	};
-
-	this.signal = function(signal, params, path)
-	{
-		operators.signal(this.val, signal, params, path, this);
-	};
 	
 	this.getType = function()
 	{
 		return this.type;
-	}
-
-	this.getPath = function(path)
-	{
-		if(path.length == 0)
-		{
-			return this.val;
-		}
-		return getPath(this.val, path);
-	}
-}
-
-var subStores = [];
-var subStoreId = 0;
-
-function SubStore(type, source) 
-{
-	this.val = null;
-	this.type = type;
-
-	// DEBUG
-	this.id = storeId;
-	storeId++;
-
-	this.subId = subStoreId;
-	subStoreId++;
-
-	subStores.push(this);
-
-	this.source = source;
-	
-	if(type != null)
-	{
-		var baseType = getBaseType(type);
-		var templates = getTypeParams(type);
-		var typeObj = (templates.length > 0) ? 
-			library.nodes[baseType].getInstance(templates) :
-			library.nodes[type];
-		if(typeObj != undefined && "operators" in typeObj)
-		{
-			this.operators = typeObj.operators;
-			//this.signalOperator = operators.signal;
-		}
-	}
-	
-	this.get = function()
-	{
-		return this.val;
-	};
-
-	this.set = function(val)
-	{
-		this.val = val;
-	};
-
-	this.push = function(node)
-	{
-		this.node = node;
-		this.val = node.get();
-	};
-
-	this.pop = function()
-	{
-	};
-	
-	this.signal = function(signal, params, path, node)
-	{
-		this.operators.signal(this.val, signal, params, path, node);
-	};
-	
-	this.getType = function()
-	{
-		return this.type;
-	}
-
-	this.addSink = function(sink)
-	{
-		this.source.addSink(sink);
-	}
-}
-
-function FuncInput(type, source) 
-{
-	this.type = type;
-	
-	// DEBUG
-	this.id = storeId;
-	storeId++;
-
-	this.source = source;
-	
-	if(type != null)
-	{
-		var baseType = getBaseType(type);
-		var templates = getTypeParams(type);
-		var typeObj = (templates.length > 0) ? 
-			library.nodes[baseType].getInstance(templates) :
-			library.nodes[type];
-		if(typeObj != undefined && "operators" in typeObj)
-		{
-			this.operator = typeObj.operators;
-		}
-	}
-	
-	this.get = function()
-	{
-		if(this.stack.length > 0)
-		{
-			return this.stack[this.stack.length - 1];
-		}
-		var path = this.pathFromRoot;
-		if(path.length == 0)
-		{
-			return this.rootNode.get();
-		}
-		return this.rootNode.getPath(path);
-	};
-
-	this.signal = function(signal, params, path, callFromSlot)
-	{
-		var val = this.get();
-
-		this.operator.signal(val, signal, params, path, this, callFromSlot);
-	};
-	
-	this.getType = function()
-	{
-		return this.type;
-	}
-
-	this.dirty = function(path)
-	{
-		return this.rootNode.dirty(this.pathFromRoot.concat(path));
-	}
-
-	this.addSink = function(sink)
-	{
-		this.source.addSink(sink);
-	}
-
-	this.set = function(val, rootAndPath)
-	{
-		this.rootNode.setPath(val, this.pathFromRoot)
-	}
-}
-
-function ValInput(type) 
-{
-	this.stack = [];
-	this.type = type;
-	
-	// DEBUG
-	this.id = storeId;
-	storeId++;
-
-	this.get = function()
-	{
-		return this.stack[this.stack.length - 1];
-	};
-
-	this.getType = function()
-	{
-		return this.type;
-	}
-
-	this.addSink = function(sink)
-	{
-		// TODO ?
 	}
 }
 
@@ -412,7 +215,7 @@ function Closure(expr, nodes, genericTypeParams)
 	var paramSpec = [];
 	var paramStores = _.map(expr.params, function(param, index)
 	{
-		var node = new FuncInput(param.type);
+		var node = new Store(param.type);
 		localNodes[param.id] = node;
 		paramSpec.push(["param" + index.toString(), param.type]);
 		return node;
@@ -508,23 +311,14 @@ function NodeAccess(val, type)
 function Cache(node) 
 {
 	this.node = node;
-	this.ticks = {tick : globalTick};
-	this.val = this.node.update(undefined, this.ticks, this.ticks.tick);
-	
-	this.isDirty = false;
-
-
-	this.path = [];
+	this.isDirty = true;
 
 	this.get = function()
 	{
 		if(this.isDirty)
 		{
 			// this.val = this.node.get();
-			var res = this.node.update(this.val, this.ticks, this.ticks.tick);
-			// this.val = this.node.get();
-			this.val = res[0];
-			this.ticks = res[1];
+			this.val = this.node.get();
 			this.isDirty = false;
 		}
 		return this.val;		
@@ -651,26 +445,6 @@ function CondAffectation(cond, thenAffects, elseAffects) {
 	};
 }
 
-function makeAffectations(matchesGraph, nodes)
-{
-	return matchesGraph.map(function(mergeExp){
-		
-		if("cond" in mergeExp)
-		{
-			var cond = makeExpr(mergeExp.cond, nodes);
-			var affects = makeAffectations(mergeExp.affectations);
-			var elseAffects = undefined;
-			if("else" in mergeExp)
-			{
-				var elseAffects = makeAffectations(mergeExp["else"]);
-			}
-			return new CondAffectation(cond, affects, elseAffects);
-		}
-		
-		return new Affectation(makeExpr(mergeExp.val, nodes), mergeExp.paths);
-	});
-}
-
 function Merge(what, matches, type)
 {
 	this.what = what;
@@ -733,9 +507,7 @@ function ComprehensionNode(nodeGraph, externNodes)
 	this.compIndex = compIndex;
 	var beforeStr = "";
 	var arraysStr = "[";
-	var inputStr = "[";
 	var indicesStr = "[";
-	var varStr = "";
 	var varPostfix = "";
 	var varIndex = 0;
 	var arrayAccessNames = [];
@@ -759,8 +531,6 @@ function ComprehensionNode(nodeGraph, externNodes)
 		beforeStr += expr.getBeforeStr();
 		var arrayAccessName = "aa" + varPostfix;
 		arrayAccessNames.push(arrayAccessName);
-		varStr += "var " + arrayAccessName + " = new ArrayAccess(arrays" + compIndex.toString() + "[" + index.toString() + "]);\n";
-		inputStr += ((index > 0) ? ", " : "") + arrayAccessName;
 		if(_.isString(inputGraph))
 		{
 			this.nodes[inputGraph] = new Var(arrayAccessName + ".get()", arrayAccessName, inputTemplateType);
@@ -779,12 +549,9 @@ function ComprehensionNode(nodeGraph, externNodes)
 		{
 			// TODO  Path ?
 			// TODO param nodes = union(this.nodes, externNodes)
-			// comprehensionIndices[index] = new ValInput("int");
 			var indexName = "index" + varPostfix;
-			varStr += "var " + indexName + " = new ValInput(int);\n";		
 			comprehensionIndices[index] = new Var(indexName + ".get()", indexName, "int");
 			this.nodes[iterator["index"]] = comprehensionIndices[index];
-			// indicesStr += ((index > 0) ? ", " : "") + indexName;
 			indicesStr += ((index > 0) ? ", " : "") + "true";
 			indicesNames.push(indexName);
 		} else
@@ -792,7 +559,6 @@ function ComprehensionNode(nodeGraph, externNodes)
 			indicesStr += ((index > 0) ? ", " : "") + "false";
 		}		
 	}, this);
-	inputStr += "]"
 	arraysStr += "]"
 	indicesStr += "]"
 	var mergedNodes = _.clone(externNodes)
@@ -817,19 +583,8 @@ function ComprehensionNode(nodeGraph, externNodes)
 		this.addsRefs = true;
 	} 
 
-
 	this.getBeforeStr = function()
 	{
-		var str = beforeStr + arraysStr + varStr + inputStr + indicesStr + "function comp" + this.compIndex.toString() + "(" + arrayAccessNames.join(", ");
-		if(indicesNames.length > 0)
-		{
-			str += ", " + indicesNames.join(", ");
-		}
-		str += "){\n" + expr.getBeforeStr() + "return " + expr.getVal() + ";\n}\n";
-		if("when" in nodeGraph)
-		{		
-			str += "var when" + this.compIndex.toString() + " = " + when.getNode() + ";\n";
-		}
 		return "";
 	}
 
@@ -875,13 +630,7 @@ function SimpleArrayAccess(array, index)
 {
 	this.array = array;
 	this.index = index;
-	this.listViews = [];
 	
-	this.addListView = function(lv)
-	{
-		this.listViews.push(lv);
-	}
-
 	this.get = function()
 	{
 		return this.array.get()[this.index];
@@ -905,11 +654,6 @@ function SimpleArrayAccess(array, index)
 	this.dirty = function(path)
 	{
 		this.array.dirty([this.index].concat(path));
-	}
-
-	this.getMinMaxTick = function(path)
-	{
-		return this.array.getMinMaxTick([this.index].concat(path));
 	}
 }
 
@@ -1056,132 +800,7 @@ function Comprehension(_expr, _comprehensionIndices, arrays, _funcRef, _when)
 
 		return this.outputList;
 	};
-	
-	this.getMinMaxTick = function(path)
-	{
-		var maxTicks = 0, maxOfMinTicks = 0;
-		_.each(this.arrays, function(array){
-			var arrayMinMaxTicks = array.getMinMaxTick([]);
-			maxTicks = Math.max(maxTicks, arrayMinMaxTicks[1]);
-			maxOfMinTicks = Math.max(maxOfMinTicks, arrayMinMaxTicks[0]);
-		});
 
-		return [maxOfMinTicks, maxTicks];
-	}
-
-	// TODO ameliorer
-	this.update = function(upVal, ticks, parentTick)
-	{
-		var maxTicks = 0, maxOfMinTicks = 0;
-		_.each(this.arrays, function(array){
-			var arrayMinMaxTicks = array.getMinMaxTick([]);
-			maxTicks = Math.max(maxTicks, arrayMinMaxTicks[1]);
-			maxOfMinTicks = Math.max(maxOfMinTicks, arrayMinMaxTicks[0]);
-		});
-
-		// No array has been updated after value
-		if(ticks.tick >= maxTicks)
-			return mValTick(upVal, ticks.sub);
-
-		// Parts of array have changed after value, but arrays size didn't
-		var subTicks = ticks.subs;
-		var arrayVals = _.map(this.arrays, function(array, index)
-		{
-			var val = array.get();
-			return val;
-		});
-			
-		var indicesArray = cartesianProductOf(_.map(arrayVals, function(array)
-		{
-			return _.range(array.length);
-		}));
-		
-		if(ticks.tick >= maxOfMinTicks)
-		{
-			
-			if(when != undefined)
-			{
-				this.outputList = [];
-				var newTicks = [];
-				_.each(indicesArray, function(indices)
-				{
-					if(when.get())
-					{
-						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
-						var ret = pair[0];						
-						this.outputList.push(ret);
-						newTicks.push(pair[1]);
-					}
-				}, this);
-			}
-			else
-			{
-				var newTicks = new Array(indicesArray.length);
-				var vals = upVal;
-				_.each(indicesArray, function(indices, i) 
-				{
-					if(funcRef)
-					{
-
-						var pair = expr(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick, new SimpleArrayAccess(this.arrays[0], indices[0]));
-						var ret = pair[0];
-					}
-					else
-					{
-						var pair = expr.update(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
-						var ret = pair[0];
-					}
-					
-					vals[i] = ret;
-					newTicks[i] = pair[1];
-				}, this);
-			}
-			
-			return mValTick(vals, newTicks);
-		}
-		else
-		{
-			if(when != undefined)
-			{
-				this.outputList = [];
-				var newTicks = [];
-				_.each(indicesArray, function(indices)
-				{
-					if(when.get())
-					{
-						var pair = expr(vals[i], (subTicks == undefined) ? {tick : parentTick} : subTicks[i], parentTick);
-						var ret = pair[0];						
-						this.outputList.push(ret);
-						newTicks.push(pair[1]);
-					}
-				}, this);
-			}
-			else
-			{
-				var newTicks = new Array(indicesArray.length);
-				var newVals = _.map(indicesArray, function(indices, i) 
-				{				
-					if(funcRef)
-					{
-
-						var pair = expr(undefined, {tick : parentTick}, parentTick, new SimpleArrayAccess(this.arrays[0], indices[0]));
-						var ret = pair[0];
-					}
-					else
-					{
-						var pair = expr(undefined, {tick : parentTick}, parentTick, new SimpleArrayAccess(this.arrays[0], indices[0]));
-						var ret = pair[0];
-					}
-					
-					newTicks[i] = pair[1];
-					return ret;
-				}, this);
-			}
-
-			return mValTick(newVals, newTicks);
-		}
-	};
-	
 	this.getType = function(path)
 	{
 		return mt("list", [expr.getType()]);
@@ -1495,7 +1114,6 @@ function compileRef(ref, nodes, promiseAllowed)
 function Cloner(ref)
 {
 	this.ref = ref;
-	var type = ref.getType();
 
 	this.get = function()
 	{
@@ -2271,42 +1889,6 @@ function compileSlots(slots, nodes, connections)
 
 var msgIndex = 0;
 
-function GroupChildRef(children, typeParam, rootNode)
-{
-	this.children = children;
-	this.typeParam = typeParam;
-	this.rootNode = rootNode;
-	this.index = 0;
-	
-	this.get = function()
-	{
-		return this.children[this.index];
-	}
-	
-	this.set = function(val)
-	{
-		this.children[this.index] = val;
-	}		
-	
-	this.getType = function()
-	{
-		return listTemplate(this.typeParam);
-	}
-	
-	this.addSink = function(sink)
-	{
-		// TODO : y'en a besoin ?
-	};
-
-}
-
-function ListDelta(add, remove, updates)
-{
-	this.add = add;
-	this.remove = remove;
-	this.updates = updates;
-}
-
 function concatActions(beginActions, actionGraph)
 {
 	if(!("if" in actionGraph) && !("while" in actionGraph) && !("accessSet" in actionGraph) && !("set" in actionGraph))
@@ -2429,7 +2011,7 @@ function makeAction(actionGraph, nodes, connections)
 			var cases = actionGraph.cases;
 			this.what = getNode(actionGraph.matchType, nodes);
 			this.cases = cases.map(function(matchExp){
-				var matchStore = new FuncInput(matchExp.type != "_" ? matchExp.type : this.what.getType());
+				var matchStore = new Store(matchExp.type != "_" ? matchExp.type : this.what.getType());
 				var mergedNodes = _.clone(nodes);
 				mergedNodes[actionGraph.matchType] = matchStore;
 				return {
@@ -2480,102 +2062,6 @@ function makeAction(actionGraph, nodes, connections)
 		return new Action(str, beforeStr);
 
 		// TODO type avec template
-	}
-	
-	if("select" in actionGraph)
-	{
-		function SelectAction(nodeGraph, externNodes)
-		{
-			this.nodes = {};
-			
-			// TODO  connections
-			var rootNode = makeNode(nodeGraph.select, externNodes);
-			var pathStore = null;
-			if(nodeGraph.path)
-			{
-				// TODO utiliser le type component, car le root n'est pas forcement de ce type
-				pathStore = new FuncInput(mt("list", [rootNode.getType()]));
-			}
-			
-			var matches = _.map(nodeGraph.apply, function(match)
-			{
-				var type = match.selector.type;
-				var newNodes = {};
-				
-				if("id" in match.selector)
-				{
-					var elementStore = new SubStore(type);					
-					newNodes[match.selector["id"]] = elementStore;				
-				}
-				
-				if(pathStore != null)
-				{
-					newNodes[nodeGraph.path] = pathStore;
-				}
-				var mergedNodes = _.merge(_.clone(externNodes), newNodes);
-				var setPathOperator = library.nodes[type].operators.setPath;
-				var affectations = makeAffectations(match.affectations, mergedNodes, setPathOperator);
-				var ret =	{
-					"type" : type,
-					"elementStore" : elementStore,
-					"affectations" : affectations
-				};
-				
-				if("id" in match.selector)
-				{					
-					ret.elementStore = elementStore;
-				}
-				
-				return ret;
-			});
-			
-			this.signal = function()
-			{
-				function apply(val, path, rootNode)
-				{
-					var type = val.__type;
-					if(pathStore != null)
-					{
-						pathStore.push(path);
-					}
-					for(var i = 0; i < matches.length; ++i)
-					{
-						var match = matches[i];
-						if(match.type == type)
-						{
-							//val = node.get();
-							match.elementStore.set(val);
-							_.forEach(match.affectations, function(affect){affect.affect(val);});						
-							break;
-						}
-					}
-					
-					if("children" in val)
-					{
-						if(val == null)
-						{
-							val = node.get();
-						}
-						var concatPath = path.concat([val]);
-						_.each(val.children, function(child)
-						{
-							apply(child, concatPath);
-						});
-					}
-
-					if(pathStore != null)
-					{
-						pathStore.pop();
-					}					
-				}
-				
-				// TODO set path only when needed
-				var rootVal = rootNode.get();
-				apply(rootVal, [rootVal], rootNode);
-			};
-		}
-
-		return new SelectAction(actionGraph, nodes);
 	}
 	
 	if("for" in actionGraph)
@@ -3030,53 +2516,11 @@ function __Obj(structDef, params, type, signals)
 			field.addSink(sink);
 		});
 	}
-
-	this.update = function(val, ticks, parentTick)
-	{
-		if(val && (val.__type == type)) // Check if type is same (in case of a type match)
-		{					
-			var subTicks = ticks.subs;
-			var newSubTicks = {};
-			_.each(this.fields, function(field, key){
-				if(key == "__signals")
-				{
-					val.__signals = field;
-				}
-				else if((key != "__type") &&  (key != "__id") && (key != "__views"))
-				{
-					var res = field.update(val[key], (subTicks != undefined && (key in subTicks)) ? subTicks[key] : {tick : parentTick}, ticks.tick);
-					val[key] = res[0];
-					newSubTicks[key] = res[1];
-				}
-			});
-			return mValTick(val, newSubTicks);
-		} 
-		else
-		{			
-			var newSubTicks = {};
-			var struct = {};
-			_.each(this.fields, function(field, key)
-			{
-				var ret = field.update(undefined, {tick : parentTick}, ticks.tick);
-				struct[key] = ret[0];
-				newSubTicks[key] = ret[1];
-			});
-			struct.__type = type;
-			struct.__views = {};
-			_.each(this.signals, function(action, key)
-			{
-				struct[key] = action;
-			});
-			
-			return mValTick(struct, newSubTicks);
-		}
-	}
 };
 
 var structId = 0;
-var globalUpdateIndex = 0;
 
-function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeParamsInstances)
+function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInstances)
 {
 	var name = structGraph.name;
 	var type = name;
@@ -3089,22 +2533,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	}
 
 	var signalSlotAndFieldGraph = inheritedFields.concat(structGraph.fields ? structGraph.fields : []);
-	
-	if(isGroup)
-	{
-		fieldsGraph.unshift
-		(
-			[
-			   "children",
-			   {
-				  "base": "list",
-				  "params": [
-					 superClassName
-				  ]
-			   }
-			]
-		);
-	}
 
 	var node = {};
 	if(concreteName in library.nodes)
@@ -3175,7 +2603,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 
 	var instanceIndex = 0;
 	
-	function makeBuilder(structGraph)
+	function makeBuilder()
 	{
 		function builder(fields) 
 		{	
@@ -3268,8 +2696,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 			paramStr += "]";
 			signalStr += "]";
 
-			this.updateIndex = globalUpdateIndex++;
-			
 			this.getBeforeStr = function()
 			{
 				return beforeStr;
@@ -3431,79 +2857,10 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 	_.merge(node, {
 		fields : concreteFieldsGraph,
 		hiddenFields : [["__views", mt("dict", ["UiView"])]],
-		builder : makeBuilder(structGraph),
+		builder : makeBuilder(),
 		fieldsOp : fieldsOperators,
 		operators : {
-			slots : {},
-			signal : function(struct, id, params, path, node, callFromSlot)
-			{
-				var pushedRefs = [];
-				// In case of a call from a slot, a push has already been made, we must not push anymore
-				// We must push only in the case of descending into a hierarchy.
-				// Other solution : add a "__pushed" field in struct, so that it references are not pushed anymore
-				if("__refs" in struct && (callFromSlot == undefined))
-				// if("__refs" in struct && !("__pushed" in struct))
-				{
-					_.each(struct.__refs, function(ref, i)
-					{
-						// ref.pushVal(node.__referencedNodes[i].get());
-						//ref.push(node.__referencedNodes[i]);
-						ref.push(struct.__referencedNodes[i]);
-						pushedRefs.push(ref);
-					});
-					// struct.__pushed = true;
-				}
-
-				if(!path || path.length == 0)
-				{
-					// this.selfStore.pushVal(struct);
-					this.selfStore.pushNodeAndVal(node, struct);
-					// Need this because selfStore is shared between the entire class hierarchy
-					this.selfStore.pushOperators(this);
-					// Dynamic dispatch
-					var slots = library.nodes[struct.__type].operators.slots;
-					var slot = slots[id];
-					_.each(params, function(param, i)
-					{
-						slot.inputs[i].push(param);
-					});
-					slot.action.signal();
-					_.each(params, function(param, i)
-					{
-						slot.inputs[i].pop();
-					});
-					this.selfStore.popOperators();
-					// this.selfStore.popVal();
-					this.selfStore.popNodeAndVal();
-				}
-				else
-				{
-					
-
-					var subPath = path.slice(0);
-					var key = subPath.shift();
-					// Dynamic dispatch
-					var fieldsOp = library.nodes[struct.__type].fieldsOp;
-					node.pushPath([key]);
-					fieldsOp[key].signal(struct[key], id, params, subPath, node);
-					node.popPath();
-				}
-
-				_.each(pushedRefs, function(ref, i)
-				{
-					ref.pop();
-					// delete struct.__pushed;
-				});
-			},
-			clone : function(struct)
-			{
-				var obj = {}
-				return _.merge({}, struct, function(field, key){
-					if(key in fieldsOperators)
-						return fieldsOperators[key].clone(field);
-					return field;
-				});
-			}
+			slots : {}			
 		},
 		subClasses : [],
 		superClass : superClassName
@@ -3568,7 +2925,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, isGroup, typeP
 
 	// Why do we need to use the same store.
 	// Problem with this code is the type, because operators are only those of the root type
-	node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new FuncInput(type);
+	// node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new FuncInput(type);
 	// node.operators.selfStore = new SubStore(name);
 	
 	if(superClassName)
@@ -3697,7 +3054,7 @@ function StructTemplate(classGraph, tp, superClassName, inheritedFields)
 		this.cache[key] = instance;
 		library.nodes[concreteName] = instance;
 		// We clone because fields will be instantiated, and we want to keep template version
-		makeStruct(_.clone(this.classGraph, true), this.inheritedFields, superConcreteName, false, typeParamsInstances);
+		makeStruct(_.clone(this.classGraph, true), this.inheritedFields, superConcreteName, typeParamsInstances);
 		
 		return instance;
 	}
@@ -3987,13 +3344,7 @@ function FunctionTemplate(classGraph)
 		// instance.beforeStr += "function " + classGraph.id + "(" + paramStr + "){\n";
 		instance.beforeStr += instance.expr.getBeforeStr();
 		instance.beforeStr += "return " + instance.expr.getVal() + ";\n};\n";
-		if(instance.needsNodes)
-		{
-			instance.beforeStr += "function " + fullFuncName + "$update(__val, __ticks, __parentTick, " + paramStr + "){\n";
-			instance.beforeStr += instance.expr.getBeforeStr();
-			instance.beforeStr += "return (" + instance.expr.getNode() + ").update(__val, __ticks, __parentTick);\n};\n";	
-		}
-
+		
 		if("type" in instance)
 		{
 			// Juste check
@@ -4184,20 +3535,20 @@ function compileGraph(graph, lib, previousNodes)
 					{
 						src += "\n" + makeStruct(structGraph, []);
 
-						function makeSubs(subs, inheritedFields, superClassName, isGroup)
+						function makeSubs(subs, inheritedFields, superClassName)
 						{
 							if(subs)
 							{
 								for(var i = 0; i < subs.length; i++)
 								{
 									var subStructGraph = subs[i];
-									src += "\n" + makeStruct(subStructGraph, inheritedFields, superClassName, isGroup);
-									makeSubs(subStructGraph.subs, inheritedFields.concat(subStructGraph.fields), subStructGraph.name, false);
+									src += "\n" + makeStruct(subStructGraph, inheritedFields, superClassName);
+									makeSubs(subStructGraph.subs, inheritedFields.concat(subStructGraph.fields), subStructGraph.name);
 								}
 							}
 						}
 						
-						makeSubs(structGraph.subs, structGraph.fields, structGraph.name, false);
+						makeSubs(structGraph.subs, structGraph.fields, structGraph.name);
 					}
 				} else // tree
 				{
@@ -4226,7 +3577,7 @@ function compileGraph(graph, lib, previousNodes)
 			{
 				_.each(slotGraph.inParams, function(param)
 				{
-					var node = new SubStore(param[1]);
+					var node = new Store(param[1]);
 					localNodes[param[0]] = node;
 					inputs.push(node);
 				});
@@ -4258,7 +3609,7 @@ function compileGraph(graph, lib, previousNodes)
 			{
 				inputs = _.map(actionGraph.inParams, function(param)
 				{
-					return new SubStore(param[1]);
+					return new Store(param[1]);
 				});
 			}
 			
