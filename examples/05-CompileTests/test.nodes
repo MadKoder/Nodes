@@ -1,98 +1,38 @@
+# TODO signal/slots de struct generique
+# structs:
+# 	List<T> :
+# 		list<T>	l
+# 		signal onPushBack(T x)
+# 		slot pushBack(T x):
+# 			self.l.pushBack(x)
+# 			self.onPushBack(x)
+# functions:
+# 	ref controlView(List<int> l):
+# 		List<int>([x + 1 for x in l.l])
+# 		# TODO : same with slot
+# 		l.onPushBack => self.pushBack(x + 1)
+# nodes:
+# 	var l = List<int>([0, 1, 2])
 structs:
-	Vec2 :
-		float x
-		float y
-		signal click(int val)
-		slot inc(Vec2 delta) : 
-			self.click("tata")
-		subs : 
-			Vec3:
-				float z
-	Rect :
-		Vec2 pos
-		Vec2 size
-	VecList :
-		list<Vec2>	l
+	List :
+		list<int>	l
+		signal onPushFront(int x)
+		slot pushFront(int x):
+			# TODO : self.l.pushFront(x)
+			self.l = pushFront(self.l, x)
+			self.onPushFront(x)
 functions:
-	ref Vec2 mVec2(int x, int i)
-		Vec2
+	ref controlView(List l)
+		List
 		(
-			i, 
-			i,
-			click => x = x + i + 10
+			[x + 1 for x in l.l],
+			# l.onPushFront => self.pushFront(x + 1)
+			onPushFront => l.pushFront(x + 1)
 		)
-	ref test(list<int> a, int z)
-		VecList
-		(
-			pushBack(
-				[
-					mVec2(x, i)
-					for x, i in a
-				],
-				Vec2
-				(
-					0, 
-					0,
-					click => z = z + 1
-				)
-			)
-		)			
-	ref test2(list<list<int>> aa, int x)
-		[
-			test(a, x)
-			for a in aa
-		]
-# 	T inc<T>(T v)
-# 		if v < 10 then inc(v + 1) else v
+		# TODO : same with slot		
 nodes:
-	# var x = 0
-	# var y = 5
-	# var a = [1, 2, 3]
-
-	var aa = [[1, 2, 3], [4, 5]]
-	var x = 0
-	cache y = x + 1
-	# var sa = ["a", "b", "c"]
-	var t = "tutu"
-	# var v = Vec2(inc(0), 1, click => t = what)
-	cache va = test2(aa, x)
-		# [
-		# 	VecList
-		# 	([
-					
-		# 		Vec2
-		# 		(
-		# 			i, 
-		# 			i,
-		# 			click => x = x + i + 10
-		# 		)
-		# 		for x, i in a
-		# 	])
-		# 	for a in aa
-		# ]
-	# var s = Vec2(a, 0)
-	# def r = Rect(s, Vec2(100, 200))
-	# def c = r.pos.x
-	# def l =  range(0, 5)
-	# var a = [inc(x) for x in range(0, 3)]
-	# def a = [[inc(x) for x in l], [x + 2 for x in range(0, 3)]]
-	# def b = [x + 2 for x in range(0, 5)]
-	# def b = if a <= 10 then a else 20
-	# var b = inc(a)
+	var l = List([0, 1, 2])	
+	var v = controlView(l)
 actions :
 	tick :
-		x = x + 1 
-		# for item, i in a do 
-		# 	item = i + 1
-		# update item, i in a
-		# 	with i + 1 
-		for a in va do
-			for v in a.l do
-				v.inc(Vec2(1, 1))
-		# a = map(int x -> x * y, a)
-	# 	while s.x < 10 do :
-	# 		add(1)
-	# 		add(1)
-	# 	add(1)
-	# add(int val):
-	# 	s.x = s.x + val
+		v.pushFront(3)

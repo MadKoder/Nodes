@@ -61,7 +61,8 @@ Connections =
    }
    
 Connection =
-	_ signal:Id _ "=>" _ action:Action  _ 
+	// Check if Var is OK for all, else we need to make a special case for functions
+	_ signal:Var _ "=>" _ action:Action  _ 
 	{
 		var ret = {
 			action : action
@@ -184,8 +185,6 @@ FuncBody =
 	_ val:Val {return {nodes : [], val : val};}
 	/ _  "(" _ val:Val _ "," _ connections:(Connections) _")"
 		{return {nodes : [], val : val, connections : connections};}
-/*	/ _  "(" _ nodes:(nodes:Nodes _ "," {return nodes;})? _ val:Val _ ")"
-		{return {nodes : nodes ? nodes : [], val : val};} */
 	
 TypeAndId =
   type:Type _ id:Id { return {type:type, id:id};}

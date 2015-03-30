@@ -85,7 +85,7 @@ $.get("validation.nodes", function( text ) {
 	valid(whileAction.get(), 10, "While action");
 	valid(eventTest.get(), 3, "Event");
 	valid(matchTest.get(), true, "Match");
-	// valid(reduceTest.get(), 3, "Reduce");
+	valid(reduceTest.get(), 3, "Reduce");
 	validArray(rangeTest.get(), [0, 1], "Range");
 	valid(matchActionTest.get(), 10, "Match action");
 	validArray(mapTemplateTest.get(), [[1], [3]], "Map template");

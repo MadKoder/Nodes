@@ -124,11 +124,11 @@ nodes:
 	var v = Vec2(0, 0)
 	var clonerTest = 1
 	var mapTemplateTest = map(tail, [[0, 1], [2, 3]])
-	# var reduceTest = reduce
-	# 	(
-	# 		int accum, int elem -> accum + elem,
-	# 		[0, 1, 2]
-	# 	)
+	var reduceTest = reduce
+		(
+			int accum, int elem -> accum + elem,
+			[0, 1, 2]
+		)
 actions:
 	tickUi(Ui ui):
 		type ui do :

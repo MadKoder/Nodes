@@ -46,12 +46,9 @@ function getTypeParams(type)
 
 var src = "";
 var currentVarIndex = -1;
-var currentVarType = null;
 function newVar(val)
 {
 	currentVarIndex++;
-	// currentVarType = type;
-	// src += "var __v" + currentVarIndex.toString() + " = " + val + ";\n";
 	return "var __v" + currentVarIndex.toString() + " = " + val + ";\n";
 }
 
@@ -63,16 +60,6 @@ function getVar()
 function pathToString(path)
 {
 	return "[" + _.map(path, function(step){return "\"" + step + "\"";}).join(", ") + "]";
-}
-
-function getVarType()
-{
-	return currentVarType;
-}
-
-function getStrType()
-{
-	return "\"" + currentVarType + "\"";
 }
 
 function List(val)
@@ -113,6 +100,33 @@ function Dict(val, keyType)
 	this.getType = function()
 	{
 		return {base : "dict", params : ["string", this.keyType]};
+	}
+}
+
+
+function FuncInput(type) 
+{
+	this.stack = [];
+	this.type = type;
+	
+	// DEBUG
+	this.id = storeId;
+	storeId++;
+	
+	this.get = function()
+	{
+		// TODO error management
+		return this.stack[this.stack.length - 1];
+	};
+
+	this.pushVal = function(val)
+	{
+		this.stack.push(val);
+	};
+	
+	this.popVal = function()
+	{
+		this.stack.pop();
 	}
 }
 
@@ -1633,9 +1647,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 				// TODO always true ?
 				node.needsNodes = true;
 				var type = node.getType();
-				var test = library.nodes[type];
 				var signals = node.getSignals();
-				var type =  node.getType();
 				var slots = library.nodes[type].operators.slots;
 
 				_.each(expr.connections, function(connection)
@@ -1643,15 +1655,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 					var mergedNodes = _.clone(nodes);
 					_.merge(mergedNodes, slots[connection.signal].localNodes);
 					var action = makeAction(connection.action, mergedNodes);
-					if(connection.signal in signals)
-					{
-						signals[connection.signal] = {action : connection.action, nodes : mergedNodes};
-					}
-					else
-					{
-						// Case of a function that return a structure (FunctionNode)
-						signals[connection.signal] = {action : connection.action, nodes : mergedNodes};
-					}
+					signals[connection.signal] = {action : connection.action, nodes : mergedNodes};
 				});
 				connectionSet = true;
 			}
@@ -1766,9 +1770,6 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 	} else if("comp" in expr)
 	{
 		return new ComprehensionNode(expr, nodes);
-	} else if("listView" in expr)
-	{
-		return new ListViewNode(expr, nodes);
 	} else if("closure" in expr)
 	{
 		var funcName = "lambda" + lambdaIndex.toString();
@@ -2551,7 +2552,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 		// A field
 		if(_.isArray(item))
 		{
-			fieldsGraph.push(item);
+			fieldsGraph.push(_.clone(item));
 		}
 		else
 		{
@@ -2564,19 +2565,37 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 	});
 
 	var fieldsOperators = {};
-	var concreteFieldsGraph = _.clone(fieldsGraph);
 	for(var i = 0; i < fieldsGraph.length; i++)
 	{
 		var fieldType = fieldsGraph[i][1];
+		// Generic structure case
 		if(typeParamsInstances)
 		{
-			_.each(typeParamsInstances, function(instance){
-				if(instance[0] == fieldType)
+			// Recursively replace generic types by their instances
+			function replaceGenericTypes(fieldType)
+			{
+				// Simple type 
+				if(isString(fieldType))
 				{
-					fieldType = instance[1];
-					concreteFieldsGraph[i][1] = fieldType;
+					// find if it is one of the type params
+					var found = _.find(typeParamsInstances, function(genericType)
+					{
+						return (genericType[0] === fieldType);
+					});
+					// If yes, replace it by the type instance
+					if(found)
+					{
+						return found[1];
+					}
+					// Else return the type as is
+					return fieldType;
 				}
-			})
+				// A generic type : apply recursively
+				return mt(fieldType.base, _.map(fieldType.params, replaceGenericTypes));
+			}
+			
+			fieldType = replaceGenericTypes(fieldType);
+			fieldsGraph[i][1] = fieldType;
 		}
 		if(_.isPlainObject(fieldType))
 		{
@@ -2855,7 +2874,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 	}
 	
 	_.merge(node, {
-		fields : concreteFieldsGraph,
+		fields : fieldsGraph,
 		hiddenFields : [["__views", mt("dict", ["UiView"])]],
 		builder : makeBuilder(),
 		fieldsOp : fieldsOperators,
@@ -3179,7 +3198,9 @@ function getTemplateFromPath(type, path)
 
 function getParamsDeclTypes(paramsDecl)
 {
-	return _.map(paramsDecl, function(decl){return decl[1];});
+	return _
+		.filter(paramsDecl, function(decl) {return _.isArray(decl);})
+		.map(function(decl){return decl[1];});
 }
 
 function getTypeParamsToParamsPaths(typeParams, inputs)

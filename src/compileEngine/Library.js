@@ -1,4 +1,4 @@
-	
+
 function toto(vec)
 {
 	var hitResult = project.hitTest(new Point(vec.x, vec.y));
@@ -1779,65 +1779,7 @@ function FunctionNode(func)
 			}, this);
 			return this.signals;		
 		}
-		this.getMinMaxTick = function(path)
-		{
-			var min = 0, max = 0;
-			_.each(params, function(param)
-			{
-				var minMax = param.getMinMaxTick([]);
-				min = Math.max(min, minMax[0]);
-				max = Math.max(max, minMax[1]);
-			})
-			return [min, max];
-		};
-		this.getField = function(fieldName)
-		{
-			return this.get()[fieldName];
-		};
-		this.update = function(val, ticks, parentTick)
-		{
-			if(this.needsNodes)
-			{
-				var ret = func.update(val, ticks, parentTick, params);				
-			}
-			else
-			{
-				// var minMax = [0, 0];
-				// function upMinMax(old, current)
-				// {
-				// 	return [Math.min(old[0], current[0]), Math.max(old[1], current[1])];
-				// }
-				var max = 0;
-				_.each(params, function(node)
-				{
-					var minMax = node.getMinMaxTick([]);
-					// min = Math.min(min, minMax[0]);
-					max = Math.max(max, minMax[1]);
-				});
-
-				if(ticks.tick >= max)
-				{
-					return [val, ticks];
-				}
-
-				var ret = mValTick(func.func(params.map(function(param){return param.get();})));
-			}
-
-			// Setup signals for this function
-			if(this.hasSignals)
-			{
-				ret[0].__signals = this.signals;				
-			}
-			return ret;
-		};
-		this.getPathFromRoot = function()
-		{
-			return [];
-		}
-		this.getRootNode = function()
-		{
-			return this;
-		}
+		
 		this.getType = function()
 		{
 			// TODO : comprendre pourquoi le func.type ne fonctionne pas dans le cas user defined
