@@ -1098,11 +1098,10 @@ function compileRef(ref, nodes, promiseAllowed)
 				library.nodes[baseType];
 			
 			var fields = typeObj.fields;
-			var hiddenFields = typeObj.hiddenFields;
 			var type;
 			try
 			{
-				type = getFieldType(fields.concat(hiddenFields), path);
+				type = getFieldType(fields, path);
 			}
 			catch(err)
 			{
@@ -1628,7 +1627,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			if(connectionsAllowed)
 			{
 				node.needsNodes = true;				
-				var signals = node.fields.__signals;
+				var signals = node.getSignals();
 
 				var type = node.getType();
 				connections.push({
@@ -2482,7 +2481,6 @@ function __Obj(structDef, params, type, signals)
 			struct[key] = field.get();
 		});
 		struct.__type = type;
-		struct.__views = {};
 		_.each(this.signals, function(action, key)
 		{
 			struct[key] = action;
@@ -2620,6 +2618,17 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 		}
 	}
 
+	_.merge(node, {
+		fields : fieldsGraph,
+		builder : makeBuilder(),
+		fieldsOp : fieldsOperators,
+		operators : {
+			slots : {}			
+		},
+		subClasses : [],
+		superClass : superClassName
+	});
+	
 	var instanceIndex = 0;
 	
 	function makeBuilder()
@@ -2628,7 +2637,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 		{	
 			this.fields = {
 				__type : type,
-				__views : {}
 			};
 			this.operators = library.nodes[concreteName].operators;
 			this.signals = {};
@@ -2692,14 +2700,8 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 						};
 					}
 					var signalGraph = field;
-					// node.operators.signals[signalGraph.signal] = {};
-					if(!("__signals" in this.fields))
-					{
-						this.fields.__signals = {};
-					}
 					this.signals[signalGraph.signal] = [];
-					this.fields.__signals[signalGraph.signal] = [];
-
+					
 					if(firstSignal)
 					{
 						var comma = "";
@@ -2724,51 +2726,44 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 			{
 				signalStr = "{\n";
 				var firstField = true;
-				_.each(this.fields, function(field, key)
+				_.each(this.signals, function(signal, signalName)
 				{
-					if(key == "__signals")
+					if(firstField)
 					{
-						_.each(field, function(signal, key)
-						{
-							if(firstField)
-							{
-								var comma = "";
-								firstField = false;
-							}
-							else
-							{
-								var comma = ",\n\t";
-							}
-							if(signal.nodes != undefined)
-							{
-								var localNodes = _.clone(signal.nodes);
-								var signalParams = signalsParams[key];
-								var signalParamStr = _.map(signalParams, function(param)
-								{
-									var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
-									localNodes[param[0]] = node;
-									return param[0];
-								}).join(", ");
-								var action = makeAction(signal.action, localNodes);
-
-								signalStr += comma + key + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}";
-							} else
-							{
-								signalStr += comma + key + " : function(){}";
-							}
-						}, this);
+						var comma = "";
+						firstField = false;
 					}
-				});
+					else
+					{
+						var comma = ",\n\t";
+					}
+					if(signal.nodes != undefined)
+					{
+						var localNodes = _.clone(signal.nodes);
+						var signalParams = signalsParams[signalName];
+						var signalParamStr = _.map(signalParams, function(param)
+						{
+							var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
+							localNodes[param[0]] = node;
+							return param[0];
+						}).join(", ");
+						var action = makeAction(signal.action, localNodes);
+
+						signalStr += comma + signalName + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}";
+					} else
+					{
+						signalStr += comma + signalName + " : function(){}";
+					}
+				}, this);
 				signalStr += "}";
-				this.nodeStr = "new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\", " + signalStr + ")";
-				return this.nodeStr;
+				return "new __Obj(" + concreteName + ", " + paramStr +  ", \"" + concreteName + "\", " + signalStr + ")";
 			}
 
 			this.getVal = function()
 			{
-				this.valStr = "{\n";
+				valStr = "{\n";
 				var firstField = true;
-				_.each(this.fields, function(field, key)
+				_.each(this.fields, function(field, fieldName)
 				{
 					if(firstField)
 					{
@@ -2780,110 +2775,63 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 						var comma = ",\n\t";
 					}
 					
-					if(key == "__signals")
+					if(fieldName == "__type")
 					{
-						_.each(field, function(signal, key)
-						{
-							if(signal.nodes != undefined)
-							{
-								var localNodes = _.clone(signal.nodes);
-								var signalParams = signalsParams[key];
-								var signalParamStr = _.map(signalParams, function(param)
-								{
-									var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
-									localNodes[param[0]] = node;
-									return param[0];
-								}).join(", ");
-								var action = makeAction(signal.action, localNodes);
-
-								this.valStr += comma + key + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}";
-							} else
-							{
-								this.valStr += comma + key + " : function(){}";
-							}
-						}, this);
-					} 
-					else if(key == "__type")
-					{
-						this.valStr += comma + "__type : " + typeToJson(field);
-					}
-					else if(key == "__views")
-					{
-						this.valStr += comma + "__views : " + typeToJson(field);
+						valStr += comma + "__type : " + typeToJson(field);
 					}
 					else
 					{
-						this.valStr += comma + key + " : " + field.getVal();
+						valStr += comma + fieldName + " : " + field.getVal();
 					}
 				}, this);
-				this.valStr += "}";
-				return this.valStr;
+
+				_.each(this.signals, function(signal, signalName)
+				{
+					if(firstField)
+					{
+						var comma = "\t";
+						firstField = false;
+					}
+					else
+					{
+						var comma = ",\n\t";
+					}
+
+					if(signal.nodes != undefined)
+					{
+						var localNodes = _.clone(signal.nodes);
+						var signalParams = signalsParams[signalName];
+						var signalParamStr = _.map(signalParams, function(param)
+						{
+							var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
+							localNodes[param[0]] = node;
+							return param[0];
+						}).join(", ");
+						var action = makeAction(signal.action, localNodes);
+
+						valStr += comma + signalName + " : function(" + signalParamStr + "){" + action.getBeforeStr() + action.getNode() + "}";
+					} else
+					{
+						valStr += comma + signalName + " : function(){}";
+					}
+				}, this);
+				valStr += "}";
+				return valStr;
 			}
 
 			this.getSignals = function()
 			{
-				return this.fields.__signals;
+				return this.signals;
 			};
 
-			this.get = function()
-			{
-				var ret = _.mapValues(this.fields, function(field, key){
-					// TODO : ameliorer
-					return ((key == "__type") || (key == "__signals") || (key == "__views")) ? field :  field.get();
-				});
-				ret.__id = structId++;
-				if("__signals" in this.fields && "onBuilt" in this.fields.__signals)
-				{
-					// this.built = true;
-					this.operators.signal(ret, "onBuilt", [], [], this);
-					// this.built = false;
-					// signal : function(struct, id, params, path, node, callFromSlot)
-				}
-				return ret;
-			};	
-
-			this.getField = function(fieldName)
-			{
-				this.fields[fieldName].get();
-			};
 			this.getType = function()
 			{
 				return type;
 			};
-			this.addSink = function(sink)
-			{
-				_.each(this.fields, function(field, key)
-				{
-					if((key != "__type") && (key != "__signals") && (key != "__views"))
-					{
-						field.addSink(sink);
-					}
-				});				
-			};
-			this.signal = function(id, params, path)
-			{
-				this.operators.signal(this.get(), id, params, path, this);
-			}
-			if("__signals" in this.fields && "onBuilt" in this.fields.__signals)
-			{
-				var a = "t";
-			}
 		}
 
 		return builder;
 	}
-	
-	_.merge(node, {
-		fields : fieldsGraph,
-		hiddenFields : [["__views", mt("dict", ["UiView"])]],
-		builder : makeBuilder(),
-		fieldsOp : fieldsOperators,
-		operators : {
-			slots : {}			
-		},
-		subClasses : [],
-		superClass : superClassName
-	});
 	
 	var paramStr = "";
 	var slotStr = "";
@@ -2944,8 +2892,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 
 	// Why do we need to use the same store.
 	// Problem with this code is the type, because operators are only those of the root type
-	// node.operators.selfStore = superClassName ? library.nodes[superClassName].operators.selfStore : new FuncInput(type);
-	// node.operators.selfStore = new SubStore(name);
 	
 	if(superClassName)
 		library.nodes[superClassName].subClasses.push(concreteName);
@@ -2953,49 +2899,16 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 	for(var i = 0; i < signalAndSlotsGraph.length; i++)
 	{
 		var field = signalAndSlotsGraph[i];
-		if("slot" in field)
+		if("signal" in field)
 		{
-			// var slotGraph = field;
-			// var localNodes = {"self" : node.operators.selfStore};
-			// var inputs = [];
-			// _.each(slotGraph.params, function(param)
-			// {
-			// 	var node = new FuncInput(param[1]);
-			// 	localNodes[param[0]] = node;
-			// 	inputs.push(node);
-			// });
-			// node.operators.slots[field.slot] = {
-			// 	action : makeAction(slotGraph.action, localNodes),
-			// 	inputs : inputs
-			// };
-		} else
-		{
-			function StructSignal(id) {
-				this.id = id;
-				this.selfStore = node.operators.selfStore;
-				this.signal = function(rootAndPath)
-				{
-					var node = this.selfStore.get();
-					var slots = node.__signals[this.id];
-					for(var i = 0; i < slots.length; i++)
-					{
-						slots[i].signal();
-					}
-				};
-			}
 			var signalGraph = field;
-			var inputs = [];
 			var localNodes = {"self" : new Var("self.get()", "self", type,  "")};
 			_.each(signalGraph.params, function(param)
 			{
-				var node = new Var(param[0] + ".get()", param[0], param[1],  "")
-				localNodes[param[0]] = node;
-				// inputs.push(node);
+				localNodes[param[0]] = new Var(param[0] + ".get()", param[0], param[1],  "");
 			});
 								
 			node.operators.slots[signalGraph.signal] =  {
-				action : new StructSignal(signalGraph.signal),
-				inputs : inputs,
 				localNodes : localNodes
 			};
 		}
@@ -3527,6 +3440,33 @@ function compileGraph(graph, lib, previousNodes)
 						src += func.expr.getBeforeStr();
 						src += "return " + func.expr.getVal() + ";\n};\n";
 					}
+
+					if("connections" in funcGraph)
+					{
+						func.connections = funcGraph.connections;
+						var connects = funcGraph.connections;
+						_.each(connects, function(connection)
+						{
+							var nodeAndSignal = connection.signal;
+							// TODO struct i.e. sourceNode = _.initial(nodeAndSignal)
+							var sourceNode = func.internalNodes[nodeAndSignal[0]];
+							var signal = _.last(nodeAndSignal);
+							var node = sourceNode.getNode();
+							var toto = node;
+						});
+						// var type = node.getType();
+						// var signals = node.getSignals();
+						// var slots = library.nodes[type].operators.slots;
+
+						// _.each(expr.connections, function(connection)
+						// {
+						// 	var mergedNodes = _.clone(nodes);
+						// 	_.merge(mergedNodes, slots[connection.signal].localNodes);
+						// 	var action = makeAction(connection.action, mergedNodes);
+						// 	signals[connection.signal] = {action : connection.action, nodes : mergedNodes};
+						// });
+					}
+
 				}
 			}
 			else
@@ -3717,31 +3657,7 @@ function compileGraph(graph, lib, previousNodes)
 		src += condition.getAddSinkStr("__event" + eventIndex.toString());
 		eventIndex++;
     }
-	
-	for(var i = 0; i < graphNodes.length; i++)
-	{
-		var nodeRow = graphNodes[i];
-		for(var j = 0; j < nodeRow.length; j++)
-		{
-			var nodeGraph = nodeRow[j];
-			var id = getId(nodeGraph);
-			
-			if("connections" in nodeGraph)
-			{
-				var node = nodes[id];
-				var signals = node.get().__signals;
-				var type = node.getType();
-				var slots = library.nodes[type].operators.slots;
-				_.each(nodeGraph.connections, function(connection)
-				{
-					var mergedNodes = _.clone(nodes);
-					_.merge(mergedNodes, slots[connection.signal].localNodes);
-					signals[connection.signal].push(makeAction(connection.action, mergedNodes));
-				});
-			}
-		}
-    }
-	
+
 	_.each(connections, function(nodeConnection)
 	{
 		var signals = nodeConnection.signals;

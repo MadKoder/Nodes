@@ -22,17 +22,13 @@ structs:
 			self.l = pushFront(self.l, x)
 			self.onPushFront(x)
 functions:
-	ref controlView(List l)
-		List
-		(
-			[x + 1 for x in l.l],
-			# l.onPushFront => self.pushFront(x + 1)
-			onPushFront => l.pushFront(x + 1)
-		)
+	ref controlView(List l):
+		List([x + 1 for x in l.l])
+		l.onPushFront => self.pushFront(x + 1)
 		# TODO : same with slot		
 nodes:
 	var l = List([0, 1, 2])	
 	var v = controlView(l)
 actions :
 	tick :
-		v.pushFront(3)
+		l.pushFront(3)

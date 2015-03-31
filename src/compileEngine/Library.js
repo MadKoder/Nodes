@@ -1612,7 +1612,8 @@ var funcNodeId = 0;
 function FunctionNode(func)
 {
 	this.fields = func.params;
-
+	
+	var connections = "connections" in func ? func.connections : null;
 	var paramsSpec = func.params;
 	var fieldsSpec = this.fields;
 	this.builder = function(f) 
