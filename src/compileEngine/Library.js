@@ -1613,9 +1613,16 @@ function FunctionNode(func)
 {
 	this.fields = func.params;
 	
-	var connections = "connections" in func ? func.connections : null;
+	// this.connections = "connections" in func ? func.connections : null;
+
 	var paramsSpec = func.params;
 	var fieldsSpec = this.fields;
+	var connections = null;
+	this.setConnections = function(c)
+	{
+		connections = c;
+	}
+	
 	this.builder = function(f) 
 	{	
 		var params = Array(paramsSpec.length);

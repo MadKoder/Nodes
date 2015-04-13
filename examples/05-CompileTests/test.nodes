@@ -26,9 +26,13 @@ functions:
 		List([x + 1 for x in l.l])
 		l.onPushFront => self.pushFront(x + 1)
 		# TODO : same with slot		
+	ref controlView2(List l):
+		List([x * 2 for x in l.l])
+		l.onPushFront => self.pushFront(x * 2)
 nodes:
 	var l = List([0, 1, 2])	
 	var v = controlView(l)
+	var w = controlView2(l)
 actions :
 	tick :
 		l.pushFront(3)
