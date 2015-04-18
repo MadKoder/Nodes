@@ -40,6 +40,10 @@ structs:
 		subs :
 			Group :
 				list<Obj>		children
+				signal onAdd(Obj obj)
+				slot add(Obj obj):
+					self.children = pushBack(self.children, obj)
+					self.onAdd(obj)
 			Leaf :
 				int x
 	Ui : 		
@@ -70,19 +74,20 @@ functions:
 			Just<int> : t.x
 			_ : 0
 	ref Ui objToUi(Obj obj)
-	ref Ui groupToUi(Group g)
+	ref UiGroup groupToUi(Group g):
 		UiGroup
-		(
-			[objToUi(child) for child in g.children],
-			add => g.children = pushBack(g.children, what)
-		)
+			(
+				[objToUi(child) for child in g.children],
+				add => g.children = pushBack(g.children, what)
+			)
+		g.onAdd => self.children = pushBack(self.children, objToUi(obj))
 	ref Ui objToUi(Obj obj)
 		type obj:
 			Group : groupToUi
 				(
 					obj					
 				)
-			Leaf : UiLeaf(obj.x)
+			Leaf : UiLeaf(obj.x * 2)
 	list<list<int>> incListOfList(list<list<int>> l)
 		[[j + 1 for j in i] for i in l]
 nodes:
@@ -105,6 +110,16 @@ nodes:
 			Leaf(3)
 		])
 	def ui = objToUi(graph)
+	var graph2 = Group
+		([
+			Group
+			([
+				Leaf(1), 
+				Leaf(2)
+			]),
+			Leaf(3)
+		])
+	var uiVar = objToUi(graph2)
 	def ifExpr = if x == 6 then 10 else 0
 	def mapLambda = map(int val -> val + 10, intList)
 	var updatedAndMergedList = [Vec2(0., 1.), Vec2(2., 3.)]
@@ -136,10 +151,17 @@ actions:
 				ui.add(Leaf(10))
 				for child in ui.children do
 					tickUi(child)
+	tickGraph(Obj obj):
+		type obj do :
+			Group => 
+				obj.add(Leaf(100))
+				for child in obj.children do
+					tickGraph(child)
 	tick:
 		for monster in monsterListDef do
 			monster.click(2)
 		tickUi(ui)
+		tickGraph(graph2)
 		update vec, i in updatedAndMergedList
 			with vec \ x = 20. + i if vec.x > 1.
 		foreach forEachList inc(Vec2(1., 1.))

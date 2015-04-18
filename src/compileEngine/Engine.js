@@ -65,9 +65,14 @@ function pathToString(path)
 indentLevel = 0;
 indentation = "";
 
-function addLine(str)
+function addGlobLine(str)
 {
 	src += indentation + str + "\n";
+}
+
+function addLine(str, line, indent)
+{
+	src += Array(indent + 1).join("\t") + str + "\n";
 }
 
 function indent()
@@ -2893,7 +2898,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 	
 	var paramStr = "";
 	var slotStr = "";
-	var beforeStr = "";
 	var firstField = true;
 	_.each(signalSlotAndFieldGraph, function(item)
 	{
@@ -2924,7 +2928,6 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 					return param[0];
 				}).join(", ");
 				var action = makeAction(slotGraph.action, localNodes);
-				// beforeStr += action.getBeforeStr();
 				slotStr += slotGraph.slot + " : function(self, " + slotParamStr + "){\n" + action.getBeforeStr() + action.getNode() + "\n},\n";
 			} else
 			{
@@ -2933,20 +2936,17 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 				{
 					return param[0];
 				}).join(", ");
-				// beforeStr += action.getBeforeStr();
 				slotStr += signalGraph.signal + " : function(self";
 				if(signalParamStr.length > 0)
 				{
 					slotStr += ", " + signalParamStr;
 				}
-				slotStr += "){\nvar __selfVal = self.get();\nvar __pushedRefs = [];\nif(\"__refs\" in __selfVal)\n{\n_.each(__selfVal.__refs, function(ref, i){\n";
-				slotStr += "ref.push(__selfVal.__referencedNodes[i]);\n__pushedRefs.push(ref);\n});\n}\n"
-				slotStr += "__selfVal." + signalGraph.signal + "(" + signalParamStr + ");\n";
-				slotStr += "_.each(__pushedRefs, function(ref, i)\n{\nref.pop();\n});\n},\n";
+				slotStr += "){\nself.get()." + signalGraph.signal + "(" + signalParamStr + ");\n";
+				slotStr += "},\n";
 			}
 		}
 	});
-	var str = beforeStr + "var " + concreteName + " = {params : [" + paramStr + "],\n" + slotStr + "};\n";
+	var str = "var " + concreteName + " = {params : [" + paramStr + "],\n" + slotStr + "};\n";
 
 	// Why do we need to use the same store.
 	// Problem with this code is the type, because operators are only those of the root type
@@ -3496,7 +3496,7 @@ function compileGraph(graph, lib, previousNodes)
 							return paramAndType[0];
 							
 						}).join(", ");
-						addLine("\nfunction " + funcGraph.id + "(" + paramStr + ")")
+						addGlobLine("\nfunction " + funcGraph.id + "(" + paramStr + ")")
 						addOpenBrace();
 						if(func.expr.getBeforeStr().length > 0)
 						{
@@ -3504,7 +3504,7 @@ function compileGraph(graph, lib, previousNodes)
 						}
 						if("connections" in funcGraph)
 						{
-							addLine("var __ret = " + func.expr.getVal() + ";");
+							addGlobLine("var __ret = " + func.expr.getVal() + ";");
 
 							_.each(funcGraph.connections, function(connection)
 							{
@@ -3528,16 +3528,16 @@ function compileGraph(graph, lib, previousNodes)
 									sourceType = library.nodes[sourceTypeName];
 									var signalName = _.last(signalGraph);
 									
-									addLine("if(!(\"" + funcGraph.id + "\" in " + source + ".get().__sinks." + signalName + "))");
+									addGlobLine("if(!(\"" + funcGraph.id + "\" in " + source + ".get().__sinks." + signalName + "))");
 									addOpenBrace();
-									addLine(indentation + source + ".get().__sinks." + signalName + "[\"" + funcGraph.id + "\"] =");
+									addGlobLine(indentation + source + ".get().__sinks." + signalName + "[\"" + funcGraph.id + "\"] =");
 									addOpenBrace();
-									addLine("func : " + funcGraph.id + "$" + source + "$" + signalName + ",");
-									addLine("vars : []");
+									addGlobLine("func : " + funcGraph.id + "$" + source + "$" + signalName + ",");
+									addGlobLine("vars : []");
 									addCloseBrace();
 									addCloseBrace();
-									addLine(source + ".get().__sinks." + signalName + "[\"" + funcGraph.id + "\"].vars.push(new Store(__ret, \"" + func.type + "\"));");
-									addLine("return __ret;");
+									addGlobLine(source + ".get().__sinks." + signalName + "[\"" + funcGraph.id + "\"].vars.push(new Store(__ret, \"" + func.type + "\"));");
+									addGlobLine("return __ret;");
 									addCloseBrace();
 									
 									var a = 0;

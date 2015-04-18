@@ -1,30 +1,52 @@
 structs:
-	Vec2 :
-		float x
-		float y
-		signal click(int val)
-		slot inc(Vec2 delta) : 
-			# self.x = self.x + delta.x
-			# self.y = self.y + delta.y
-			self.click()
-		subs : 
-			Vec3:
-				float z
-	Rect :
-		Vec2 pos
-		Vec2 size
+	Obj :
+		subs :
+			Group :
+				list<Obj>		children
+				signal onAdd(Obj obj)
+				slot add(Obj obj):
+					self.children = pushBack(self.children, obj)
+					self.onAdd(obj)
+			Leaf :
+				int x
+	Ui : 		
+		subs :
+			UiGroup:
+				list<Ui> children
+			UiLeaf :
+				int x
 functions:
-	ref inc(float x)
-		x + 1
-	ref transform(list<Vec2> v, string t)
-		[
-			Vec2(inc(e.x), e.y + 2, click => e.x = e.x + 10) for e in v
-		]
+	ref Ui objToUi(Obj obj)
+	ref UiGroup groupToUi(Group g):
+		UiGroup
+			(
+				[objToUi(child) for child in g.children]
+			)
+		g.onAdd => self.children = pushBack(self.children, objToUi(obj))
+	ref Ui objToUi(Obj obj)
+		type obj:
+			Group : groupToUi
+				(
+					obj					
+				)
+			Leaf : UiLeaf(obj.x * 2)
 nodes:
-	var v = [Vec2(0, 0), Vec2(1, 1)]
-	var t = "toto"
-	cache v2 = transform(v, t)
-actions :
-	tick :
-		for e in v2 do
-			e.inc(Vec2(1, 1))
+	var graph = Group
+		([
+			Group
+			([
+				Leaf(1), 
+				Leaf(2)
+			]),
+			Leaf(3)
+		])
+	var ui = objToUi(graph)
+actions:
+	tickGraph(Obj obj):
+		type obj do :
+			Group => 
+				obj.add(Leaf(100))
+				for child in obj.children do
+					tickGraph(child)
+	tick:
+		tickGraph(graph)
