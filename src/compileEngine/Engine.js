@@ -65,6 +65,11 @@ function pathToString(path)
 indentLevel = 0;
 indentation = "";
 
+function indentToStr(indent)
+{
+	return Array(indent + 1).join("\t");
+}
+
 function addGlobLine(str)
 {
 	src += indentation + str + "\n";
@@ -72,7 +77,7 @@ function addGlobLine(str)
 
 function addLine(str, line, indent)
 {
-	src += Array(indent + 1).join("\t") + str + "\n";
+	src += indentToStr(indent) + str + "\n";
 }
 
 function indent()
@@ -97,6 +102,98 @@ function addCloseBrace()
 {
 	unindent();
 	src += indentation + "}\n";
+}
+
+function SimpleString(str)
+{
+	this.str = str;
+	
+	this.getStr = function(indent)
+	{
+		return indentToStr(indent) + this.str;
+	}
+}
+
+function Block(opening, closing, sep, lines)
+{
+	this.lines = lines == undefined ? [] : lines;
+	this.opening = opening;
+	this.closing = closing;
+	this.sep = sep;
+
+	this.addStr = function(line)
+	{
+		this.lines.push(new SimpleString(line));
+	}
+
+	this.addBlock = function(block)
+	{
+		this.lines.push(block);
+	}
+
+	this.addComposite = function(strs)
+	{
+		this.addBlock(compositeBlock(strs));
+	}
+
+	function _toStr(indent, lines)
+	{}
+
+	this.toStr = function(indent, lines)
+	{
+		// Complex case, at least one line
+		if(lines.length > 0)
+		{
+			return "\n" + indentToStr(indent) + this.opening + "\n" + _.map(lines, function(line)
+			{
+				return line.getStr(indent + 1);
+			}).join(this.sep) + "\n" + indentToStr(indent) + this.closing + "\n";
+		}
+		// Simple case, no line, return only opening and closing symbols
+		return this.opening + this.closing;
+	}
+
+	this.getStr = function(indent)
+	{
+		return this.toStr(indent, this.lines);
+	}
+
+	this.singleStr = function(indent, str)
+	{
+		return this.toStr(indent, [new SimpleString(str)]);
+	}
+}
+
+function dictBlock()
+{
+	return new Block("{", "}", ",\n");
+}
+
+function stmntBlock()
+{
+	return new Block("{", "}", ";\n");
+}
+
+function arrayBlock()
+{
+	return new Block("[", "]", ",\n");
+}
+
+function compositeBlock(strs)
+{
+	return	{
+		getStr : function(indent)
+		{
+			return indentToStr(indent) + _.map(strs, function(str)
+			{
+				if(_.isString(str))
+				{
+					return str;
+				}
+				return str.getStr(indent);
+			}).join("");
+		}
+	}
 }
 
 function List(val)
@@ -2659,6 +2756,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 		builder : makeBuilder(),
 		fieldsOp : fieldsOperators,
 		signals : {},
+		slots : {},
 		subClasses : [],
 		superClass : superClassName
 	});
@@ -2674,6 +2772,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 			};
 			this.operators = library.nodes[concreteName].operators;
 			this.signals = {};
+			this.slots = {};
 			this.built = false;
 			this.needsNodes = false;
 			this.addsRefs = false;
@@ -2721,18 +2820,9 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 						paramStr += comma + fieldVal.getNode();						
 					}
 					beforeStr += fieldVal.getBeforeStr();
-				} else if("signal" in field)
+				} 
+				else if("signal" in field)
 				{
-					function StructSignal() {
-						this.slots = [];
-						this.signal = function(rootAndPath)
-						{
-							for(var i = 0; i < this.slots.length; i++)
-							{
-								this.slots[i].signal(rootAndPath);
-							}
-						};
-					}
 					var signalGraph = field;
 					this.signals[signalGraph.signal] = [];
 					
@@ -2746,6 +2836,11 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 						var comma = ", ";
 					}
 					signalStr += "function " + signalGraph.signal + "(){}, ";
+				}
+				else // slots
+				{
+					var slotGraph = field;
+					this.slots[slotGraph.slot] = [];					
 				}
 			};
 			paramStr += "]";
@@ -2846,16 +2941,7 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 						var action = makeAction(signal.action, localNodes);
 
 						valStr += action.getBeforeStr() + action.getNode() + "\n";
-					}
-					valStr += "\t\tfor(__sink in this.__sinks." + signalName + ")\n";
-					valStr += "\t\t{\n";
-					valStr += "\t\t\t__func = this.__sinks." + signalName + "[__sink].func;\n";
-					valStr += "\t\t\t__vars = this.__sinks." + signalName + "[__sink].vars;\n";
-					valStr += "\t\t\tfor(__j = 0; __j < __vars.length; __j++)\n";
-					valStr += "\t\t\t{\n";
-					valStr += "\t\t\t\t__func(__vars[__j], " + signalParamStr + ");\n";
-					valStr += "\t\t\t}\n";
-					valStr += "\t\t}\n";
+					}					
 					valStr += "\t}";
 				}, this);
 				if(!firstField)
@@ -2863,20 +2949,12 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 					valStr += ",\n\t";
 				}
 				valStr += "__sinks :\n\t{";
-				var firstSlot = true;
-				_.each(this.signals, function(signal, signalName)
+				var signalsAndSlots = _.clone(this.signals)
+				_.merge(signalsAndSlots, this.slots);
+				valStr += _.map(signalsAndSlots, function(signalOrSlot, signalOrSlotName)
 				{
-					if(firstSlot)
-					{
-						firstSlot = false;
-						valStr += "\n";
-					}
-					else
-					{
-						valStr += ",\n";
-					}
-					valStr += "\t\t\"" + signalName +"\" : {}";
-				}, this);
+					return "\t\t\"" + signalOrSlotName +"\" : {}";
+				}, this).join(",\n");
 				valStr += "\n\t}";
 				valStr += "}";
 				return valStr;
@@ -2896,24 +2974,16 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 		return builder;
 	}
 	
-	var paramStr = "";
-	var slotStr = "";
-	var firstField = true;
+	var paramBlock = arrayBlock();
+	var structBlock = dictBlock();	
+	structBlock.addComposite(["params : ", paramBlock]);
+
 	_.each(signalSlotAndFieldGraph, function(item)
 	{
 		// A field
 		if(_.isArray(item))
 		{
-			if(firstField)
-			{
-				firstField = false;
-				var comma = "";
-			}
-			else
-			{
-				var comma = ", ";
-			}
-			paramStr += comma + "\"" + item[0] + "\"";
+			paramBlock.addStr("\"" + item[0] + "\"");
 		}
 		else
 		{
@@ -2928,25 +2998,67 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 					return param[0];
 				}).join(", ");
 				var action = makeAction(slotGraph.action, localNodes);
-				slotStr += slotGraph.slot + " : function(self, " + slotParamStr + "){\n" + action.getBeforeStr() + action.getNode() + "\n},\n";
-			} else
+				
+				var actionBlock = stmntBlock();
+				
+				var slotName = slotGraph.slot;
+				var str = "\t\tfor(__sink in self.get().__sinks." + slotName + ")\n";
+				str += "\t\t{\n";
+				str += "\t\t\t__func = self.get().__sinks." + slotName + "[__sink].func;\n";
+				str += "\t\t\t__vars = self.get().__sinks." + slotName + "[__sink].vars;\n";
+				str += "\t\t\tfor(__j = 0; __j < __vars.length; __j++)\n";
+				str += "\t\t\t{\n";
+				str += "\t\t\t\t__func(__vars[__j], " + slotParamStr + ");\n";
+				str += "\t\t\t}\n";
+				str += "\t\t}\n";
+
+				actionBlock.addComposite
+				([
+					new SimpleString(action.getBeforeStr() + action.getNode()),
+					str
+				]);
+				structBlock.addComposite
+					([
+						slotGraph.slot + " : function(self, " + slotParamStr + ")",
+						actionBlock
+					]);
+			} 
+			else
 			{
 				var signalGraph = item;
+				signalName = signalGraph.signal;
+				var localNodes = {"self" : new Var("self.get()", "self", type,  "")};
+				var signalParams = signalsParams[signalName];
 				var signalParamStr = _.map(signalGraph.params, function(param)
 				{
+					var node =  new Var(param[0] + ".get()", param[0], param[1],  "");
+					localNodes[param[0]] = node;
 					return param[0];
 				}).join(", ");
-				slotStr += signalGraph.signal + " : function(self";
+				var str = signalGraph.signal + " : function(self";
 				if(signalParamStr.length > 0)
 				{
-					slotStr += ", " + signalParamStr;
+					str += ", " + signalParamStr;
 				}
-				slotStr += "){\nself.get()." + signalGraph.signal + "(" + signalParamStr + ");\n";
-				slotStr += "},\n";
+				
+				str += "){\n";
+				str += "self.get()." + signalGraph.signal + "(" + signalParamStr + ");\n";
+				str += "\t\tfor(__sink in self.get().__sinks." + signalName + ")\n";
+				str += "\t\t{\n";
+				str += "\t\t\t__func = self.get().__sinks." + signalName + "[__sink].func;\n";
+				str += "\t\t\t__vars = self.get().__sinks." + signalName + "[__sink].vars;\n";
+				str += "\t\t\tfor(__j = 0; __j < __vars.length; __j++)\n";
+				str += "\t\t\t{\n";
+				str += "\t\t\t\t__func(__vars[__j], " + signalParamStr + ");\n";
+				str += "\t\t\t}\n";
+				str += "\t\t}\n";
+				str += "\t}";
+				structBlock.addStr(str);
 			}
 		}
 	});
-	var str = "var " + concreteName + " = {params : [" + paramStr + "],\n" + slotStr + "};\n";
+	
+	var str = "var " + concreteName + " =" + structBlock.getStr(0);
 
 	// Why do we need to use the same store.
 	// Problem with this code is the type, because operators are only those of the root type
@@ -2970,7 +3082,20 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 				localNodes : localNodes,
 				params : signalGraph.params
 			};
-			node.sinks
+		}
+		else
+		{
+			var slotGraph = field;
+			var localNodes = {"self" : new Var("self.get()", "self", type,  "")};
+			_.each(slotGraph.params, function(param)
+			{
+				localNodes[param[0]] = new Var(param[0] + ".get()", param[0], param[1],  "");
+			});
+								
+			node.slots[slotGraph.slot] =  {
+				localNodes : localNodes,
+				params : slotGraph.params
+			};
 		}
 	}
 
@@ -3573,7 +3698,14 @@ function compileGraph(graph, lib, previousNodes)
 								}
 								sourceType = library.nodes[sourceTypeName];
 								var signalName = _.last(signalGraph);
-								var sourceSignal = sourceType.signals[signalName];
+								if(signalName in sourceType.signals)
+								{
+									var sourceSignal = sourceType.signals[signalName];
+								}
+								else
+								{
+									var sourceSignal = sourceType.slots[signalName];
+								}
 								src += "function " + funcGraph.id + "$" + source + "$" + signalName;
 								src += "(__self";
 								var localNodes = {"self" : new Var("__self.get()", "__self", func.type,  "")};
@@ -3587,14 +3719,8 @@ function compileGraph(graph, lib, previousNodes)
 								var action = makeAction(connection.action, localNodes);
 								src += action.getBeforeStr() + action.getNode();
 								src += "}\n";
-								var a = 0;
 							}
-						});
-						/*src += "return " + func.expr.getVal() + ";\n};\n";
-						function controlView$l$onPushFront(__self, x)
-						{
-							List.pushFront(__self, new Store(x.get() + 1, "int"))
-						}*/
+						});						
 					}
 
 				}
@@ -3674,7 +3800,6 @@ function compileGraph(graph, lib, previousNodes)
 				});
 				delete slotGraph.inParams;
 			}
-			//slotGraph.params = [["self", structGraph.name]].concat(slotGraph.params);
 			var slotName = id[1];
 			var action = makeAction(slotGraph, localNodes);
 			var slot = {
@@ -3705,7 +3830,6 @@ function compileGraph(graph, lib, previousNodes)
 			}
 			
 			nodes[id[0]] = new Action(id[0], "");
-			// src += "var " + id[0] + " = new ActionParams(null, null);\n";
 		}
     }
 
@@ -3787,19 +3911,6 @@ function compileGraph(graph, lib, previousNodes)
 		src += condition.getAddSinkStr("__event" + eventIndex.toString());
 		eventIndex++;
     }
-
-	_.each(connections, function(nodeConnection)
-	{
-		var signals = nodeConnection.signals;
-		var type = nodeConnection.type;
-		var slots = library.nodes[type].slots;
-		_.each(nodeConnection.connections, function(connection)
-		{
-			// var mergedNodes = _.clone(nodes);
-			// _.merge(mergedNodes, slots[connection.signal].localNodes);
-			// signals[connection.signal].push(makeAction(connection.action, mergedNodes));
-		});
-	});
 	
 	return src;
 }

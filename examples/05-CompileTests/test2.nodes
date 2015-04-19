@@ -22,7 +22,7 @@ functions:
 			(
 				[objToUi(child) for child in g.children]
 			)
-		g.onAdd => self.children = pushBack(self.children, objToUi(obj))
+		g.add => self.children = pushBack(self.children, objToUi(obj))
 	ref Ui objToUi(Obj obj)
 		type obj:
 			Group : groupToUi

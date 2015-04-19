@@ -23,6 +23,7 @@ $.get("test2.nodes", function( text ) {
 	$tmp.append("<div id=\"test\"></div>");
 	var $test = $("#test");
 
+	AAA = src;
 	$.globalEval(src)
 
 	tick();
