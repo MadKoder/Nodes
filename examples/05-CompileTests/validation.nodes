@@ -127,6 +127,8 @@ nodes:
 	var ifAction = true
 	var whileAction = 0
 	var eventTest = 0
+	def eventDefTest = eventTest + 1
+	var eventDefTestResult = 0
 	var matchTest = match 0:
 		0 : true
 		1 : false
@@ -183,3 +185,5 @@ events:
 	eventTest == 1 :
 		eventTest = 2
 		eventTest = eventTest + 1
+	eventDefTest == 3:
+		eventDefTestResult = 1

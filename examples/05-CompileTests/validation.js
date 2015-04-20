@@ -84,6 +84,7 @@ $.get("validation.nodes", function( text ) {
 	valid(ifAction.get(), false, "If action");
 	valid(whileAction.get(), 10, "While action");
 	valid(eventTest.get(), 3, "Event");
+	valid(eventDefTestResult.get(), 1, "Event def");
 	valid(matchTest.get(), true, "Match");
 	valid(reduceTest.get(), 3, "Reduce");
 	validArray(rangeTest.get(), [0, 1], "Range");
