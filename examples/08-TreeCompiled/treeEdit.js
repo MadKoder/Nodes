@@ -36,7 +36,7 @@ localFunctions =
 	(
 		function(vec)
 		{
-			return "toto(" + vec + ")";
+			return "hit(" + vec + ")";
 		},
 		inOut1("Vec2", "int")
 	)
@@ -60,16 +60,6 @@ $.get("treeEdit.nodes", function( text ) {
 	var canvas = document.getElementById('canvas');
 	paper.setup(canvas);
 	
-	function toto(vec)
-	{
-		var hitResult = project.hitTest(new Point(vec.x, vec.y));
-						
-		if (!hitResult)
-			return -1;
-
-		return hitResult.item.data;
-	}
-
 	var codeGraph = codeToGraph(text, library, parser);
 	var code = compileGraph(codeGraph, library);
 	$.globalEval(code);

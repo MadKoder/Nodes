@@ -1,5 +1,6 @@
 
-function toto(vec)
+// For treeEdit
+function hit(vec)
 {
 	var hitResult = project.hitTest(new Point(vec.x, vec.y));
 					
@@ -18,18 +19,6 @@ function check(test, str)
 		throw "Compilation error. " + str;
 }
 
-function mValTick(val, subs)
-{
-	var minTick = globalTick;
-	if(subs != undefined)
-	{
-		_.each(subs, function(sub)
-		{
-			minTick = Math.min(minTick, sub.min);
-		});
-	}
-	return [val, {tick : globalTick, min : minTick, subs : subs}];
-}
 
 function typeToString(type)
 {
@@ -64,23 +53,6 @@ function typeToJson(type)
 	}
 	return "{base : \"" + baseType + "\",params : [" + _.map(typeParams, typeToJson).join(",") + "]}";
 }
-
-// function isSubType(checkedType, refType)
-// {
-// 	var classDef = library.nodes[checkedType];
-// 	if(classDef)
-// 	{
-// 		var superClass = classDef.superClass;
-// 		if(superClass)
-// 		{
-// 			if(superClass == refType)
-// 			{
-// 				return true;
-// 			}
-// 			return isSubType(superClass, refType);
-// 		}
-// 	}
-// }
 
 function isStrictSubType(checkedType, refType)
 {
@@ -241,10 +213,6 @@ function mf1(func1, inAndOutTypes)
 		getBeforeStr : function()
 		{
 			return "";
-		},
-		getBeforeUpdate : function()
-		{
-			return "";
 		}
 	}
 }
@@ -278,10 +246,6 @@ function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 				},
 				type : inAndOutTypes.output,
 				getBeforeStr : function()
-				{
-					return "";
-				},
-				getBeforeUpdate : function()
 				{
 					return "";
 				}
@@ -372,10 +336,6 @@ function mf2(func2, inAndOutTypes)
 		getBeforeStr : function()
 		{
 			return "";
-		},
-		getBeforeUpdate : function()
-		{
-			return "";
 		}
 	}
 }
@@ -431,10 +391,6 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 				},
 				type : inAndOutTypes.output,
 				getBeforeStr : function()
-				{
-					return "";
-				},
-				getBeforeUpdate : function()
 				{
 					return "";
 				}
@@ -1290,52 +1246,6 @@ var functions =
 				{	
 					return "_(" + params[1] + ".get()).map(function(val){return " + params[0] + "(val);}).flatten(true).value()";
 				};
-				this.getUpdate = function(params) 
-				{	
-					// TODO
-					return "_(" + params[1] + ".get()).map(function(val){return " + params[0] + "(val);}).flatten(true).value()";
-				};
-				this.funcRef = function(params) 
-				{	
-					var funcInstance = params[0].get();
-					var array = params[1];
-					var arrayVal = array.get();
-					if(funcInstance.needsNodes)
-					{						
-						this.arrayAccess.pushCacheAndNode(arrayVal, array);
-						var aa = this.arrayAccess;
-						var ret = _(arrayVal).map(function(val, i)
-						{
-							aa.push(i);
-
-							// Il faut appeler funcInstance.func pour conserver le "this",
-							// et non pas cacher la methode func puis l'appeler seule
-							var ret = funcInstance.funcRef([aa]);
-							
-							aa.pop();
-
-							return ret;
-						})
-						.flatten(true).value();
-
-						this.arrayAccess.popCacheAndNode();
-
-						return ret;
-					}
-					else
-					{
-						var ret = _(arrayVal).map(function(val)
-						{
-							// Il faut appeler funcInstance.func pour conserver le "this",
-							// et non pas cacher la methode func puis l'appeler seule
-							return funcInstance.func([val]);
-						})
-						.flatten(true).value();
-						ret.__refs = [];
-						ret.__referencedNodes = [];
-						return ret;
-					}
-				};
 				this.type = mListType(templates[1]);
 				this.templates = templates;
 				this.getBeforeStr = function()
@@ -1360,68 +1270,14 @@ var functions =
 			{
 				this.params = [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , mListType(templates[0])]];
 				this.needsNodes = true;
-				this.arrayAccess = new ArrayAccess(null, mListType(templates[0]));
-				this.accumNode = new FuncInput(templates[1]);
 				this.getStrRef = function(params) 
 				{	
-					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);})";
-				};
-				this.getUpdate = function(params) 
-				{	
-					// TODO
 					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);})";
 				};
 				this.getBeforeStr = function()
 				{
 					return "";
 				}
-				this.getBeforeUpdate = function()
-				{
-					return "";
-				}
-				this.funcRef = function(params) 
-				{	
-					var funcInstance = params[0].get();
-					if(funcInstance.needsNodes)
-					{						
-						var array = params[1];
-						var arrayVal = array.get();
-						this.arrayAccess.pushCache(arrayVal);
-						var aa = this.arrayAccess;
-						var an = this.accumNode;
-						var ret = _.reduce(arrayVal, function(accum, val, i)
-						{
-							// Il faut appeler funcInstance.func pour conserver le "this",
-							// et non pas cacher la methode func puis l'appeler seule
-							// return funcInstance.func([accum, val]);
-
-							an.pushVal(accum);
-							aa.push(i);
-
-							var res = funcInstance.funcRef([an, aa]);
-
-							aa.pop();
-							an.popVal();
-
-							return res;
-						});
-
-						this.arrayAccess.popCache();
-						
-						return ret;
-					}
-					else
-					{
-						var arrayVal = params[1].get();
-						return _.reduce(arrayVal, function(accum, val, i)
-						{
-							// Il faut appeler funcInstance.func pour conserver le "this",
-							// et non pas cacher la methode func puis l'appeler seule
-							// return funcInstance.func([accum, val]);
-							return funcInstance.func([accum, val]);
-						});
-					}
-				};
 				this.type = templates[1];
 				this.templates = templates;
 			}
@@ -1443,70 +1299,14 @@ var functions =
 			{
 				this.params = [["function" , inOut2(templates[1], templates[0], templates[1])], ["list" , mListType(templates[0])], ["start" , templates[1]]];
 				this.needsNodes = true;
-				this.arrayInput = new FuncInput(mListType(templates[0]));
-				this.arrayAccess = new ArrayAccess(this.arrayInput);
-				this.accumNode = new FuncInput(templates[1]);
 				this.getStrRef = function(params) 
 				{	
-					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);}," + params[2] + ".get())";
-				};
-				this.getUpdate = function(params) 
-				{	
-					// TODO
 					return "_.reduce(" + params[1] + ".get(), function(accum, val){return " + params[0] + "(accum ,val);}," + params[2] + ".get())";
 				};
 				this.getBeforeStr = function()
 				{
 					return "";
 				};
-				this.getBeforeUpdate = function()
-				{
-					return "";
-				};
-				this.funcRef = function(params) 
-				{	
-					var funcInstance = params[0].get();
-					if(funcInstance.needsNodes)
-					{						
-						var array = params[1];
-						var arrayVal = array.get();
-						this.arrayAccess.pushCache(arrayVal);
-						var aa = this.arrayAccess;
-						var an = this.accumNode;
-						var ret = _.reduce(arrayVal, function(accum, val, i)
-						{
-							// Il faut appeler funcInstance.func pour conserver le "this",
-							// et non pas cacher la methode func puis l'appeler seule
-							// return funcInstance.func([accum, val]);
-
-							an.pushVal(accum);
-							aa.push(i);
-
-							var res = funcInstance.funcRef([an, aa]);
-
-							aa.pop();
-							an.popVal();
-
-							return res;
-						}, params[2].get());
-
-						this.arrayAccess.popCache();
-						
-						return ret;
-					}
-					else
-					{
-						var arrayVal = params[1].get();
-						return _.reduce(arrayVal, function(accum, val, i)
-						{
-							// Il faut appeler funcInstance.func pour conserver le "this",
-							// et non pas cacher la methode func puis l'appeler seule
-							// return funcInstance.func([accum, val]);
-							return funcInstance.func([accum, val]);
-						}, params[2].get());
-					}
-				};
-				
 				this.type = templates[1];
 				this.templates = templates;
 			}
@@ -1541,12 +1341,6 @@ var functions =
 
 				this.getStrRef = function(params)
 				{
-					return "_contains(" + params + ")";
-				}
-
-				this.getUpdate = function(params)
-				{
-					// TODO
 					return "_contains(" + params + ")";
 				}
 			}
@@ -1589,12 +1383,6 @@ var functions =
 	}
 };
 
-function merge(dst, src)
-{
-	var ret = _.merge(_.cloneDeep(dst), src);
-	return ret;
-}
-
 function _Func(func, isObject, updateFunc)
 {
 	this.func = func;
@@ -1607,37 +1395,19 @@ function _Func(func, isObject, updateFunc)
 	}
 }
 
-var globalTick = 0;
 var funcNodeId = 0;
 function FunctionNode(func)
 {
 	this.fields = func.params;
 	
-	// this.connections = "connections" in func ? func.connections : null;
-
 	var paramsSpec = func.params;
 	var fieldsSpec = this.fields;
-	var connections = null;
-	this.setConnections = function(c)
-	{
-		connections = c;
-	}
 	
-	this.builder = function(f) 
+	this.builder = function(fields) 
 	{	
-		var params = Array(paramsSpec.length);
-		var fields = f;
-
 		this.id = funcNodeId++;
+		var params = Array(paramsSpec.length);		
 		this.func = func;		
-		var paramsNeedNodes = _.any(fields, function(field)
-		{
-			return field.needsNodes;
-		});
-		this.needsNodes = func.needsNodes || paramsNeedNodes;
-		this.addsRefs = func.needsNodes;
-		this.signals = {};
-		this.hasSignals = false;
 		_.each(fields, function(field, key)
 		{
 			var index = _.findIndex(fieldsSpec, function(fieldSpec){return fieldSpec[0] == key;});
@@ -1647,79 +1417,31 @@ function FunctionNode(func)
 			{
 				field.setTemplateParams(func.templates);
 			}
-			src
-		}, this);
-		this.beforeStr = "";
-		this.beforeUpdate = "";
-		this.str = "";
-
-		this.beforeStr += func.getBeforeStr();
-		// this.beforeUpdate += func.getBeforeUpdate();
-		var inputStr = "";
-		if("inputNodes" in func)
-		{
-			_.each(func.inputNodes, function(input, i)
-			{
-				inputStr += "var " + input.getNode() + " = " + params[i].getNode() + ";";
-			});
-		}
-		var paramsVal = _.map(params, function(param)
-		{
-			// this.str += field.getStr();
-			this.beforeStr += param.getBeforeStr();
-			// return getVar(); // + ".get()";
-			return param.getVal();
 		}, this);
 		
-		var paramsNodeStr = "[";
-		var paramsNode = _.map(params, function(param, index)
-		{
-			if(!(param.isConstant))
-			{
-				var comma = (index == 0) ? "" : ", ";									
-				var node = param.getNode();
-				if(!(param.isFunc)) // If not a function
-				{
-					paramsNodeStr += comma + node;
-				}
-				else
-				{
-					var a = 0;
-				}
-				return node;
-			}
-			return "";
-		}, this);
-		paramsNodeStr += "]";
-		// newVar(func.getStr(paramsVar), func.type);
-		// this.str += newVar(func.getStr(paramsVar));
-		
+		this.beforeStr = func.getBeforeStr();
+				
 		if(func.needsNodes)
 		{
+			var paramsNode = _.map(params, function(param, index)
+			{
+				if(!(param.isConstant))
+				{
+					return param.getNode();
+				}
+				return "";
+			}, this);
+
 			this.str = func.getStrRef(paramsNode);
 		}
 		else
 		{
-			// if(paramsNeedNodes)
-			if(false)
+			var paramsVal = _.map(params, function(param)
 			{
-				var paramsNodeGet = _.map(params, function(param, index)
-					{
-						var node = param.getNode();
-						return "(" + node + ").get()"
-					});
-				this.str = func.getStr(paramsNodeGet);
-			}
-			else
-			{
-				// updateStrNoNodes = func.getStr(paramsUpdate);
-				this.str += func.getStr(paramsVal);
-			}
+				return param.getVal();
+			}, this);			
+			this.str = func.getStr(paramsVal);
 		}
-		this.varName = getVar();
-
-		// this.str = "{\nget : function(){\n return " + this.str + ";\n}}"
-		this.val = this.str;
 
 		var baseType = getBaseType(func.type);
 		var isStruct = (
@@ -1733,7 +1455,6 @@ function FunctionNode(func)
 		
 		this.getBeforeStr = function()
 		{
-			// return inputStr + "\n" + this.beforeStr;
 			return this.beforeStr;
 		}
 
@@ -1742,10 +1463,9 @@ function FunctionNode(func)
 			return this.nodeStr;
 		}
 
-		
 		this.getVal = function()
 		{
-			return this.val;
+			return this.str;
 		}
 
 		this.getAddSinkStr = function(sink)
@@ -1756,61 +1476,12 @@ function FunctionNode(func)
 			}).join("");
 		}
 
-		this.get = function()
-		{
-			if(func.needsNodes)
-			{
-				var ret = func.funcRef(params);
-				
-				// Setup signals for this function
-				if(this.hasSignals)
-				{
-					ret.__signals = this.signals;					
-				}
-			}
-			else
-			{
-				var ret = func.func(params.map(function(param){return param.get();}));
-			}
-			
-			this.tick = globalTick;			
-			return ret;
-		};
-		this.getSignals = function()
-		{
-			this.hasSignals = true;
-			var oldSignals = func.expr.getSignals();
-			_.each(oldSignals, function(signal, key)
-			{
-				this.signals[key] = _.clone(signal);
-				signal = [];
-			}, this);
-			return this.signals;		
-		}
-		
 		this.getType = function()
 		{
-			// TODO : comprendre pourquoi le func.type ne fonctionne pas dans le cas user defined
 			if(!("type" in func))
 				throw "Return type of function " + func.name + " not defined, and cannot deduce it from parameters (recursive template function ?)"
 			
-			// if("expr" in func)
-				// return func.expr.getType();
 			return func.type;
-		}
-		this.addSink = function(sink)
-		{
-			_.each(fields, function(field)
-			{
-				field.addSink(sink);
-			});
-		};
-		this.signal = function(sig, val, path)
-		{
-			var struct = this.get();
-			var nodeClass = library.nodes[struct.__type];
-			nodeClass.operators.signal(this, sig, val, path);
-			// val.__signals[sig], val, path);
 		}
 	}
 }
@@ -1843,50 +1514,6 @@ function Tuple(fields)
 	}
 };
 
-function __updateIf(val, ticks, parentTick, cond, first, second)
-{
-	// If condition didn't change, update result
-	var minMax = cond.getMinMaxTick([]);
-	if(ticks.tick >= minMax[1])
-	{
-		var condRes = cond.update(undefined, ticks, parentTick);
-		if(condRes[0])
-		{
-			if(ticks.tick >= first.getMinMaxTick([])[1])
-			{
-				return mValTick(val, ticks.subs);
-			}
-			else
-			{
-				return first.update(val, ticks, parentTick);
-			}
-		}
-		else
-		{
-			if(ticks.tick >= second.getMinMaxTick([])[1])
-			{
-				return mValTick(val, ticks.subs);
-			}
-			else
-			{
-				return second.update(val, ticks, parentTick);
-			}
-		}							
-	}
-	else // We don't know, so we get the new value
-	{
-		var condRes = cond.update(undefined, ticks, parentTick);
-		if(condRes[0])
-		{
-			return first.update(val, ticks, parentTick);			
-		}
-		else
-		{
-			return second.update(val, ticks, parentTick);
-		}
-	}
-};
-
 var nodes = 
 {
 	"string" :
@@ -1897,10 +1524,6 @@ var nodes =
 			{
 				// TODO
 			},
-			update : function(val, tick)
-			{
-
-			}
 		}
 	},
 	"int" :
@@ -2006,16 +1629,6 @@ var nodes =
 						return this.nodeStr;
 					}
 
-					this.getUpdate = function()
-					{
-						return "__updateIf(__val, __ticks, __parentTick, " + cond.getNode() + ", " + first.getNode() + ", " + second.getNode() + ")";
-					}
-
-					this.getUpdateNode = function()
-					{
-						return "new __UpdateFunc(function(__val, __ticks, __parentTick){return __updateIf(__val, __ticks, __parentTick, " + cond.getUpdateNode() + ", " + first.getUpdateNode() + ", " + second.getUpdateNode() + ");}, " + typeToJson(typeParam) + ")";
-					}
-
 					this.getVal = function()
 					{
 						return this.val;
@@ -2030,40 +1643,6 @@ var nodes =
 						return second.get();
 					};
 
-					this.update = function(val, ticks, parentTick)
-					{
-						// If condition didn't change, update result
-						var minMax = cond.getMinMaxTick([]);
-						if(ticks.tick >= minMax[1])
-						{
-							if(cond.get())
-							{
-								if(ticks.tick >= first.getMinMaxTick([])[1])
-								{
-									return mValTick(val, ticks.subs);
-								}
-								else
-								{
-									return first.update(val, ticks, parentTick);
-								}
-							}
-							else
-							{
-								if(ticks.tick >= second.getMinMaxTick([])[1])
-								{
-									return mValTick(val, ticks.subs);
-								}
-								else
-								{
-									return second.update(val, ticks, parentTick);
-								}
-							}							
-						}
-						else // We don't know, so we get the new value
-						{
-							return mValTick(this.get());
-						}
-					};
 					this.getType = function(){
 							// TODO check first and second type compatibles
 							return second.getType();
@@ -2074,20 +1653,6 @@ var nodes =
 						first.addSink(sink);
 						second.addSink(sink);
 					};
-
-					this.getMinMaxTick = function(path)
-					{
-						// TODO path ?
-						var maxTicks = 0, maxOfMinTicks = 0;
-						var list = [cond, first, second]
-						_.each(list, function(item){
-							var itemMinMaxTicks = item.getMinMaxTick([]);
-							maxTicks = Math.max(maxTicks, itemMinMaxTicks[1]);
-							maxOfMinTicks = Math.max(maxOfMinTicks, itemMinMaxTicks[0]);
-						});
-
-						return [maxOfMinTicks, maxTicks];
-					}
 				}
 			}
 		}
@@ -2132,70 +1697,6 @@ var nodes =
 					{
 						return mListType(temp[0]);
 					}
-				},
-				operators : {
-					getPath : function(list, path)
-					{
-						if(path.length == 1)
-						{
-							// return struct[path[0]].get();
-							return struct[path[0]];
-						}
-						else
-						{
-							var subPath = path.slice(0);
-							var index = subPath.shift();
-							return instanceTypeOperators.getPath(list[index], subPath);
-						}
-					},
-					setPath : function(list, path, val)
-					{
-						if(path.length == 1)
-						{
-							struct[path[0]] = val;
-						}
-						else
-						{
-							var subPath = path.slice(0);
-							var index = subPath.shift();
-							instanceTypeOperators.setPath(list[index], subPath, val);
-						}
-					},
-					signalOperator : instanceTypeOperators ? instanceTypeOperators.signal : null,
-					instanceType : subBaseType,
-					arrayAccess : new ArrayAccess(undefined, mListType(subType)),
-					signal : function(list, sig, params, path, node)
-					{
-						// this.arrayAccess.pushCache(list.get());
-						if(!path || path.length == 0)
-						{
-							if(sig == "foreach")
-							{
-								var subParams  = params.slice(0);
-								var iteratedSignal = subParams.shift();
-								_.each(list, function(item, index) 
-								{
-									node.pushPath(index);
-									instanceTypeOperators.signal(item, iteratedSignal, subParams, [], node);
-									node.popPath()
-								}, this);
-							} else
-							{
-								throw "Unknown signal for list : " + sig;
-							}
-						}
-						else
-						{
-							var subPath = path.slice(0);
-							var index = subPath.shift();
-							this.arrayAccess.push(index);
-							node.pushPath(index);
-							instanceTypeOperators.signal(list[index], sig, params, subPath, node);
-							node.popPath();
-							this.arrayAccess.pop();
-						}
-						this.arrayAccess.popCache();
-					}
 				}
 			}
 		}
@@ -2205,20 +1706,6 @@ var nodes =
 		guessTypeParams : undefined, // TODO
 		getInstance : function(templates)
 		{
-			// var subType = templates[0];
-			// var subBaseType = getBaseType(subType);
-			// if(subBaseType in library.nodes)
-			// {
-				// var subTypeTemplates = guessTypeParams(subType);
-				// var typeObj = (subTypeTemplates.length > 0) ? 
-					// library.nodes[subBaseType].getInstance(subTypeTemplates) :
-					// library.nodes[subBaseType];
-				// if(typeObj != undefined && "operators" in typeObj)
-				// {
-					// var instanceTypeOperators = typeObj.operators;
-				// }
-			// }
-
 			return {
 				"fields" : [["dict", dictType(templates[0])]],
 				"builder" : function(fields) 
@@ -2239,42 +1726,7 @@ var nodes =
 					{
 						return dictType(templates[0], templates[1]);
 					}
-				},
-				// operators : {
-					// getPath : function(struct, path)
-					// {
-						// if(path.length == 1)
-						// {
-							// // return struct[path[0]].get();
-							// return struct[path[0]];
-						// }
-						// else
-						// {
-							// var subPath = path.slice(0);
-							// var key = subPath.shift();
-							// return fieldsOperators[key].getPath(struct[key], subPath);
-						// }
-					// },
-					// setPath : function(struct, path, val)
-					// {
-						// if(path.length == 1)
-						// {
-							// struct[path[0]] = val;
-						// }
-						// else
-						// {
-							// var subPath = path.slice(0);
-							// var key = subPath.shift();
-							// fieldsOperators[key].setPath(struct[key], subPath, val);
-						// }
-					// },
-					// signalOperator : instanceTypeOperators ? instanceTypeOperators.signal : null,
-					// instanceType : subBaseType,
-					// signal : function(list, iteratedSignal, params)
-					// {
-						// _.each(list, function(item) {instanceTypeOperators.signal(item, iteratedSignal, params);}, this);
-					// }
-				// }
+				}
 			}
 		}
 	},
@@ -2318,15 +1770,6 @@ var nodes =
 							}).join(", ") + "])";
 					}
 					
-					this.getUpdate = function()
-					{
-						// TODO
-						return "mValTick([" + _.map(this.fields, function(field)
-							{
-								return field.getVal();
-							}).join(", ") + "])";
-					}
-
 					this.getVal = function()
 					{
 						return "[" + _.map(this.fields, function(field)
@@ -2335,44 +1778,11 @@ var nodes =
 							}).join(", ") + "]";
 					}
 
-					// this.get = function()
-					// {
-					// 	return _.map(this.fields, function(field){return field.get();});
-					// };
 					this.getType = function()
 					{
 						return mt("tuple", templates);
 					};
-				},
-				operators : {
-					getPath : function(struct, path)
-					{
-						if(path.length == 1)
-						{
-							// return struct[path[0]].get();
-							return struct[path[0]];
-						}
-						else
-						{
-							var subPath = path.slice(0);
-							var key = subPath.shift();
-							return fieldsOperators[key].getPath(struct[key], subPath);
-						}
-					},
-					setPath : function(struct, path, val)
-					{
-						if(path.length == 1)
-						{
-							struct[path[0]] = val;
-						}
-						else
-						{
-							var subPath = path.slice(0);
-							var key = subPath.shift();
-							fieldsOperators[key].setPath(struct[key], subPath, val);
-						}
-					}
-				}
+				}				
 			}
 		}
 	}
@@ -2380,80 +1790,43 @@ var nodes =
 
 nodes = _.merge(nodes, functions, function(node, func){return funcToNodeSpec(func);});
 
-var nodeId = 0;
-
-function Print(slots, param) {
-	var text = param;
-    this.signal = function()
-    {
-		console.log(text.get());
-    };
-}
-
-
-function Send(slots, param) {
-    this.slots = slots;
-    this.param = param;
-    this.id = nodeId;
-    nodeId++;
-	this.signal = function(rootAndPath)
-    {
-		var val = this.param.get();
-		for(var i = 0; i < this.slots.length; i++)
-		{
-			this.slots[i].set(val, rootAndPath);
-		}
-    };
-}
-
-function Signal(slots, param) {
-    this.slots = slots;
-    this.param = param;
-	this.signal = function(rootAndPath)
-    {
-		var val = this.param.get();
-		for(var i = 0; i < this.slots.length; i++)
-		{
-			this.slots[i].signal(val, rootAndPath);
-		}
-    };
-}
-
-function Seq(slots) {
-    this.slots = slots;
-    this.signal = function(rootAndPath)
-    {
-		for(var i = 0; i < this.slots.length; i++)
-		{
-			this.slots[i].signal(rootAndPath);
-		}
-    };
-	this.getType = function()
-	{
-		return "Seq";
-	}
-}
-
-var list = 
+function Affectation(val, paths)
 {
-	pushFront : function(l, val)
+	this.val = val;
+	this.paths = paths;
+	this.affect = function(obj)
 	{
-		l.pushFront(val.get(), []);
+		var val = this.val.get();
+		for(var j = 0; j < this.paths.length; j++)
+		{
+			var path = this.paths[j];
+			setPath(obj, path, val);
+		}
 	}
+}
+function CondAffectation(cond, thenAffects, elseAffects) {
+	this.cond = cond;
+	this.thenAffects = thenAffects;
+	this.elseAffects = elseAffects;
+	this.affect = function(obj)
+	{
+		if(this.cond.get())
+		{
+			_.forEach(this.thenAffects, function(affect){affect.affect(obj);});
+		}
+		else if(this.elseAffects != undefined)
+		{
+			_.forEach(this.elseAffects, function(affect){affect.affect(obj);});
+		}
+	};
+}
+
+function merge(dst, src)
+{
+	var ret = _.merge(_.cloneDeep(dst), src);
+	return ret;
 }
 
 var actions=
 {
-	"Print" : Print,
-	"Send" : Send,
-	"Signal" : Signal,
-	"Seq" : Seq,
-	"Alert" :  function (slots, param) 
-	{
-		var text = param;
-		this.signal = function()
-		{
-			alert(text.get());
-		};
-	}
 }

@@ -146,6 +146,11 @@ nodes:
 			int accum, int elem -> accum + elem,
 			[0, 1, 2]
 		)
+	var flatMapTest = flatMap
+		(
+			int x -> [x * 10, x],
+			[0, 1, 2]
+		)
 actions:
 	tickUi(Ui ui):
 		type ui do :

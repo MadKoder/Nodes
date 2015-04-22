@@ -237,33 +237,6 @@ function Dict(val, keyType)
 	}
 }
 
-
-function FuncInput(type) 
-{
-	this.stack = [];
-	this.type = type;
-	
-	// DEBUG
-	this.id = storeId;
-	storeId++;
-	
-	this.get = function()
-	{
-		// TODO error management
-		return this.stack[this.stack.length - 1];
-	};
-
-	this.pushVal = function(val)
-	{
-		this.stack.push(val);
-	};
-	
-	this.popVal = function()
-	{
-		this.stack.pop();
-	}
-}
-
 var storeId = 0;
 
 var connections = null;
@@ -429,32 +402,6 @@ function Closure(expr, nodes, genericTypeParams)
 	}
 }
 
-function NodeAccess(val, type) 
-{
-	this.val = val;
-	this.path = [];
-	this.type = type;
-	
-	// DEBUG
-	this.id = storeId;
-	storeId++;
-
-	var baseType = getBaseType(type);
-	var templates = getTypeParams(type);
-	var typeObj = (templates.length > 0) ? 
-		library.nodes[baseType].getInstance(templates) :
-		library.nodes[type];
-
-	this.get = function()
-	{
-		if(this.path.length == 0)
-		{
-			return this.val;
-		}
-		return getPath(this.val, this.path);
-	};
-}
-
 
 function Cache(node) 
 {
@@ -485,40 +432,6 @@ function Cache(node)
 	this.getType = function()
 	{
 		return this.type;
-	}
-}
-
-function ActionParam(type) 
-{
-	this.type = type;
-	var baseType = getBaseType(type);
-	var templates = getTypeParams(type);
-	var typeObj = (templates.length > 0) ? 
-		library.nodes[baseType].getInstance(templates) :
-		library.nodes[type];
-	if(typeObj != undefined && "operators" in typeObj)
-	{
-		var operators = typeObj.operators;
-	}
-	
-	this.get = function()
-	{
-		return this.val;
-	};
-
-	this.signal = function(val)
-	{
-		this.val = val;
-	};
-	
-	this.getType = function()
-	{
-		return this.type;
-	}
-	
-	this.addSink = function()
-	{
-		// TODO something to do ? I think not...
 	}
 }
 
@@ -560,37 +473,6 @@ function StoreFunctionTemplate(t, name)
 		// TODO : y'en a besoin ?
 	};
 	
-}
-
-function Affectation(val, paths)
-{
-	this.val = val;
-	this.paths = paths;
-	this.affect = function(obj)
-	{
-		var val = this.val.get();
-		for(var j = 0; j < this.paths.length; j++)
-		{
-			var path = this.paths[j];
-			setPath(obj, path, val);
-		}
-	}
-}
-function CondAffectation(cond, thenAffects, elseAffects) {
-	this.cond = cond;
-	this.thenAffects = thenAffects;
-	this.elseAffects = elseAffects;
-	this.affect = function(obj)
-	{
-		if(this.cond.get())
-		{
-			_.forEach(this.thenAffects, function(affect){affect.affect(obj);});
-		}
-		else if(this.elseAffects != undefined)
-		{
-			_.forEach(this.elseAffects, function(affect){affect.affect(obj);});
-		}
-	};
 }
 
 function Merge(what, matches, type)
@@ -1312,11 +1194,7 @@ function Var(valStr, nodeStr, type, beforeStr, nodeId)
 
 	this.getAddSinkStr = function(sink)
 	{
-		if(this.nodeId)
-		{
-			return this.nodeId + ".addSink(" + sink + ");\n";
-		}
-		return "";
+		return this.nodeId ? this.nodeId + ".addSink(" + sink + ");\n" : "";
 	}
 }
 
@@ -3194,16 +3072,10 @@ function FunctionInstance(classGraph)
 	this.expr = null;
 	this.needsNodes = false;
 	this.beforeStr = "";
-	this.beforeUpdate = "";
 
 	this.getBeforeStr = function()
 	{
 		return this.beforeStr;
-	}
-
-	this.getBeforeUpdate = function()
-	{
-		return this.beforeUpdate;
 	}
 
 	this.getStr = function(params)
@@ -3491,21 +3363,6 @@ function Event(condition, action)
 			this.action.signal();
 		}
 	}	
-}
-
-function ActionParams(action, inputs)
-{
-	this.action = action;
-	this.inputs = inputs;
-	
-	this.signal = function(params)
-	{
-		_.each(params, function(param, i)
-		{
-			this.inputs[i].set(param.get());
-		}, this);
-		this.action.signal();
-	}
 }
 
 function setLibrary(lib)
@@ -3853,13 +3710,15 @@ function compileGraph(graph, lib, previousNodes)
 					src += node.getBeforeStr();
 					src += "var " + id + " = new Store(" + node.getVal() + ", " + typeToJson(node.getType()) + ");\n";
 					nodes[id] = new Var(id + ".get()", id, node.getType(), "", id);
-				} else if("cache" in nodeGraph)
+				}
+				/*else if("cache" in nodeGraph)
 				{
 					src += node.getBeforeStr();
 					src += "var " + id + " = new Cache(" + node.getUpdateNode() + ");\n";
 					src += node.getAddSinkStr(id);
 					nodes[id] = new Var(id + ".get()", id, node.getType(), "", id);
-				} else
+				} */
+				else
 				{
 					src += node.getBeforeStr();
 					src += "var " + id + " = " + node.getNode() + ";\n";

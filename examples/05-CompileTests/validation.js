@@ -80,6 +80,7 @@ $.get("validation.nodes", function( text ) {
 		}
 	}
 
+	// appendText(flatMapTest.get());
 	valid(clonerTest.get(), 2, "Cloner");
 	valid(ifAction.get(), false, "If action");
 	valid(whileAction.get(), 10, "While action");
@@ -87,6 +88,7 @@ $.get("validation.nodes", function( text ) {
 	valid(eventDefTestResult.get(), 1, "Event def");
 	valid(matchTest.get(), true, "Match");
 	valid(reduceTest.get(), 3, "Reduce");
+	validArray(flatMapTest.get(), [0,0,10,1,20,2], "FlatMap");
 	validArray(rangeTest.get(), [0, 1], "Range");
 	valid(matchActionTest.get(), 10, "Match action");
 	validArray(mapTemplateTest.get(), [[1], [3]], "Map template");
