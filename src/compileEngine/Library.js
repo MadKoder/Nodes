@@ -1423,24 +1423,17 @@ function FunctionNode(func)
 				
 		if(func.needsNodes)
 		{
-			var paramsNode = _.map(params, function(param, index)
+			this.str = func.getStrRef(_.map(params, function(param)
 			{
-				if(!(param.isConstant))
-				{
-					return param.getNode();
-				}
-				return "";
-			}, this);
-
-			this.str = func.getStrRef(paramsNode);
+				return param.getNode();
+			}));
 		}
 		else
 		{
-			var paramsVal = _.map(params, function(param)
+			this.str = func.getStr(_.map(params, function(param)
 			{
 				return param.getVal();
-			}, this);			
-			this.str = func.getStr(paramsVal);
+			}, this));
 		}
 
 		var baseType = getBaseType(func.type);
@@ -1487,17 +1480,15 @@ function FunctionNode(func)
 }
 
 function funcToNodeSpec(funcProto)
-{	
-	function	instantiateTemplate(templates)
-	{
-		return new FunctionNode(funcProto.build(templates));
-	}
-	
+{		
 	if(funcProto.guessTypeParams != undefined)
 	{
 		return {
 			guessTypeParams : funcProto.guessTypeParams,
-			getInstance : instantiateTemplate
+			getInstance : function(templates)
+			{
+				return new FunctionNode(funcProto.build(templates));
+			}
 		}
 	}
 	return new FunctionNode(funcProto);
