@@ -80,7 +80,7 @@ $.get("validation.nodes", function( text ) {
 		}
 	}
 
-	// appendText(flatMapTest.get());
+	validArray(recursiveGenericFuncTest.get(), [1], "Recursive generic function");
 	valid(clonerTest.get(), 2, "Cloner");
 	valid(ifAction.get(), false, "If action");
 	valid(whileAction.get(), 10, "While action");

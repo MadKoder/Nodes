@@ -1202,6 +1202,10 @@ var functions =
 		},		
 		build : function(templates)
 		{
+			if(templates.length < 2)
+			{
+				error("Only " + templates.length + " generic parameter given for map function, need 2");
+			}
 			return {
 				params : [["function" , inOut1(templates[0], templates[1])], ["list" , mListType(templates[0])]],
 				getStr : function(params) 
@@ -1401,7 +1405,6 @@ function FunctionNode(func)
 	this.fields = func.params;
 	
 	var paramsSpec = func.params;
-	var fieldsSpec = this.fields;
 	
 	this.builder = function(fields) 
 	{	
@@ -1410,7 +1413,7 @@ function FunctionNode(func)
 		this.func = func;		
 		_.each(fields, function(field, key)
 		{
-			var index = _.findIndex(fieldsSpec, function(fieldSpec){return fieldSpec[0] == key;});
+			var index = _.findIndex(paramsSpec, function(fieldSpec){return fieldSpec[0] == key;});
 			params[index] = field;
 			// C'est un template de fonction (StoreFunctionTemplate)
 			if("setTemplateParams" in field)

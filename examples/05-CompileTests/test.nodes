@@ -1,38 +1,27 @@
-# TODO signal/slots de struct generique
 # structs:
-# 	List<T> :
-# 		list<T>	l
-# 		signal onPushBack(T x)
-# 		slot pushBack(T x):
-# 			self.l.pushBack(x)
-# 			self.onPushBack(x)
+# 	Obj :
+# 		subs:
+# 			Group :
+# 				list<Obj>	children
+# 			Leaf:
+# 				Vec2 pos
 # functions:
-# 	ref controlView(List<int> l):
-# 		List<int>([x + 1 for x in l.l])
-# 		# TODO : same with slot
-# 		l.onPushBack => self.pushBack(x + 1)
-# nodes:
-# 	var l = List<int>([0, 1, 2])
-structs:
-	List :
-		list<int>	l
-		signal onPushFront(int x)
-		slot pushFront(int x):
-			# TODO : self.l.pushFront(x)
-			self.l = pushFront(self.l, x)
-			self.onPushFront(x)
+# 	list<T> genericOutputFunc<T>(Obj obj) type obj :
+# 		T  : [obj]
+# 		Group : flatMap
+# 			(
+# 				Obj child -> getTypeAndAccumState<T>(child \ stateSet = merge(obj.stateSet, child.stateSet)),
+# 				obj.children
+# 			)
+# 		_ : []
 functions:
-	ref controlView(List l):
-		List([x + 1 for x in l.l])
-		l.onPushFront => self.pushFront(x + 1)
-		# TODO : same with slot		
-	ref controlView2(List l):
-		List([x * 2 for x in l.l])
-		l.onPushFront => self.pushFront(x * 2)
+	genericOutputFunc2<T>(T x):
+		map<T, T>
+			(
+				T x -> x + 1,
+				[x]
+			)
+	genericOutputFunc<T>(T x):
+		genericOutputFunc2<T>(x)
 nodes:
-	var l = List([0, 1, 2])	
-	var v = controlView(l)
-	var w = controlView2(l)
-actions :
-	tick :
-		l.pushFront(3)
+	def genericOutputTest = genericOutputFunc<int>(0)

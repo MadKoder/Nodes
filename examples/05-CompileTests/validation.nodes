@@ -73,6 +73,14 @@ functions:
 		in type t :
 			Just<int> : t.x
 			_ : 0
+	recursiveGenericFunc2<T>(T x):
+		map<T, T>
+			(
+				T x -> x + 1,
+				[x]
+			)
+	recursiveGenericFunc<T>(T x):
+		recursiveGenericFunc2<T>(x)
 	ref Ui objToUi(Obj obj)
 	ref UiGroup groupToUi(Group g):
 		UiGroup
@@ -151,6 +159,7 @@ nodes:
 			int x -> [x * 10, x],
 			[0, 1, 2]
 		)
+	def recursiveGenericFuncTest = recursiveGenericFunc(0)
 actions:
 	tickUi(Ui ui):
 		type ui do :

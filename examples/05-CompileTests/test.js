@@ -13,7 +13,7 @@ var library =
 	actions : actions
 };
 
-$.get("test2.nodes", function( text ) {
+$.get("test.nodes", function( text ) {
 	setLodash(_);
 	setEngineLodash(_);
 
@@ -26,14 +26,14 @@ $.get("test2.nodes", function( text ) {
 	AAA = src;
 	$.globalEval(src)
 
-	tick();
+	// tick();
 
 	function appendText(txt)
 	{
 		$tmp.append("<div>" + txt + "</div>");
 	}
 
-	appendText(ui.get().children[0].children[2].x);
+	appendText(genericOutputTest.get());
 	// appendText(ui.get().children[0].children[2].x);
 }
 , "text" // Commenter pour lire du json
