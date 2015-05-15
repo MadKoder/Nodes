@@ -1450,6 +1450,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		else
 		{
 			var type = getBaseType(expr.type);
+			// When type of expression is explicitely defined (ex. var dict<string, int>)
 			var typeParams = getTypeParams(expr.type);
 			if(!(type in library.nodes))
 			{
@@ -1473,15 +1474,21 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			var instance;
 			if(typeParams.length == 0 && "typeParams" in expr)
 			{
-				var typeParams = expr.typeParams;
+				// If we are evaluating a generic expression, and we are in a generic function,
+				// convert the generic types of the expression to the concrete types defined 
+				// in the current instance of the function
 				if(genericTypeParams)
 				{
-					typeParams = _.map(typeParams, function(type)
+					var typeParams = _.map(expr.typeParams, function(type)
 					{
 						if(type in genericTypeParams)
 							return genericTypeParams[type];
 						return type;
 					});
+				} 
+				else
+				{
+					var typeParams = expr.typeParams;				
 				}
 			}
 			if(paramsGraph != undefined)
@@ -1520,30 +1527,6 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 				{
 					var paramSpec = fieldsSpec[paramIndex];
 					var val = makeExpr(paramsGraph[paramIndex], nodes);
-					function getType(val)
-					{
-						if(_.isNumber(val))
-						{
-							return "float";
-						} else if(_.isString(val))
-						{
-							return "string";
-						} else if(_.isArray(val))
-						{
-							if(val.length == 0)
-							{
-								return listTemplate(null);
-							}
-							else
-							{
-								return listTemplate(getType(val[0]));								
-							}
-						} else
-						{
-							return val.__type;
-						}
-					}
-
 					var valType = val.getType();					
 					if(genericTypeParams && valType in genericTypeParams)
 					{
@@ -1693,10 +1676,13 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 		var storeStr = "";
 		funcDef += _.map(expr.params, function(param, index)
 		{
-			storeStr += newVar("new Store(" + param.id + ", " + typeToJson(param.type) + ")");
-			var node = new Var(param.id, getVar(), param.type);
+			var paramType = (genericTypeParams != undefined &&  param.type in genericTypeParams) ?
+				genericTypeParams[param.type] :
+				param.type;
+			storeStr += newVar("new Store(" + param.id + ", " + typeToJson(paramType) + ")");
+			var node = new Var(param.id, getVar(), paramType);
 			localNodes[param.id] = node;
-			inputTypes.push(param.type);
+			inputTypes.push(paramType);
 			return param.id;
 		}).join(", ") + "){\n";
 		
@@ -3163,18 +3149,13 @@ function compileGraph(graph, lib, previousNodes)
 							{
 								var node = new Var(paramAndType[0], "new Store(" + paramAndType[0] + ", " + typeToJson(paramAndType[1]) + ")", paramAndType[1]);
 							}
-							// var node = new Var(paramAndType[0] + ".get()", paramAndType[0], paramAndType[1]);
-							// var node = new Var(paramAndType[0], "new Store(" + paramAndType[0] + ", " + typeToJson(paramAndType[1]) + ")", paramAndType[1]);
 							node.func = funcGraph.id;
 							func.inputNodes.push(node);
-							// func.internalNodes[paramAndType[0]] = node;
 							func.internalNodes[paramAndType[0]] = node;
 						});
 						
 					}
-					
-					var beforeConnectionsLength = connections.length;
-					
+				
 					var nodesGraph = funcGraph["nodes"];
 					_.each(nodesGraph, function(node)
 					{
@@ -3241,12 +3222,13 @@ function compileGraph(graph, lib, previousNodes)
 									addCloseBrace();
 									addCloseBrace();
 									addGlobLine(source + ".get().__sinks." + signalName + "[\"" + funcGraph.id + "\"].vars.push(new Store(__ret, \"" + func.type + "\"));");
-									addGlobLine("return __ret;");
-									addCloseBrace();
 									
 									var a = 0;
 								}
 							});
+
+							addGlobLine("return __ret;");
+							addCloseBrace();									
 						}
 						else
 						{

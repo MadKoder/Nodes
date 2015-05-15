@@ -23,6 +23,7 @@ functions:
 				[objToUi(child) for child in g.children]
 			)
 		g.add => self.children = pushBack(self.children, objToUi(obj))
+		g.onAdd => self.children = pushBack(self.children, objToUi(obj))
 	ref Ui objToUi(Obj obj)
 		type obj:
 			Group : groupToUi
@@ -31,15 +32,7 @@ functions:
 				)
 			Leaf : UiLeaf(obj.x * 2)
 nodes:
-	var graph = Group
-		([
-			Group
-			([
-				Leaf(1), 
-				Leaf(2)
-			]),
-			Leaf(3)
-		])
+	var graph = Group([Group([])])
 	var ui = objToUi(graph)
 actions:
 	tickGraph(Obj obj):

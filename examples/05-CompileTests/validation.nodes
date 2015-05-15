@@ -97,6 +97,22 @@ functions:
 				)
 			Leaf : UiLeaf(obj.x * 2)
 	list<list<int>> incListOfList(list<list<int>> l)
+		[[j + 1 for j in i] for i in l]	
+	ref UiGroup groupToUi2(Group g):
+		UiGroup
+			(
+				[objToUi(child) for child in g.children],
+				add => g.children = pushBack(g.children, what)
+			)
+		g.add => self.children = pushBack(self.children, objToUi(obj))
+	ref Ui objToUi2(Obj obj)
+		type obj:
+			Group : groupToUi2
+				(
+					obj					
+				)
+			Leaf : UiLeaf(obj.x * 2)
+	list<list<int>> incListOfList(list<list<int>> l)
 		[[j + 1 for j in i] for i in l]
 nodes:
 	var intList = [1, 2, 3]
@@ -128,6 +144,7 @@ nodes:
 			Leaf(3)
 		])
 	var uiVar = objToUi(graph2)
+	var uiVar2 = objToUi2(graph2)
 	def ifExpr = if x == 6 then 10 else 0
 	def mapLambda = map(int val -> val + 10, intList)
 	var updatedAndMergedList = [Vec2(0., 1.), Vec2(2., 3.)]

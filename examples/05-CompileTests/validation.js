@@ -105,6 +105,7 @@ $.get("validation.nodes", function( text ) {
 
 	valid(ui.get().children[0].children[2].x, 20, "Recursive signal and ref mutation");
 	valid(uiVar.get().children[0].children[2].x, 200, "Recursive signal listening");
+	valid(uiVar2.get().children[0].children[2].x, 200, "Recursive slot listening");
 	valid(ifExpr.get(), 10, "If expression");
 	validArray(mapLambda.get(), [13, 14, 15], "Map lambda");
 	valid(updatedAndMergedList.get()[1].x, 21, "updatedAndMergedList 1"); // if condition true
