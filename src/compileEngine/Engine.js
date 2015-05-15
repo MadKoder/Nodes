@@ -849,7 +849,7 @@ function getFieldType(fields, path)
 	if(path.length == 1)
 		return fieldType;
 		
-	return getFieldType(library.nodes[fieldType].fields, _.tail(path));
+	return getFieldType(library.nodes[typeToCompactString(fieldType)].fields, _.tail(path));
 }
 
 function StructAccess(node, path, type) {
@@ -2349,9 +2349,9 @@ function typeParamToString(param)
 	var typeParams = getTypeParams(param);
 	if(typeParams.length == 0)
 	{
-		return "#" + baseType;
+		return "$" + baseType;
 	}
-	return "#" + baseType + _.map(typeParams, typeParamToString);
+	return "$" + baseType + _.map(typeParams, typeParamToString);
 }
 
 function makeConcreteName(name, typeParamsInstances)
