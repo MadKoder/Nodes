@@ -1691,7 +1691,15 @@ var nodes =
 					{
 						return mListType(temp[0]);
 					}
-				}
+				},
+				"slots" : 
+				{
+					"pushBack" : 
+					{
+						"params" : [["e", subType]]
+					}
+				},
+				"signals" : []
 			}
 		}
 	},
@@ -1819,6 +1827,14 @@ function merge(dst, src)
 {
 	var ret = _.merge(_.cloneDeep(dst), src);
 	return ret;
+}
+
+var list = 
+{
+	pushBack : function(l, e)
+	{
+		l.get().push(e.get());
+	}
 }
 
 var actions=

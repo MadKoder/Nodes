@@ -34,7 +34,7 @@ $.get("test2.nodes", function( text ) {
 	}
 
 	// appendText(genericOutputTest.get());
-	appendText(ui.get().children[0].children[1].x);
+	appendText(ui.get().children[0].children[0].x);
 }
 , "text" // Commenter pour lire du json
 );

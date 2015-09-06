@@ -1,0 +1,118 @@
+structs:
+	Vec2 :
+		float x
+		float y
+	Vec3 :
+		float x
+		float y
+		float z
+	Color :
+		float r
+		float g
+		float b
+	State : 
+		Color color
+	Maybe<T> :
+		subs :
+			Just :
+				T x
+			None
+	Ui : 
+		bool	visible
+		signal 	mouseEnter
+		signal 	mouseLeave
+		subs :
+			Group:
+				list<Ui> children	
+				subs :
+					HGroup
+					VGroup
+			Button :
+				string desc
+				string image
+				signal click(string what)
+				slot onClick(string what):
+					self.click(what)
+			TextInput :
+				string desc
+				signal set(string text)
+				signal focus(int what)
+				signal onBuilt()
+				slot onChange(string text):
+					self.set(text)
+				subs : 
+					FocusTextInput :
+						int 	focusCounter
+			Text :
+				string txt
+	UiStore :
+		bool	visible
+		int 	focusCounter
+		bool	hover
+	TypeDecl :
+		string	name
+		subs :
+			Parametric :
+				list<TypeDecl>	params
+	ParamDecl :
+		string		name
+		TypeDecl	type
+	Expr :
+		subs :
+			Func :
+				string			type
+				list<Expr>		params
+			Ref :
+				list<string>	path
+			LitExpr :
+				subs :
+					IntExpr :
+						int x
+					StrExpr :
+						string str
+	Action :
+		subs :
+			Seq :
+				list<Action>	actions
+			RefSlot :
+				list<string>	path
+			SignalNode :
+				list<string>	path
+				string			slot 
+				list<Expr>		params
+	MemberDef:
+		subs :
+			FieldDef :
+				string		name
+				TypeDecl	type
+			SlotDef :
+				string			name
+				list<ParamDecl>	params
+				Action			action
+			SignalDef :
+				string			name
+				list<ParamDecl>	params
+	FuncDef :
+		string	id
+		list<ParamDecl>	inputs
+		Expr	output
+	StructDef :
+		string	name
+		list<MemberDef>	members
+		list<StructDef>	subStructs
+	Program :
+		list<FuncDef>	functions
+		list<StructDef>	structs
+nodes:
+	var program = Program :
+		[]
+		[]
+	var ui = VGroup
+		(
+			true, 
+			[
+				Button(true, "button0", ""), 
+				TextInput(true, "input0"), 
+				Button(true, "button1", "")
+			]
+		)

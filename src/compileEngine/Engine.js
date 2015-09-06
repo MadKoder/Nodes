@@ -2658,7 +2658,9 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 				str += "\t\t\t__vars = self.get().__sinks." + slotName + "[__sink].vars;\n";
 				str += "\t\t\tfor(__j = 0; __j < __vars.length; __j++)\n";
 				str += "\t\t\t{\n";
-				str += "\t\t\t\t__func(__vars[__j], " + slotParamStr + ");\n";
+				str += "\t\t\t\t__func(__vars[__j]"
+				str += (slotGraph.params.length > 0) ? ", " + slotParamStr : "";
+				str += ");\n";
 				str += "\t\t\t}\n";
 				str += "\t\t}\n";
 
@@ -2699,7 +2701,9 @@ function makeStruct(structGraph, inheritedFields, superClassName, typeParamsInst
 				str += "\t\t\t__vars = self.get().__sinks." + signalName + "[__sink].vars;\n";
 				str += "\t\t\tfor(__j = 0; __j < __vars.length; __j++)\n";
 				str += "\t\t\t{\n";
-				str += "\t\t\t\t__func(__vars[__j], " + signalParamStr + ");\n";
+				str += "\t\t\t\t__func(__vars[__j]"
+				str += (signalGraph.params.length > 0) ? ", " + signalParamStr : "";
+				str += ");\n";
 				str += "\t\t\t}\n";
 				str += "\t\t}\n";
 				str += "\t}";
@@ -3210,7 +3214,29 @@ function compileGraph(graph, lib, previousNodes)
 									{
 										error("No input named " + source +" in function " + funcGraph.id);
 									}
-									sourceType = library.nodes[sourceTypeName];
+									var sourceType = library.nodes[sourceTypeName];
+									// depth > 1
+									if(signalGraph.length > 2)
+									{
+										for(var depthIndex = 1; depthIndex < signalGraph.length - 1; depthIndex++)
+										{
+											var parentTypeName = sourceTypeName;
+											var fieldName = signalGraph[depthIndex];
+											fieldTypeName = "";
+											_.each(sourceType["fields"], function(field)
+											{
+												if(field[0] == fieldName)
+												{
+													sourceTypeName = field[1];
+												}
+											});
+											if(sourceTypeName == "")
+											{
+												error("No field named " + fieldName +" in class " + parentTypeName);
+											}
+											sourceType = library.nodes[sourceTypeName];
+										}
+									}
 									var signalName = _.last(signalGraph);
 									
 									addGlobLine("if(!(\"" + funcGraph.id + "\" in " + source + ".get().__sinks." + signalName + "))");
@@ -3258,6 +3284,36 @@ function compileGraph(graph, lib, previousNodes)
 									error("No input named " + source +" in function " + funcGraph.id);
 								}
 								sourceType = library.nodes[sourceTypeName];
+								// depth > 1
+								if(signalGraph.length > 2)
+								{
+									for(var depthIndex = 1; depthIndex < signalGraph.length - 1; depthIndex++)
+									{
+										var parentTypeName = sourceTypeName;
+										var fieldName = signalGraph[depthIndex];
+										fieldTypeName = "";
+										_.each(sourceType["fields"], function(field)
+										{
+											if(field[0] == fieldName)
+											{
+												sourceTypeName = field[1];
+											}
+										});
+										if(sourceTypeName == "")
+										{
+											error("No field named " + fieldName +" in class " + parentTypeName);
+										}
+										var typeParams = getTypeParams(sourceTypeName);
+										if(typeParams.length > 0)
+										{
+											sourceType = library.nodes[getBaseType(sourceTypeName)].getInstance(typeParams);
+										}
+										else
+										{
+											sourceType = library.nodes[sourceTypeName];
+										}
+									}
+								}
 								var signalName = _.last(signalGraph);
 								if(signalName in sourceType.signals)
 								{

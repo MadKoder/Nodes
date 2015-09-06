@@ -1,0 +1,21 @@
+{
+    "structsAndFuncs": [
+        {
+            "func": {
+                "id": "addVec2",
+                "in": [
+                ],
+                "out": {
+                    "type": null,
+                    "val": {
+                        "type": "Vec2",
+                        "params": [
+                        ]
+                    }
+                },
+                "nodes": [],
+                "type": null
+            }
+        }
+    ]
+}

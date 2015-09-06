@@ -5,7 +5,7 @@ structs:
 				list<Obj>		children
 				signal onAdd(Obj obj)
 				slot add(Obj obj):
-					self.children = pushBack(self.children, obj)
+					self.children.pushBack(obj)
 					self.onAdd(obj)
 			Leaf :
 				int x
@@ -22,8 +22,7 @@ functions:
 			(
 				[objToUi(child) for child in g.children]
 			)
-		g.add => self.children = pushBack(self.children, objToUi(obj))
-		g.onAdd => self.children = pushBack(self.children, objToUi(obj))
+		g.children.pushBack => self.children.pushBack(objToUi(e))
 	ref Ui objToUi(Obj obj)
 		type obj:
 			Group : groupToUi
