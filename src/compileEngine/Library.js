@@ -1410,7 +1410,7 @@ function FunctionNode(func)
 	{	
 		this.id = funcNodeId++;
 		var params = Array(paramsSpec.length);		
-		this.func = func;		
+		this.func = func;
 		_.each(fields, function(field, key)
 		{
 			var index = _.findIndex(paramsSpec, function(fieldSpec){return fieldSpec[0] == key;});
@@ -1422,6 +1422,16 @@ function FunctionNode(func)
 			}
 		}, this);
 		
+		this.signals = {};
+		if("expr" in func && "getSignals" in func.expr)
+		{
+			_.each(func.expr.getSignals(), function(signal, key)
+			{
+				this.signals[key] = _.clone(signal);
+				signal = [];
+			}, this);
+		}
+
 		this.beforeStr = func.getBeforeStr();
 				
 		if(func.needsNodes)
@@ -1478,6 +1488,11 @@ function FunctionNode(func)
 				throw "Return type of function " + func.name + " not defined, and cannot deduce it from parameters (recursive template function ?)"
 			
 			return func.type;
+		}
+
+		this.getSignals = function()
+		{
+			return this.signals;		
 		}
 	}
 }

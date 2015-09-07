@@ -103,16 +103,330 @@ structs:
 	Program :
 		list<FuncDef>	functions
 		list<StructDef>	structs
-nodes:
-	var program = Program :
-		[]
-		[]
-	var ui = VGroup
+
+functions:
+	ref mHGroup(list<Ui> children)
+		HGroup(true, children)
+	ref mVGroup(list<Ui> children)
+		VGroup(true, children)
+	ref txtButton(string desc)
+		Button(true, desc, "")
+	ref imgButton(string image)
+		Button(true, "", image)
+	join(list<string> strs, string sep)
+		reduce
 		(
-			true, 
-			[
-				Button(true, "button0", ""), 
-				TextInput(true, "input0"), 
-				Button(true, "button1", "")
-			]
+			string accum, string elem -> strCat(strCat(accum, sep), elem),
+			strs
 		)
+	split(string str, string sep)
+		fold
+		(
+			list<string> accum, string elem -> 
+				if elem == sep 
+				then pushBack(accum, "")
+				else 
+				[
+					if i == (length(accum) - 1) 
+					then strCat(subStr, elem)
+					else subStr
+					for subStr, i in accum
+				],
+			strToList(str),
+			[""]
+		)
+	addVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x + v1.x, v0.y + v1.y)
+	subVec2(Vec2 v0, Vec2 v1)
+		Vec2(v0.x - v1.x, v0.y - v1.y)
+	ref txtIn(string txtNode)
+		TextInput(true, txtNode, set => txtNode = text)
+	matchFuncStr(string str)
+		findAllMatches(re("(\\D(?:\\w*))\\(([^)]*)\\)"), str)
+	matchNewFuncStr(string str)
+		findAllMatches(re("(\\D(?:\\w*))\\("), str)
+	getOrElse<T>(Maybe<T> m, T y)
+		type m :
+			Just<T> : m.x
+			_ :  y
+	Expr strToExpr(string str)
+		let :
+			funcMatch = maybeAt(matchNewFuncStr(str), 0)
+			intMatch = maybeAt(findAllMatches(re("^(\\d.*)$"), str), 0)
+			strMatch = maybeAt(findAllMatches(re("^\"(.*)$"), str), 0)
+		in 
+			type funcMatch :
+				Just<regmatch> : Func(group1(funcMatch.x), [])
+				_ :  type intMatch :
+					Just<regmatch> : IntExpr(strToInt(group1(intMatch.x)))
+					_ :  type strMatch :
+						Just<regmatch> : StrExpr(group1(strMatch.x))
+						_ : Ref(split(str, "."))
+	ref Ui exprToUi(Expr expr, int viewId, int focusCounter)
+		type expr :
+			Func : mHGroup
+				([
+					mVGroup
+					(
+						[
+							Button
+							(
+								true,
+								"Fold",
+								""
+							),
+							txtIn(expr.type),
+							FocusTextInput
+							(
+								true,
+								"",
+								0
+							)
+						]
+					),
+					VGroup
+					(
+						true,
+						[
+							mHGroup
+							(
+								[
+									exprToUi(param, viewId, focusCounter),
+									Button
+									(
+										true,
+										"",
+										"remove.png",
+										click => expr.params = remove(expr.params, i)
+									)
+								]
+							)
+							for param, i in expr.params
+						]
+					)
+				])
+			Ref : TextInput
+				(
+					true,
+					join(expr.path, "."),
+					set => expr = strToExpr(text)						
+				)				
+			IntExpr : TextInput
+				(
+					true,
+					intToStr(expr.x),
+					set => expr = strToExpr(text)
+				)
+			StrExpr : TextInput
+				(
+					true,
+					expr.str,
+					set => expr = strToExpr(text)
+				)
+			_ : TextInput(true, "")
+	ref Ui typeDeclToUi(TypeDecl typeDecl, int viewId, int focusCounter)
+		type typeDecl:
+			Parametric : mHGroup
+				([
+					txtIn(typeDecl.name),
+					mHGroup
+					([
+						mVGroup
+						([
+							typeDeclToUi(typeParam, viewId, focusCounter),
+							imgButton
+							(
+								"remove.png",
+								click => typeDecl.params = remove(typeDecl.params, i)
+							)
+						])
+						for typeParam, i in typeDecl.params
+					])
+				])
+			_ : txtIn(typeDecl.name)		
+	ref paramsDeclToUi(list<ParamDecl> paramsDecl, int viewId, int focusCounter)
+		mVGroup
+		(	
+			pushBack
+			(
+				[
+					mHGroup
+					([
+							typeDeclToUi(paramDecl.type, viewId, focusCounter),
+							txtIn(paramDecl.name)
+					])
+					for paramDecl in paramsDecl
+				],
+				txtButton
+				(
+					"Add input",
+					click => 
+						paramsDecl = pushBack
+							(
+								paramsDecl, 
+								ParamDecl("name", TypeDecl("type"))
+							)
+				)
+			)
+		)
+	ref Ui actionToUi(Action action, int viewId, int focusCounter)
+		type action :
+			Seq : mVGroup
+				([
+					actionToUi(subAction, viewId, focusCounter)
+					for subAction in action.actions
+				])
+			SignalNode : mHGroup
+				(
+					concat
+					(
+						pushBack
+						(
+							[
+								txtIn(subPath)
+								for subPath in action.path
+							],
+							txtIn(action.slot)
+						),
+						[
+							exprToUi(expr, viewId, focusCounter)
+							for expr in action.params
+						]
+					)
+				)
+	ref classMemberToUi(list<MemberDef> membersDef, int viewId, int focusCounter)
+		mVGroup
+		(	
+			pushBack
+			(
+				[
+					type memberDef :
+						FieldDef :	mHGroup
+							([
+								Text(true, "field :"),
+								typeDeclToUi(memberDef.type, viewId, focusCounter),
+								txtIn(memberDef.name)
+							])
+						SignalDef :	mHGroup
+							(
+								concat
+								(
+									[
+										Text(true, "signal :"),
+										txtIn(memberDef.name)
+									],
+									[
+										mHGroup
+										([
+												typeDeclToUi(paramDecl.type, viewId, focusCounter),
+												txtIn(paramDecl.name)
+										])
+										for paramDecl in memberDef.params
+									]
+								)
+							)
+						SlotDef :	mVGroup
+							([
+								mHGroup
+								(
+									concat
+									(
+										[
+											Text(true, "slot :"),
+											txtIn(memberDef.name)
+										],
+										[
+											mHGroup
+											([
+													typeDeclToUi(paramDecl.type, viewId, focusCounter),
+													txtIn(paramDecl.name)
+											])
+											for paramDecl in memberDef.params
+										]
+									)
+								),
+								actionToUi(memberDef.action, viewId, focusCounter)
+							])
+					for memberDef in membersDef
+				],
+				txtButton
+				(
+					"Add input",
+					click => 
+						membersDef = pushBack
+							(
+								membersDef, 
+								FieldDef("name", TypeDecl("type"))
+							)
+				)
+			)
+		)
+	ref Ui funcToUi(FuncDef func, int viewId, int focusCounter)
+		mVGroup
+		([
+			txtIn(func.id),
+			mHGroup
+			([
+				mVGroup
+				([
+					Text(true, "params"),
+					paramsDeclToUi(func.inputs, viewId, focusCounter)					
+				]),
+				exprToUi(func.output, viewId, focusCounter)
+			])
+		])
+	ref Ui structToUi(StructDef struct, int viewId, int focusCounter)
+		mVGroup
+			([
+				txtIn(struct.name),
+				classMemberToUi(struct.members, viewId, focusCounter),
+				mHGroup
+				([
+					Text(true, if length(struct.subStructs) > 0 then "Subs :" else ""),
+					Button
+					(
+						length(struct.subStructs) > 0,
+						"Fold",
+						""
+					)
+				]),
+				VGroup
+				(
+					true,
+					[structToUi(subStruct, viewId, focusCounter) for subStruct in struct.subStructs]					
+				)
+			])
+	ref Ui progToUi(Program prog, int viewId, int focusCounter)
+		mVGroup
+		([
+			mVGroup([
+				funcToUi(func, viewId, focusCounter) for func in prog.functions
+			]),
+			mVGroup
+			([
+				structToUi(struct, viewId, focusCounter) for struct in prog.structs
+			])
+		])
+nodes:
+	var program = Program
+		(
+			[
+				FuncDef
+					(
+						"addVec2",
+						[],
+						Func("Vec2", [])
+					)
+			],
+			[]
+		)
+	def ui = progToUi(program, 0, 0)
+	# var ui = VGroup
+	# 	(
+	# 		true, 
+	# 		[
+	# 			Button(true, "button0", ""), 
+	# 			TextInput(true, "input0"), 
+	# 			Button(true, "button1", "")
+	# 		]
+	# 	)

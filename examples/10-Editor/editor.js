@@ -188,19 +188,7 @@ $.get("editor.nodes", function( text ) {
 
 	//program.addSink(uiView);
 
-	var $root = null;
-	var mustAppend = ($root == null);
-	var uiVal = ui.get();
-	$root = buildUi($root, uiVal, "", [], ui);
-
-	var mainUiIndex = 0;
-	var $ui = $("#ui" + mainUiIndex);
-	mainUiIndex++;
-
-	if(mustAppend)
-	{
-		$ui.append($root);
-	}
+	
 	
 	var types = {
 		Ref : Ref,
@@ -351,6 +339,8 @@ $.get("editor.nodes", function( text ) {
 	var prog = program;
 	$.get("test3.json", function(graph)
 	{
+		return;
+		
 		_.each(graph.structsAndFuncs, function(structOrfunc)
 		{
 			if("struct" in structOrfunc)
@@ -372,6 +362,20 @@ $.get("editor.nodes", function( text ) {
 		});
 		prog.dirty([]);
 	}, "json");
+
+	var $root = null;
+	var mustAppend = ($root == null);
+	var uiVal = ui.get();
+	$root = buildUi($root, uiVal, "", [], ui);
+
+	var mainUiIndex = 0;
+	var $ui = $("#ui" + mainUiIndex);
+	mainUiIndex++;
+
+	if(mustAppend)
+	{
+		$ui.append($root);
+	}
 }
 , "text" // Commenter pour lire du json
 );
