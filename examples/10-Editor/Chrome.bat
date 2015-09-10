@@ -1,1 +1,1 @@
-"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --allow-file-access-from-files E:\GitHub\Nodes\examples\09-EditorCompiled\editor.html
+"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --allow-file-access-from-files E:\GitHub\Nodes\examples\10-Editor\editor.html

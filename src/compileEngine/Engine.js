@@ -980,7 +980,6 @@ function compileRef(ref, nodes, promiseAllowed)
 	}
 	else
 	{
-		promiseAllowed = promiseAllowed != undefined ? promiseAllowed : false;
 		var split = ref;
 		// Representation compacte, ne marche pas avec les acces listes et assoc
 		if(isString(ref))
@@ -1019,22 +1018,11 @@ function compileRef(ref, nodes, promiseAllowed)
 			// TODO check that promises are kept, check types
 			return new Var(sourceNode + ".get()", sourceNode);
 		}
+
 		var node = getNode(sourceNode, nodes);
-		var path = split.slice(1);
-		var valPath = "";
-		var nodePath = _.reduce(path, function(accum, step, index)
-		{
-			valPath += "." + step;
-			var comma = (index == 0) ? "" : ", ";
-			return accum + comma + "\"" + step + "\"";
-		}, "[");
-		nodePath += "]";
+
 		// If reference is an action, no type...
 		// TODO : make another function for resolving references to actions ?
-		if("getType" in node)
-		{
-			var type = node.getType(path);
-		}
 		if(split.length > 1)
 		{
 			var baseType = getBaseType(node.getType());
@@ -1046,6 +1034,7 @@ function compileRef(ref, nodes, promiseAllowed)
 			
 			var fields = typeObj.fields;
 			var type;
+			var path = split.slice(1);
 			try
 			{
 				type = getFieldType(fields, path);
@@ -1056,8 +1045,14 @@ function compileRef(ref, nodes, promiseAllowed)
 				error("No field " + path + " in node of type " + node.getType());		
 			}
 
+			function putInQuotes(s)
+			{
+				return "\"" + s + "\""
+			}
+			var nodePath = "[" + _.map(path, putInQuotes).join(", ") + "]";
+
 			var str = "new StructAccess(" + node.getNode() + ", " + nodePath + ")";
-			var valStr = node.getVal() + valPath;
+			var valStr = node.getVal() + "." + path.join(".");
 			var ret = new Var(valStr, str, type);
 			
 			ret.isStructAccess = true;
@@ -2319,8 +2314,7 @@ function makeAction(actionGraph, nodes, connections)
 				beforeStr += slot.getBeforeStr();
 				if(slot.isStructAccess)
 				{
-					str = slot.rootNode + ".setPath(" + valName + ", " + slot.path +");\n";
-					return str;
+					return slot.rootNode + ".setPath(" + valName + ", " + slot.path +");\n";
 				}
 				return slot.getNode() + ".set(" + valName + ");\n";
 			}).join("");
@@ -2338,8 +2332,6 @@ function makeAction(actionGraph, nodes, connections)
 			}).join("");
 			return new Action(str, beforeStr);
 		}
-
-		return node;
 	}
 }
 

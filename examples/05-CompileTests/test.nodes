@@ -14,14 +14,15 @@
 # 				obj.children
 # 			)
 # 		_ : []
-functions:
-	genericOutputFunc2<T>(T x):
-		map<T, T>
-			(
-				T x -> x + 1,
-				[x]
-			)
-	genericOutputFunc<T>(T x):
-		genericOutputFunc2<T>(x)
+# functions:
+# 	genericOutputFunc2<T>(T x):
+# 		map<T, T>
+# 			(
+# 				T x -> x + 1,
+# 				[x]
+# 			)
+# 	genericOutputFunc<T>(T x):
+# 		genericOutputFunc2<T>(x)
 nodes:
-	def genericOutputTest = genericOutputFunc<int>(0)
+	var x = 1 + 2
+	def y = x
