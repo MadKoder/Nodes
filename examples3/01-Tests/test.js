@@ -2,9 +2,6 @@ $(document).ready(function ()
 {
 
 var $tmp = $("#tmp");
-var doingFocus;
-var requestFocus;
-var focusCounter = 0;
 
 var library =
 {
@@ -14,7 +11,7 @@ var library =
 };
 
 $.get("test.nodes", function( text ) {
-	setLodash(_);
+	// setLodash(_);
 	setEngineLodash(_);
 
 	var codeGraph = codeToGraph(text, library, parser);
@@ -33,9 +30,7 @@ $.get("test.nodes", function( text ) {
 	}
 
 	// appendText(genericOutputTest.get());
-	appendText(y.get());
-	var oVal = o.get();
-	appendText(oVal.children[0].pos.x);
+	appendText(x.get());
 }
 , "text" // Commenter pour lire du json
 );

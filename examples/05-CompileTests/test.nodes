@@ -1,10 +1,13 @@
-# structs:
-# 	Obj :
-# 		subs:
-# 			Group :
-# 				list<Obj>	children
-# 			Leaf:
-# 				Vec2 pos
+structs:
+	Vec2 :
+		float x
+		float y
+	Obj :
+		subs:
+			Group :
+				list<Obj>	children
+			Leaf:
+				Vec2 pos
 # functions:
 # 	list<T> genericOutputFunc<T>(Obj obj) type obj :
 # 		T  : [obj]
@@ -26,3 +29,4 @@
 nodes:
 	var x = 1 + 2
 	def y = x
+	def o = Group([Leaf(Vec2(1., 0.))])
