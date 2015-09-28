@@ -13,106 +13,6 @@ function getId(node)
 	return "id" in node ? node.id : (("def" in node) ? node.def : ("var" in node ? node["var"] : node["cache"]))
 }
 
-function indentToStr(indent)
-{
-	return Array(indent + 1).join("\t");
-}
-
-function SimpleString(str)
-{
-	this.str = str;
-	
-	this.getStr = function(indent)
-	{
-		return indentToStr(indent) + this.str;
-	}
-}
-
-function Block(opening, closing, sep, lines, lineEnd)
-{
-	this.lines = lines == undefined ? [] : lines;
-	this.lineEnd = lineEnd == undefined ? "" : lineEnd;
-	this.opening = opening;
-	this.closing = closing;
-	this.sep = sep;
-
-	this.addStr = function(line)
-	{
-		this.lines.push(new SimpleString(line + this.lineEnd));
-	}
-
-	this.addVar = function(name, val)
-	{
-		this.addStr("var " + name + (val == undefined ? "" : " = " + val));
-	}
-
-	this.addBlock = function(block)
-	{
-		this.lines.push(block);
-	}
-
-	this.addComposite = function(strs)
-	{
-		this.addBlock(compositeBlock(strs));
-	}
-
-	this.toStr = function(indent, lines)
-	{
-		// Complex case, at least one line
-		if(lines.length > 0)
-		{
-			return "\n" + indentToStr(indent) + this.opening + "\n" + _.map(lines, function(line)
-			{
-				return line.getStr(indent + 1);
-			}).join(this.sep) + "\n" + indentToStr(indent) + this.closing + "\n";
-		}
-		// Simple case, no line, return only opening and closing symbols
-		return this.opening + this.closing;
-	}
-
-	this.getStr = function(indent)
-	{
-		return this.toStr(indent, this.lines);
-	}
-
-	this.singleStr = function(indent, str)
-	{
-		return this.toStr(indent, [new SimpleString(str)]);
-	}
-}
-
-function dictBlock()
-{
-	return new Block("{", "}", ",\n");
-}
-
-function stmntBlock()
-{
-	return new Block("{", "}", "", undefined, ";\n");
-}
-
-function arrayBlock()
-{
-	return new Block("[", "]", ",\n");
-}
-
-function compositeBlock(strs)
-{
-	return	{
-		getStr : function(indent)
-		{
-			return indentToStr(indent) + _.map(strs, function(str)
-			{
-				if(_.isString(str))
-				{
-					return str;
-				}
-				return str.getStr(indent);
-			}).join("");
-		}
-	}
-}
-
 function getBaseType(type)
 {
 	if(type == undefined)
@@ -375,22 +275,6 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 			}
 			node = new nodeSpec.builder(fields, typeParams);
 		}
-
-		if("connections" in expr)
-		{
-			// TODO always true ?
-			node.needsNodes = true;
-			var type = node.getType();
-			var signals = node.getSignals();
-			var typeSignals = library.nodes[type].signals;
-
-			_.each(expr.connections, function(connection)
-			{
-				var mergedNodes = _.clone(nodes);
-				_.merge(mergedNodes, typeSignals[connection.signal].localNodes);
-				signals[connection.signal] = {action : connection.action, nodes : mergedNodes};
-			});
-		}
 		return node;
 	} else if("merge" in expr)
 	{
@@ -528,6 +412,11 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 	}
 }
 
+function isLit(expr)
+{
+ 	return (_.isNumber(expr) || _.isBoolean(expr))
+}
+
 function compileGraph(graph, lib, previousNodes) 
 {
 	// globals init
@@ -551,17 +440,30 @@ function compileGraph(graph, lib, previousNodes)
 			var id = getId(nodeGraph);
 			//try
 			{
-				var val = makeExpr(nodeGraph.val, nodes);
 				if("var" in nodeGraph)
 				{
-					mainBlock.addVar(id, "new Store(" + val.getVal() + ", " + typeToJson(val.getType()) + ")");					
+					var val = makeExpr(nodeGraph.val, nodes);
+					mainBlock.addVar(id, "new Store(" + val.getVal() + ", " + typeToJson(val.getType()) + ")");
 					// nodes[id] = new Var(id + ".get()", id, node.getType(), "", id);
 				}
 				else
 				{
-					src += node.getBeforeStr();
-					src += "var " + id + " = " + node.getNode() + ";\n";
-					nodes[id] = new Def(id + ".get()", id, node.getType(), "", node);
+					if(isLit(nodeGraph.val))
+					{
+						var val = makeExpr(nodeGraph.val, nodes);
+						mainBlock.addVar(id, "new Store(" + val.getVal() + ", " + typeToJson(val.getType()) + ")");
+					}
+					else
+					{
+						var val = nodeGraph.val;
+						var expr =  makeExpr(nodeGraph.val, nodes);
+						var node = expr.getNode();
+						var a = 1;
+						mainBlock.addVar(id, node.getStr(0));
+					}
+					// mainBlock.addVar(id, val.getNode());
+					// src += "var " + id + " = " + node.getNode() + ";\n";
+					// nodes[id] = new Def(id + ".get()", id, node.getType(), "", node);
 				}
 			}
 			// catch(err) // For release version only

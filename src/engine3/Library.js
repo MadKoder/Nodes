@@ -13,6 +13,113 @@ function hit(vec)
 var globalRefs = [];
 var globalReferencedNodes = [];
 
+function indentToStr(indent)
+{
+	return Array(indent + 1).join("\t");
+}
+
+function SimpleString(str)
+{
+	this.str = str;
+	
+	this.getStr = function(indent)
+	{
+		return indentToStr(indent) + this.str;
+	}
+}
+
+function Block(opening, closing, sep, lines, lineEnd)
+{
+	this.lines = lines == undefined ? [] : lines;
+	this.lineEnd = lineEnd == undefined ? "" : lineEnd;
+	this.opening = opening;
+	this.closing = closing;
+	this.sep = sep;
+
+	this.addStr = function(line)
+	{
+		this.lines.push(new SimpleString(line));
+	}
+
+	this.addVar = function(name, val)
+	{
+		this.addStr("var " + name + (val == undefined ? "" : " = " + val));
+	}
+
+	this.addBlock = function(block)
+	{
+		this.lines.push(block);
+	}
+
+	this.addComposite = function(strs)
+	{
+		this.addBlock(compositeBlock(strs));
+	}
+
+	this.toStr = function(indent, lines)
+	{
+		// Complex case, at least one line
+		if(lines.length > 0)
+		{
+			return "\n" + indentToStr(indent) + this.opening + "\n" + _.map(lines, function(line)
+			{
+				return line.getStr(indent + 1) + lineEnd;
+			}).join(this.sep) + "\n" + indentToStr(indent) + this.closing + "\n";
+		}
+		// Simple case, no line, return only opening and closing symbols
+		return this.opening + this.closing;
+	}
+
+	this.getStr = function(indent)
+	{
+		return this.toStr(indent, this.lines);
+	}
+
+	this.singleStr = function(indent, str)
+	{
+		return this.toStr(indent, [new SimpleString(str)]);
+	}
+}
+
+function dictBlock()
+{
+	return new Block("{", "}", ",\n");
+}
+
+function stmntBlock(blocks)
+{
+	var b = new Block("{", "}", "", undefined, ";\n");
+	if(blocks != undefined)
+	{
+		_.forEach(blocks, function(block){
+			b.addBlock(block);
+		});
+	}
+	return b;
+}
+
+function arrayBlock()
+{
+	return new Block("[", "]", ",\n");
+}
+
+function compositeBlock(strs)
+{
+	return	{
+		getStr : function(indent)
+		{
+			return indentToStr(indent) + _.map(strs, function(str)
+			{
+				if(_.isString(str))
+				{
+					return str;
+				}
+				return str.getStr(indent);
+			}).join("");
+		}
+	}
+}
+
 function check(test, str)
 {
 	if(!test)
@@ -1387,11 +1494,9 @@ var functions =
 	}
 };
 
-function _Func(func, isObject, updateFunc)
+function _Func(func)
 {
 	this.func = func;
-	this.isObject = isObject;
-	this.updateFunc = updateFunc;
 
 	this.get = function(refs)
 	{
@@ -1450,14 +1555,12 @@ function FunctionNode(func)
 		}
 
 		var baseType = getBaseType(func.type);
-		var isStruct = (
-			(baseType != "int") &&
-			(baseType != "float") &&
-			(baseType != "string") &&
-			(baseType != "list") &&
-			(baseType != "dict"));
-
-		this.nodeStr = "new _Func(function(){\n\treturn " + this.str + ";\n},\n" + isStruct.toString() + ")";
+		
+		// this.nodeStr = "new _Func(function(){\n\treturn " + this.str + ";\n},\n" + ")";
+		this.nodeStr = compositeBlock([
+			new SimpleString("new _Func(function()"),
+			stmntBlock([new SimpleString("return " + this.str)]),
+			new SimpleString(")")]);
 		
 		this.getBeforeStr = function()
 		{
