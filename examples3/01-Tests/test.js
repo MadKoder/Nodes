@@ -15,7 +15,9 @@ $.get("test.nodes", function( text ) {
 	setEngineLodash(_);
 
 	var codeGraph = codeToGraph(text, library, parser);
-	var src = compileGraph(codeGraph, library);
+	// var src = compileGraph(codeGraph, library);
+	var prog = compileGraph(codeGraph, library);
+	var src = escodegen.generate(prog);
 
 	$tmp.append("<div id=\"test\"></div>");
 	var $test = $("#test");
@@ -30,6 +32,13 @@ $.get("test.nodes", function( text ) {
 	}
 
 	// appendText(genericOutputTest.get());
+	txt = escodegen.generate({
+	    type: 'BinaryExpression',
+	    operator: '+',
+	    left: { type: 'Literal', value: 40 },
+	    right: { type: 'Literal', value: 2 }
+	});
+	appendText(txt);
 	appendText(x.get());
 }
 , "text" // Commenter pour lire du json

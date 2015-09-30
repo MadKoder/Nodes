@@ -23,7 +23,7 @@ start "start" =
 	
 Node =
 	defVarCache:DefVarCache? _ typeAndId:MaybeTypeAndId _ 
-		val:("=" _ val:Val {return val;})? _
+		val:("=" _ val:Expression {return val;})? _
 	{
 		var node;
 		if(val == null)
@@ -626,20 +626,6 @@ IfAction =
 		return graph;
 	}
 
-Params "params"
-  =
-  slot:Var _ "=" _ val:Expression  {return {
-            "set": val,
-            "slots": [slot]
-        };}
-  / _ fields:FieldList {return {fields : fields};}
-  / _ expr:ExpressionList {return {params : expr};} 
-  / _ fields:FieldList _ "," expr:ExpressionList {return {params : expr, fields : fields};}
-
-ExpressionList
- = headExpr:Val tailExpr:( _ "," _ (i:Val) {return i})* {return [headExpr].concat(tailExpr);}
-
-
 FieldList
   = head:Field tail:( _ "," _ (f:Field) {return f})* 
     {
@@ -654,27 +640,95 @@ Field
 
 Val = 
 	!Connection exp:Expression {return exp;}
-	/ !Connection exp:PrimaryExpression {return exp;}
+	/ !Connection exp:Expression {return exp;}
 	
-PrimaryExpression = 
-	"true" {return true;}
-	/ "false" {return false;}
-	/ "[]" { return {array : []};}
-	/ FunctionCall
-	/ Closure
-	/ Range
-	/ Comprehension
-	/ ListView 
-	/ Array 
-	/ Dict
-	/ ArrayDictAccess
-	/ Var
-	/ Message 
-	/ number 
+Expression =
+	IfExpression
 	/ "(" __ expression:Expression __ ")" { return expression; }
-	/ array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
-	/ number
-	/ String
+
+IfExpression = 
+	_ "if " _ cond:Val _ "then " _ t:Val _ "else " _ e:Val
+	{
+		return {
+          type:     "if",
+          params : [cond, t, e]
+        };
+	}
+	/ CallExpression
+
+CallExpression = 
+	func:LogicalORExpression _ typeParams:TypeParams? _ funcCalls:(FuncCall)+ _
+	{	
+		var params = funcCalls[0];
+		var result = {
+			type : "CallExpression",
+			func : func,
+			params : (params != null) ? params : [],
+			typeParams : (typeParams != null) ? typeParams : []
+		};
+		// for (var i = 1; i < funcCalls.length; i++) {
+		// 	var params = funcCalls[i];
+		// 	result = {
+		// 		type : "CallExpression",
+		// 		func : result,
+		// 		params : (params != null) ? params : [],
+		// 		typeParams : (typeParams != null) ? typeParams : []
+		// 	};
+		// }
+
+		return result
+	}
+	/ LogicalORExpression
+
+FuncCall = 
+	"(" _ args:ExpressionList _ ")"
+	{
+		return args;
+	}
+
+ExpressionList = headExpr:Expression tailExpr:( _ "," _ (i:Expression) {return i})* {return [headExpr].concat(tailExpr);}
+
+Expression2 = 
+	number
+	/ Id
+	/ LogicalORExpression
+	/ CallExpression
+	/ IfExpression 
+	// / Let
+	// / Merge 
+	// / Match 
+	// / MatchType 
+	// / "true" {return true;}
+	// / "false" {return false;}
+	// / "[]" { return {array : []};}
+	// / Closure
+	// / Range
+	// / Comprehension
+	// / ListView 
+	// / Array 
+	// / Dict
+	// / ArrayDictAccess
+	// / Var
+	// / Message 
+	// / number 
+	// / "(" __ expression:Expression __ ")" { return expression; }
+	// / array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
+	// / String
+
+
+	
+Params "params"
+  =
+  slot:Var _ "=" _ val:Expression  {return {
+            "set": val,
+            "slots": [slot]
+        };}
+  / _ fields:FieldList {return {fields : fields};}
+  / _ expr:ExpressionList {return {params : expr};} 
+  / _ fields:FieldList _ "," expr:ExpressionList {return {params : expr, fields : fields};}
+
+ExpressionList = 
+	headExpr:Val tailExpr:( _ "," _ (i:Val) {return i})* {return [headExpr].concat(tailExpr);}
 
 ArrayDictAccess =
 	_ id:Var _ "[" _ indexOrKey:Val _ "]" _
@@ -685,27 +739,6 @@ ArrayDictAccess =
         };
 	}
 
-FunctionCall = 
-	id:Id _ typeParams:TypeParams? _ calls:FuncCalls
-	{	
-		var ret = id;
-		for(var i = 0; i < calls.length; i++)
-		{
-			ret = {
-				type : ret
-			};
-			var call = calls[i];
-			if("params" in call) ret["params"] = call["params"];
-			if("fields" in call) ret["fields"] = call["fields"];
-			if("connections" in call) ret["connections"] = call["connections"];
-		}
-		if(typeParams)
-		{
-			ret.typeParams = typeParams;
-		}
-		return ret;
-	}
-	
 TypeParams =
 	"<" _ types:Ids _ ">"
 	{
@@ -719,29 +752,10 @@ FuncCalls =
 	}
 
 FuncCall = 
-	"(" _ connections:(Connections) _ ")"
-	{
-		return {
-			connections : connections
-		};
-	}
-	/ "(" _ params:(Params) _ "," _ connections:(Connections) _ ")"
-	{
-		var ret = {
-			connections : connections
-		};
-		if("params" in params) ret["params"] = params["params"];
-		if("fields" in params) ret["fields"] = params["fields"];
-		return ret;
-	}
-	/ "(" _ params:(Params)? _ ")"
+	"(" _ params:(Params)? _ ")"
 	{
 		var ret = {};
-		if(params != null)
-		{
-			if("params" in params) ret["params"] = params["params"];
-			if("fields" in params) ret["fields"] = params["fields"];
-		}
+		
 		return ret;
 	}
 	
@@ -750,15 +764,6 @@ String =
 	{
 		return {
 			string : text.join("")};
-	}
-
-IfExpression = 
-	_ "if " _ cond:Val _ "then " _ t:Val _ "else " _ e:Val
-	{
-		return {
-          type:     "if",
-          params : [cond, t, e]
-        };
 	}
 
 Merge = 
@@ -903,14 +908,6 @@ Message =
 		};
 	}
 
-Expression =
-  IfExpression 
-/ Let
-/ Merge 
-/ Match 
-/ MatchType 
-/ LogicalORExpression
-
 Id = 
 	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
 		return name.length == 1 ?
@@ -930,13 +927,17 @@ StructPath =
 	}
 
 UnaryExpression
-  = PrimaryExpression
-  / operator:UnaryOperator __ expression:UnaryExpression {
+  = operator:UnaryOperator __ expression:UnaryExpression {
       return {
           type:     operator == "-" ? "neg" : operator,
           params : [expression]
       };
     }
+    / Atom
+
+Atom =
+	number
+	/ Id
 
 UnaryOperator
   = "-"
