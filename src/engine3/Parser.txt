@@ -1,3 +1,22 @@
+{
+	function makeCallExpression(func, funcCalls) 	{	
+		var result = {
+			type : "CallExpression",
+			func : func,
+			args : funcCalls[0]
+		};
+		for (var i = 1; i < funcCalls.length; i++) {
+			var params = funcCalls[i];
+			result = {
+				type : "CallExpression",
+				func : result,
+				args : params,
+			};
+		}
+		return result
+	}
+}
+
 start "start" = 
   "functions " _ func:Function {return func;}
 / "actions " _ id:Var _ params:("(" _ params:ParamsDecl _")" {return params})? _ action:Action
@@ -53,7 +72,334 @@ Node =
 		}
 		return node;
 	}
+
+Expression =
+	CallExpression
+	/ "(" __ expression:CallExpression __ ")" { return expression; }
+
+CallExpression "CallExpression" = 
+	func:ConcreteType _ funcCalls:(FuncCall)+ _
+	{	
+		return makeCallExpression(func, funcCalls);
+	}
+	/ func:ConditionalExpression _ funcCalls:(FuncCall)+ _
+	{	
+		return makeCallExpression(func, funcCalls);
+	}
+	/ _ "(" _ func:ConditionalExpression _ ")" _ funcCalls:(FuncCall)+ _
+	{	
+		return makeCallExpression(func, funcCalls);
+	}
+	/ ConditionalExpression
+
+ConcreteType = 
+	t:Id _ args:TypeArgs
+	{
+		return {
+			type : "ConcreteType",
+			base : t,
+			args : args
+		}
+	}
+	/ t:Id
+	{
+		return {
+			type : "ConcreteType",
+			base : t,
+			args : []
+		}
+	}
+
+TypeArgs =
+	"<" _ types:Ids _ ">"
+	{
+		return types;
+	}
+
+FuncCall = 
+	"(" _ args:ExpressionList _ ")"
+	{
+		return args;
+	}
+
+ExpressionList = 
+	headExpr:Expression tailExpr:( _ "," _ (i:Expression) {return i})*
+	{
+		return [headExpr].concat(tailExpr);
+	}
+
+ConditionalExpression = 
+	_ "if" _ test:Comprehension _ "then" _ consequent:Comprehension _ "else " _ alternate:Comprehension
+	{
+        return{
+	        type : "ConditionalExpression",
+	        test: test,
+	        consequent : consequent,
+	        alternate : alternate
+	    };
+	}
+	/ Comprehension
+
+Comprehension = 
+	"[" _ val:LogicalORExpression _ "for " _ it:CompIterators _ when:("when " _ test:Val {return test})? _ "]" 
+	{
+		var res = {
+			"comp" : val,
+			"it" : it
+		};
+		if(when != null)
+		{
+			res["when"] = when;
+		}
+		return res;
+
+	}
+	/ LogicalORExpression
+
+CompIterators = 
+	head:CompIterator _ tail:( _ "," _ (i:CompIterator) {return i})* 
+	{
+		return [head].concat(tail);
+	}
 	
+CompIterator = 
+	it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Val
+	{
+		var res = {
+			"for" : it,
+			"in" : array,
+		}
+		if(index != null)
+		{
+			res["index"] = index;
+		}
+		return res;
+	}
+
+LogicalORExpression
+  = head:LogicalANDExpression
+    tail:(__ LogicalOROperator __ LogicalANDExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+LogicalOROperator
+  = "||" !"=" { return "||"; }
+
+LogicalANDExpression
+  = head:BitwiseORExpression
+    tail:(__ LogicalANDOperator __ BitwiseORExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+LogicalANDOperator
+  = "&&" !"=" { return "&&"; }
+
+BitwiseORExpression
+  = head:BitwiseXORExpression
+    tail:(__ BitwiseOROperator __ BitwiseXORExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     "BinaryExpression",
+          operator: tail[i][1],
+          left:     result,
+          right:    tail[i][3]
+        };
+      }
+      return result;
+    }
+
+
+BitwiseOROperator
+  = "|" !("|" / "=") { return "|"; }
+
+BitwiseXORExpression
+  = head:BitwiseANDExpression
+    tail:(__ BitwiseXOROperator __ BitwiseANDExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     "BinaryExpression",
+          operator: tail[i][1],
+          left:     result,
+          right:    tail[i][3]
+        };
+      }
+      return result;
+    }
+
+BitwiseXOROperator
+  = "^" !("^" / "=") { return "^"; }
+
+BitwiseANDExpression
+  = head:EqualityExpression
+    tail:(__ BitwiseANDOperator __ EqualityExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     "BinaryExpression",
+          operator: tail[i][1],
+          left:     result,
+          right:    tail[i][3]
+        };
+      }
+      return result;
+    }
+
+
+BitwiseANDOperator
+  = "&" !("&" / "=") { return "&"; }
+
+
+EqualityExpression
+  = head:RelationalExpression
+    tail:(__ EqualityOperator __ RelationalExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1] == "==" ? "==" : "!=",
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+
+EqualityOperator
+  = "==="
+  / "!=="
+  / "=="
+  / "!="
+
+RelationalExpression
+  = head:ShiftExpression
+    tail:(__ RelationalOperator __ ShiftExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+RelationalOperator
+  = "<="
+  / ">="
+  / "<"
+  / ">"
+
+ShiftExpression
+  = head:AdditiveExpression
+    tail:(__ ShiftOperator __ AdditiveExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1] == "<<" ? "LShift" : "RShift",
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+ShiftOperator
+  = "<<"
+  / ">>"
+
+AdditiveExpression
+  =  head:MultiplicativeExpression
+    tail:(__ AdditiveOperator __ AdditiveExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+      }
+      return result;
+    }
+
+AdditiveOperator
+  = "+" !("+" / "=") { return "+"; }
+  / "-" !("-" / "=") { return "-"; }
+
+MultiplicativeExpression
+  = head:UnaryExpression
+    tail:(__ MultiplicativeOperator __ AdditiveExpression)* {
+      var result = head;
+      for (var i = 0; i < tail.length; i++) {
+        result = {
+          type:     tail[i][1],
+          params : [result, tail[i][3]]
+        };
+  
+      }
+      return result;
+    }
+
+MultiplicativeOperator
+  = operator:("*" / "/" / "%") !"=" { return operator; }
+  
+
+UnaryExpression
+  = operator:UnaryOperator __ expression:UnaryExpression {
+      return {
+          type:     operator == "-" ? "neg" : operator,
+          params : [expression]
+      };
+    }
+    / Atom
+
+Atom =
+	number
+	/ Id
+
+UnaryOperator
+  = "-"
+  /  "!"
+
+Expression2 = 
+	number
+	/ Id
+	/ LogicalORExpression
+	/ CallExpression
+	/ ConditionalExpression 
+	// / Let
+	// / Merge 
+	// / Match 
+	// / MatchType 
+	// / "true" {return true;}
+	// / "false" {return false;}
+	// / "[]" { return {array : []};}
+	// / Closure
+	// / Range
+	// / Comprehension
+	// / ListView 
+	// / Array 
+	// / Dict
+	// / ArrayDictAccess
+	// / Var
+	// / Message 
+	// / number 
+	// / "(" __ expression:Expression __ ")" { return expression; }
+	// / array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
+	// / String
+
 Connections = 
    head:Connection _ tail:(_ "," _ (c:Connection) {return c})* 
    {
@@ -367,41 +713,6 @@ Range =
 		};
 	}
 
-Comprehension = 
-	"[" _ val:Val _ "for " _ it:CompIterators _ when:("when " _ test:Val {return test})? _ "]" 
-	{
-		var res = {
-			"comp" : val,
-			"it" : it
-		};
-		if(when != null)
-		{
-			res["when"] = when;
-		}
-		return res;
-
-	}
-
-CompIterators = 
-	head:CompIterator _ tail:( _ "," _ (i:CompIterator) {return i})* 
-	{
-		return [head].concat(tail);
-	}
-	
-CompIterator = 
-	it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Val
-	{
-		var res = {
-			"for" : it,
-			"in" : array,
-		}
-		if(index != null)
-		{
-			res["index"] = index;
-		}
-		return res;
-	}
-
 ListView = 
 	"$[" _ val:Val _ "for " _ it:Id _ index:("," _ i:Id {return i;})? _ "in " _ array:Var _ "]" 
 	{
@@ -642,78 +953,6 @@ Val =
 	!Connection exp:Expression {return exp;}
 	/ !Connection exp:Expression {return exp;}
 	
-Expression =
-	IfExpression
-	/ "(" __ expression:Expression __ ")" { return expression; }
-
-IfExpression = 
-	_ "if " _ cond:Val _ "then " _ t:Val _ "else " _ e:Val
-	{
-		return {
-          type:     "if",
-          params : [cond, t, e]
-        };
-	}
-	/ CallExpression
-
-CallExpression = 
-	func:LogicalORExpression _ typeParams:TypeParams? _ funcCalls:(FuncCall)+ _
-	{	
-		var params = funcCalls[0];
-		var result = {
-			type : "CallExpression",
-			func : func,
-			params : (params != null) ? params : [],
-			typeParams : (typeParams != null) ? typeParams : []
-		};
-		// for (var i = 1; i < funcCalls.length; i++) {
-		// 	var params = funcCalls[i];
-		// 	result = {
-		// 		type : "CallExpression",
-		// 		func : result,
-		// 		params : (params != null) ? params : [],
-		// 		typeParams : (typeParams != null) ? typeParams : []
-		// 	};
-		// }
-
-		return result
-	}
-	/ LogicalORExpression
-
-FuncCall = 
-	"(" _ args:ExpressionList _ ")"
-	{
-		return args;
-	}
-
-ExpressionList = headExpr:Expression tailExpr:( _ "," _ (i:Expression) {return i})* {return [headExpr].concat(tailExpr);}
-
-Expression2 = 
-	number
-	/ Id
-	/ LogicalORExpression
-	/ CallExpression
-	/ IfExpression 
-	// / Let
-	// / Merge 
-	// / Match 
-	// / MatchType 
-	// / "true" {return true;}
-	// / "false" {return false;}
-	// / "[]" { return {array : []};}
-	// / Closure
-	// / Range
-	// / Comprehension
-	// / ListView 
-	// / Array 
-	// / Dict
-	// / ArrayDictAccess
-	// / Var
-	// / Message 
-	// / number 
-	// / "(" __ expression:Expression __ ")" { return expression; }
-	// / array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
-	// / String
 
 
 	
@@ -739,26 +978,6 @@ ArrayDictAccess =
         };
 	}
 
-TypeParams =
-	"<" _ types:Ids _ ">"
-	{
-		return types;
-	}
-	
-FuncCalls = 
-	head:FuncCall _ tail:( _ (i:FuncCall) {return i})* 
-	{
-		return [head].concat(tail);
-	}
-
-FuncCall = 
-	"(" _ params:(Params)? _ ")"
-	{
-		var ret = {};
-		
-		return ret;
-	}
-	
 String = 
 	"\"" text:([^"\\] / dq:('\\' c:. {return c;}))* "\"" 
 	{
@@ -926,200 +1145,7 @@ StructPath =
 		return finalPath;
 	}
 
-UnaryExpression
-  = operator:UnaryOperator __ expression:UnaryExpression {
-      return {
-          type:     operator == "-" ? "neg" : operator,
-          params : [expression]
-      };
-    }
-    / Atom
 
-Atom =
-	number
-	/ Id
-
-UnaryOperator
-  = "-"
-  /  "!"
-
-MultiplicativeExpression
-  = head:UnaryExpression
-    tail:(__ MultiplicativeOperator __ AdditiveExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
-        };
-  
-      }
-      return result;
-    }
-
-MultiplicativeOperator
-  = operator:("*" / "/" / "%") !"=" { return operator; }
-  
-AdditiveExpression
-  =  head:MultiplicativeExpression
-    tail:(__ AdditiveOperator __ AdditiveExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-AdditiveOperator
-  = "+" !("+" / "=") { return "+"; }
-  / "-" !("-" / "=") { return "-"; }
- 
-ShiftExpression
-  = head:AdditiveExpression
-    tail:(__ ShiftOperator __ AdditiveExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1] == "<<" ? "LShift" : "RShift",
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-ShiftOperator
-  = "<<"
-  / ">>"
-
-RelationalExpression
-  = head:ShiftExpression
-    tail:(__ RelationalOperator __ ShiftExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-RelationalOperator
-  = "<="
-  / ">="
-  / "<"
-  / ">"
-
-EqualityExpression
-  = head:RelationalExpression
-    tail:(__ EqualityOperator __ RelationalExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1] == "==" ? "==" : "!=",
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-
-EqualityOperator
-  = "==="
-  / "!=="
-  / "=="
-  / "!="
-
-BitwiseANDExpression
-  = head:EqualityExpression
-    tail:(__ BitwiseANDOperator __ EqualityExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     "BinaryExpression",
-          operator: tail[i][1],
-          left:     result,
-          right:    tail[i][3]
-        };
-      }
-      return result;
-    }
-
-
-BitwiseANDOperator
-  = "&" !("&" / "=") { return "&"; }
-
-BitwiseXORExpression
-  = head:BitwiseANDExpression
-    tail:(__ BitwiseXOROperator __ BitwiseANDExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     "BinaryExpression",
-          operator: tail[i][1],
-          left:     result,
-          right:    tail[i][3]
-        };
-      }
-      return result;
-    }
-
-BitwiseXOROperator
-  = "^" !("^" / "=") { return "^"; }
-
-BitwiseORExpression
-  = head:BitwiseXORExpression
-    tail:(__ BitwiseOROperator __ BitwiseXORExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     "BinaryExpression",
-          operator: tail[i][1],
-          left:     result,
-          right:    tail[i][3]
-        };
-      }
-      return result;
-    }
-
-
-BitwiseOROperator
-  = "|" !("|" / "=") { return "|"; }
-
-LogicalANDExpression
-  = head:BitwiseORExpression
-    tail:(__ LogicalANDOperator __ BitwiseORExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-LogicalANDOperator
-  = "&&" !"=" { return "&&"; }
-
-LogicalORExpression
-  = head:LogicalANDExpression
-    tail:(__ LogicalOROperator __ LogicalANDExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-LogicalOROperator
-  = "||" !"=" { return "||"; }
 
 number "number"
   = literal:(HexIntegerLiteral / DecimalLiteral) {
