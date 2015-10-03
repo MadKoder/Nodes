@@ -41,36 +41,64 @@ start "start" =
 	}
 	
 Node =
-	defVarCache:DefVarCache? _ typeAndId:MaybeTypeAndId _ 
-		val:("=" _ val:Expression {return val;})? _
+	"def" _ maybeTypeAndId:MaybeTypeAndId _ "=" _ val:Expression _
 	{
-		var node;
-		if(val == null)
-		{
-			node = {
-				type : typeAndId.type
-			};
-		}  else
-		{
-			node = {
-				val : val
-			};
-			if(typeAndId.type != null)
-				node.type = typeAndId.type;
+		return {
+			type : "def",
+			id : maybeTypeAndId.id,
+			val : val,
+			explicitType : maybeTypeAndId.type
+		};
+	}
+	/ "var" _ maybeTypeAndId:MaybeTypeAndId _  val:("=" _ val:Expression {return val;})? _
+	{
+		return {
+			type : "var",
+			id : maybeTypeAndId.id,
+			val : val,
+			explicitType : maybeTypeAndId.type
+		};
+	}
+
+MaybeTypeAndId =
+	type:Type _ id:Id
+	{
+		return {
+			id : id,
+			type : type
 		}
-		if(defVarCache == null || defVarCache == "def")
-		{
-			node.def = typeAndId.id;
+	}
+	/ id:Id
+	{
+		return {
+			 id:id,
+			 type:null
+		};
+	}
+
+Type = 
+	t:Id _ args:TypeArgs
+	{
+		return {
+			type : "Type",
+			base : t,
+			args : args
 		}
-		else if(defVarCache == "var")
-		{
-			node.var = typeAndId.id;
+	}
+	/ t:Id
+	{
+		return {
+			type : "Type",
+			base : t,
+			args : []
 		}
-		else
-		{
-			node.cache = typeAndId.id;
-		}
-		return node;
+	}
+
+Id = 
+	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
+		return name.length == 1 ?
+			name[0] :
+			name[0] + name[1].join(""); 
 	}
 
 Expression =
@@ -78,7 +106,7 @@ Expression =
 	/ "(" __ expression:CallExpression __ ")" { return expression; }
 
 CallExpression "CallExpression" = 
-	func:ConcreteType _ funcCalls:(FuncCall)+ _
+	func:Type _ funcCalls:(FuncCall)+ _
 	{	
 		return makeCallExpression(func, funcCalls);
 	}
@@ -92,23 +120,6 @@ CallExpression "CallExpression" =
 	}
 	/ ConditionalExpression
 
-ConcreteType = 
-	t:Id _ args:TypeArgs
-	{
-		return {
-			type : "ConcreteType",
-			base : t,
-			args : args
-		}
-	}
-	/ t:Id
-	{
-		return {
-			type : "ConcreteType",
-			base : t,
-			args : []
-		}
-	}
 
 TypeArgs =
 	"<" _ types:Ids _ ">"
@@ -321,18 +332,31 @@ ShiftOperator
   = "<<"
   / ">>"
 
-AdditiveExpression
-  =  head:MultiplicativeExpression
-    tail:(__ AdditiveOperator __ AdditiveExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
+AdditiveExpression =
+	head:MultiplicativeExpression tail:(_ AdditiveOperator _ operand:AdditiveExpression {return operand})+ {
+		var result = {
+			type : "CallExpression",
+			func : {
+				type : "Type",
+				base : "+",
+				args : []
+			},
+			args : [head, tail[0]]
+		};
+		for (var i = 1; i < tail.length; i++) {
+			result = {
+				type : "CallExpression",
+				func : {
+					type : "Type",
+					base : "+",
+					args : []
+				},
+				args : [result, tail[i]],
+			};
+		};
+		return result;
     }
+    / MultiplicativeExpression
 
 AdditiveOperator
   = "+" !("+" / "=") { return "+"; }
@@ -441,7 +465,10 @@ ParamsDecl =
 	head:ParamDecl tail:( _ "," _ (p:ParamDecl) {return p})* {return [head].concat(tail);}
 	
 ParamDecl = 
-	typeAndId:TypeAndId {return [ typeAndId.id, typeAndId.type];}
+	type:Type _ id:Id 
+	{
+		return [ id, type];
+	}
 
 Affectation = 
 	loc:("loc")? _ slot:VarOrDestructVar _ "=" _ val:Val 
@@ -486,11 +513,6 @@ Vars =
 		return [head].concat(tail);
 	}
 	
-DefVarCache = 
-  "def"
-  / "var"
-  / "cache"
-
 Function =
 	ref:("ref")? _ typeAndId:MaybeTypeAndId _ typeParams:("<" _ t:IdList _ ">" _ {return t;})? _
 	"(" params:ParamsDecl ")" 
@@ -531,35 +553,9 @@ FuncBody =
 	_ val:Val {return {nodes : [], val : val};}
 	/ _  "(" _ val:Val _ "," _ connections:(Connections) _")"
 		{return {nodes : [], val : val, connections : connections};}
-	
-TypeAndId =
-  type:Type _ id:Id { return {type:type, id:id};}
- 
-MaybeTypeAndId =
-  TypeAndId
-  / id:Id {return {type:null, id:id};}
   
 MaybeTypeAndIds =
 	head:MaybeTypeAndId tail:( _ "," _ (type:MaybeTypeAndId) {return type})* 
-	{
-		return [head].concat(tail);
-	}
-
-Type =
-	base:Id _ params:("<" _ t:Templates _ ">" _ {return t;})?
-	{
-		if(params != null)
-		{
-			return {
-				base : base,
-				params : params
-			}
-		}
-		return base
-	}
-	
-Templates =  
-	head:Type tail:( _ "," _ (type:Type) {return type})* 
 	{
 		return [head].concat(tail);
 	}
@@ -979,10 +975,11 @@ ArrayDictAccess =
 	}
 
 String = 
-	"\"" text:([^"\\] / dq:('\\' c:. {return c;}))* "\"" 
-	{
+	"\"" text:([^"\\] / dq:('\\' c:. {return c;}))* "\"" {
 		return {
-			string : text.join("")};
+			type : "String",
+			val : text.join("")
+		};
 	}
 
 Merge = 
@@ -1126,13 +1123,6 @@ Message =
 			params : params != null ? params :  []
 		};
 	}
-
-Id = 
-	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
-		return name.length == 1 ?
-			name[0] :
-			name[0] + name[1].join(""); 
-	}
 	
 SubPath = 
 	StructPath
@@ -1146,19 +1136,39 @@ StructPath =
 	}
 
 
-
-number "number"
-  = literal:(HexIntegerLiteral / DecimalLiteral) {
+number "number" =
+	literal:(HexIntegerLiteral / DecimalLiteral) {
       return literal;
     }
 
-DecimalLiteral
-  = parts:(SignedInteger"." DecimalDigits? ExponentPart?) {
-      return parseFloat(parts.join(""));    }
-  / parts:("." DecimalDigits ExponentPart?) { return parseFloat(parts.join("")); }
-  / parts:(SignedInteger ExponentPart?) { return parseFloat(parts.join("")); }
+DecimalLiteral = 
+	parts:(SignedInteger"." DecimalDigits? ExponentPart?) {
+		return {
+			type : "Float",
+			val : parseFloat(parts.join(""))
+		};
+	}
+	/ parts:("." DecimalDigits ExponentPart?) {
+		return {
+			type : "Float",
+			val : parseFloat(parts.join(""))
+		};
+	}
+	/ parts:(SignedInteger ExponentPart?) {
+		return {
+			type : "Float",
+			val : parseFloat(parts.join(""))
+		}
+	}
 
-Int = int:DecimalIntegerLiteral {return parseInt(int);}
+Int = 
+	int:DecimalIntegerLiteral 
+	{
+		return {
+			type : "Int",
+			val : parseInt(int)
+		}
+	}
 
 DecimalIntegerLiteral
   = "0" / parts:(NonZeroDigit DecimalDigits?) {return parts.join("");}

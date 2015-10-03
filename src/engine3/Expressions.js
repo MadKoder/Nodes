@@ -20,97 +20,80 @@ function Val(ast, type)
 	}
 }
 
-function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
+function makeExpr(expr, nodes, genericTypeParams)
 {
-	if (_.isNumber(expr) || _.isBoolean(expr))
+	if(isNumber(expr) || _.isBoolean(expr))
 	{
-		var type = _.isNumber(expr) ? (
-			(Math.floor(expr) != expr) ?
-				"float" :
-				"int"
-		) : 
-		"bool";
-		return new Val(literal(expr), type);
-	} else if("type" in expr)
+		return new Val(literal(expr.val), makeBaseType(expr.type));
+	} else if(expr.type == "CallExpression")
 	{
+		return new Val(
+			{
+                "type": "BinaryExpression",
+                "operator": "+",
+                "left": {
+                    "type": "Literal",
+                    "value": 10,
+                    "raw": "10"
+                },
+                "right": {
+                    "type": "Literal",
+                    "value": 2,
+                    "raw": "1"
+                }
+            },
+			makeBaseType("Int")
+		);
 		var node;
-		var type = getBaseType(expr.type);
-		// When type of expression is explicitely defined (ex. var dict<string, int>)
-		var typeParams = getTypeParams(expr.type);
-		if(!(type in library.nodes))
+		var baseType = expr.type.base;
+		var typeArgs = expr.type.args;
+		if(!(baseType in library.functions))
 		{
-			error("Function " + type + " not found in nodes library");
+			error("Function " + type + " not found in functions library");
 		}
-		var nodeSpec = library.nodes[type];
+		var funcSpec = library.functions[baseType];
 		
-		var paramsGraph = expr.params;
-		var fieldsGraph = expr.fields;
-		var fields = {};
-		if(fieldsGraph != undefined)
-		{
-			// TODO !!!
-			fields = compileFields(fieldsGraph, path, type, nodes, false);
-		}
+		var argsGraph = expr.args;
 
-		// TODO simplifier
-		if(("guessTypeParams" in nodeSpec))
+		if(("guessTypeArgs" in funcSpec))
 		{
 			var instance;
-			if(typeParams.length == 0 && "typeParams" in expr)
+			var vals = _.map(argsGraph, function(argGraph)
 			{
-				// If we are evaluating a generic expression, and we are in a generic function,
-				// convert the generic types of the expression to the concrete types defined 
-				// in the current instance of the function
-				if(genericTypeParams)
-				{
-					var typeParams = _.map(expr.typeParams, function(type)
-					{
-						if(type in genericTypeParams)
-							return genericTypeParams[type];
-						return type;
-					});
-				} 
-				else
-				{
-					var typeParams = expr.typeParams;				
-				}
-			}
-			if(paramsGraph != undefined)
+				return makeExpr(argGraph, nodes, genericTypeParams);
+			});
+
+			// TODO : faire check entre type explicite et deduit				
+			typeArgs = funcSpec.guessTypeArgs(vals);
+			
+			if(true)	
 			{
-				var vals = _.map(paramsGraph, function(paramGraph)
-				{
-					return makeExpr(paramGraph, nodes, genericTypeParams);
-				});
-				// TODO : faire check entre type explicite et deduit				
-				if(typeParams.length == 0)
-					typeParams = nodeSpec.guessTypeParams(vals);
-				
-				instance = nodeSpec.getInstance(typeParams);
+				instance = funcSpec.getInstance(typeArgs);
 				var paramsSpec = _.map(instance["fields"], function(nameAndType){return nameAndType[0];});
 				fields = _.zipObject(paramsSpec, vals);
 			}
 			else
 			{
-				instance = nodeSpec.getInstance(typeParams);
+				instance = funcSpec.getInstance(typeArgs);
 			}
 			
 			// TODO template explicite
-			node = new instance.builder(fields, typeParams);
+			node = new instance.builder(fields, typeArgs);
 		}
 		else
 		{
-			if(paramsGraph != undefined)
+			if(argsGraph != undefined)
 			{
-				var fieldsSpec = nodeSpec["fields"];
+				var fieldsSpec = funcSpec["fields"];
 				var nbParamsSpec = _.filter(fieldsSpec, function(field){return _.isArray(field);}).length;
-				if(paramsGraph.length < nbParamsSpec)
+				if(argsGraph.length < nbParamsSpec)
 				{
-					error("Not enough params in constructor of " + type + ". Required " + nbParamsSpec + " found " + paramsGraph.length);
+					error("Not enough params in constructor of " + type + ". Required " + nbParamsSpec + " found " + argsGraph.length);
 				}
-				for(var paramIndex = 0; paramIndex < paramsGraph.length; paramIndex++)
+				for(var paramIndex = 0; paramIndex < argsGraph.length; paramIndex++)
 				{
 					var paramSpec = fieldsSpec[paramIndex];
-					var val = makeExpr(paramsGraph[paramIndex], nodes);
+					var val = makeExpr(argsGraph[paramIndex], nodes);
 					var valType = val.getType();					
 					if(genericTypeParams && valType in genericTypeParams)
 					{
@@ -124,23 +107,7 @@ function makeExpr(expr, nodes, genericTypeParams, cloneIfRef)
 					fields[paramSpec[0]] = val;
 				}
 			}
-			node = new nodeSpec.builder(fields, typeParams);
-		}
-
-		if("connections" in expr)
-		{
-			// TODO always true ?
-			node.needsNodes = true;
-			var type = node.getType();
-			var signals = node.getSignals();
-			var typeSignals = library.nodes[type].signals;
-
-			_.each(expr.connections, function(connection)
-			{
-				var mergedNodes = _.clone(nodes);
-				_.merge(mergedNodes, typeSignals[connection.signal].localNodes);
-				signals[connection.signal] = {action : connection.action, nodes : mergedNodes};
-			});
+			node = new funcSpec.builder(fields, typeArgs);
 		}
 		return node;
 	} 

@@ -41,10 +41,10 @@ function compileGraph(graph, lib, previousNodes)
 		for(var j = 0; j < nodeRow.length; j++)
 		{
 			var nodeGraph = nodeRow[j];
-			var id = getId(nodeGraph);
+			var id = nodeGraph.id;
 			//try
 			{
-				if("var" in nodeGraph || isLit(nodeGraph.val))
+				if(nodeGraph.type == "var" || isLit(nodeGraph.val))
 				{
 					var val = makeExpr(nodeGraph.val, nodes);
 					var vor = varDeclarator(
@@ -52,7 +52,7 @@ function compileGraph(graph, lib, previousNodes)
 							identifier("Store"),
 							[
 								val.getAst(),
-								literal(typeToJson(val.getType()))
+								typeToAst(val.getType())
 							]
 						)
 					);

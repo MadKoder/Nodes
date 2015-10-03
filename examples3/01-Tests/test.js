@@ -5,7 +5,7 @@ var $tmp = $("#tmp");
 
 var library =
 {
-	nodes : nodes,
+	nodes : {},
 	functions : functions,
 	actions : actions
 };
