@@ -24,6 +24,14 @@ function makeConcreteType(typeStr, args)
 	}
 }
 
+function makeFunctionType(paramsType, returnType)
+{
+	return {
+		inputs : paramsType,
+		output : returnType
+	};
+}
+
 function isSameOrSubType(checkedType, refType)
 {
 	var checkedBaseType = getBaseType(checkedType);

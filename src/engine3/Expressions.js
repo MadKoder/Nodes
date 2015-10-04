@@ -4,7 +4,7 @@ function getId(node)
 	return "id" in node ? node.id : (("def" in node) ? node.def : ("var" in node ? node["var"] : node["cache"]))
 }
 
-function Val(ast, type)
+function Expr(ast, type)
 {
 	this.ast = ast;
 	this.type = type;
@@ -20,7 +20,7 @@ function Val(ast, type)
 	}
 }
 
-function makeCallExpression(expr, nodes, genericTypeParams)
+function makeCallExpression(expr, library, genericTypeParams)
 {
 	var baseType = expr.func.base;
 	var typeArgs = expr.func.args;
@@ -31,13 +31,13 @@ function makeCallExpression(expr, nodes, genericTypeParams)
 	var funcSpec = library.functions[baseType];
 	
 	args = _.map(expr.args, function(arg) {
-		return makeExpr(arg, nodes, genericTypeParams);
+		return makeExpr(arg, library, genericTypeParams);
 	});
 
 	typeArgs = funcSpec.guessTypeArgs(args);
 	funcInstance = funcSpec.getInstance(typeArgs);
 
-	return new Val(
+	return new Expr(
 		funcInstance.getAst(
 			_.map(args, function(arg) {
 				return arg.ast;
@@ -46,16 +46,21 @@ function makeCallExpression(expr, nodes, genericTypeParams)
 	);
 }
 
-function makeIdExpression(expr, nodes, genericTypeParams)
+function makeIdExpression(expr, library, genericTypeParams)
 {
 	var id = expr.name;
-	if(!(id in nodes))
+	var idVal = null;
+	var type = null;
+	if(id in library.vals)
 	{
-		error("Node " + id + " not in set of nodes");
-	}
-
-	var node = nodes[id];
-	return new Val({
+	    idVal = {
+	        "type": "Identifier",
+	        "name": id
+	    };
+	    type = library.vals[id].type;
+	} else if(id in library.nodes)
+	{
+		idVal = {
             "type": "CallExpression",
             "callee": {
                 "type": "MemberExpression",
@@ -70,22 +75,32 @@ function makeIdExpression(expr, nodes, genericTypeParams)
                 }
             },
             "arguments": []
-        },
-		node.type
+        };
+        type = library.nodes[id].type;
+	}
+
+	if(idVal == null)
+	{
+		error("Node " + id + " not in set of nodes nor of vals");
+	}
+
+	return new Expr(
+		idVal,
+		type
 	);
 }
 
-function makeExpr(expr, nodes, genericTypeParams)
+function makeExpr(expr, library, genericTypeParams)
 {
-	if(isNumber(expr) || _.isBoolean(expr))
+	if(isNumber(expr))
 	{
-		return new Val(literal(expr.val), makeBaseType(expr.type));
+		return new Expr(literal(expr.val), makeBaseType(expr.type));
 	} else if(expr.type == "CallExpression")
 	{
-		return makeCallExpression(expr, nodes, genericTypeParams);
+		return makeCallExpression(expr, library, genericTypeParams);
 	} else if(expr.type == "Id")
 	{
-		return makeIdExpression(expr, nodes, genericTypeParams);
+		return makeIdExpression(expr, library, genericTypeParams);
 	} 
 }
 

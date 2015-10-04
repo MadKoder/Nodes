@@ -1,5 +1,8 @@
+functions:
+	add(Int x, Int y) =
+		x + y
 nodes:
 	var z = 1 + 2
 	var y = z
 	def x = y + z
-	def t = x + y
+	def t = add(x, y)

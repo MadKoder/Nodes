@@ -18,7 +18,7 @@
 }
 
 start "start" = 
-  "functions " _ func:Function {return func;}
+  "functions " _ func:FunctionDeclaration {return func;}
 / "actions " _ id:Var _ params:("(" _ params:ParamsDecl _")" {return params})? _ action:Action
 	{
 		var a = action;
@@ -469,7 +469,10 @@ ParamsDecl =
 ParamDecl = 
 	type:Type _ id:Id 
 	{
-		return [ id, type];
+		return {
+			type : type,
+			id : id
+		};
 	}
 
 Affectation = 
@@ -515,47 +518,20 @@ Vars =
 		return [head].concat(tail);
 	}
 	
-Function =
-	ref:("ref")? _ typeAndId:MaybeTypeAndId _ typeParams:("<" _ t:IdList _ ">" _ {return t;})? _
-	"(" params:ParamsDecl ")" 
-	_ body:FuncBody?
+FunctionDeclaration =
+	typeAndId:MaybeTypeAndId _ typeParams:("<" _ t:IdList _ ">" _ {return t;})? _
+	"(" params:ParamsDecl ")" _ body:( "=" _ e:Expression {return e;})?
 	{
-		var func = {
+		return {
+			type : "FunctionDeclaration",
 			id : typeAndId.id, 
-			in: params, 
-			out : {
-				type : typeAndId.type, 
-			}
+			params : params, 
+			body : body,
+			typeParams : typeParams,
+			explicitType : typeAndId.type
 		};
-		if(body != null)
-		{
-			func.nodes = body.nodes;
-			func.out.val = body.val;
-			if("connections" in body)
-			{
-				func.connections = body.connections;
-			}
-		}
-		if(typeParams != null)
-		{
-			func.typeParams = typeParams;
-		};
-		if("type" in typeAndId)
-		{
-			func.type = typeAndId.type;
-		}
-		if(ref != null)
-		{
-			func.ref = true;
-		}
-		return func;
 	}
 
-FuncBody =
-	_ val:Val {return {nodes : [], val : val};}
-	/ _  "(" _ val:Val _ "," _ connections:(Connections) _")"
-		{return {nodes : [], val : val, connections : connections};}
-  
 MaybeTypeAndIds =
 	head:MaybeTypeAndId tail:( _ "," _ (type:MaybeTypeAndId) {return type})* 
 	{

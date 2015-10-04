@@ -13,12 +13,127 @@ function Node(type)
 	this.type = type;
 }
 
-function compileGraph(graph, lib, previousNodes) 
+function Val(type)
 {
-	// globals init
-	var nodes = previousNodes != undefined ? previousNodes : {};
-	library = lib;
-	
+	this.type = type;
+}
+
+function makeFunction(funcGraph, library, prog)
+{
+	if(funcGraph.typeParams != null)
+	{
+		var func = new FunctionTemplate(funcGraph);
+		library.functions[funcGraph.id] = func;
+		library.nodes[funcGraph.id] = funcToNodeSpec(func);
+	}
+	else
+	{
+		// If the function has been predeclared, complete the object
+		if(funcGraph.id in library.functions)
+		{
+			var func = library.functions[funcGraph.id];
+			var funcNode = library.nodes[funcGraph.id];
+		}
+		else
+		{
+			// Else create a new function instance object
+			var params = funcGraph.params;
+			var paramsType = _.map(params, function(param) {
+				return {
+					base : param.type.base,
+					args : param.type.args
+				};
+			});
+
+			var bodyGraph = funcGraph.body;
+			var expr = null;
+			var exprType = null;
+			if(bodyGraph != null)
+			{							
+				var localVals = {};
+				_.each(params, function(param) {
+					localVals[param.id.name] = new Val({
+							base : param.type.base,
+							args : param.type.args
+						}
+					);
+				});
+
+				expr = makeExpr(
+					bodyGraph, 
+					{
+						functions : library.functions,
+						nodes : {},
+						vals : localVals
+					},
+					{}
+				);
+				exprType = expr.type;
+			}
+
+			var inAndOutTypes = makeFunctionType(paramsType, exprType);
+
+			var func = {
+				guessTypeArgs : function(args)
+				{
+					return [];
+				},		
+				getInstance : function(typeArgs)
+				{
+					return {
+						getAst : function(args) 
+						{	
+							return {
+				                "type": "CallExpression",
+				                "callee": {
+				                    "type": "Identifier",
+				                    "name": funcGraph.id
+				                },
+				                "arguments": args
+				            }
+						},
+						type : inAndOutTypes.output
+					}
+				},
+				getType : function(typeArgs)
+				{
+					return inAndOutTypes;
+				}
+			}
+
+			library.functions[funcGraph.id] = func;
+
+			var stmnt = {
+		        "type": "FunctionDeclaration",
+		        "id": {
+		            "type": "Identifier",
+		            "name": funcGraph.id
+		        },
+		        "params": _.map(params, function(param) {
+		        	return {
+		                "type": "Identifier",
+		                "name": param.id.name
+		            };}),
+		        "defaults": [],
+		        "body": {
+		            "type": "BlockStatement",
+		            "body": [
+		                {
+		                    "type": "ReturnStatement",
+		                    "argument": expr.getAst()
+		                }
+		            ]
+		        },
+		        "generator": false,
+		        "expression": false
+		    }
+			prog.addStmnt(stmnt);
+		}
+	}
+}
+
+function compileGraph(graph, library, previousNodes) 
+{
 	prog = {
 	    type: "Program",
 	    body: [],
@@ -36,6 +151,18 @@ function compileGraph(graph, lib, previousNodes)
 	prog.addLitVarDecl("int", "{}");
 	prog.addLitVarDecl("string", "{}");
 	
+	if("structsAndFuncs" in graph)
+	{
+		var structsAndfuncsGraph = graph.structsAndFuncs;
+		for(var i = 0; i < structsAndfuncsGraph.length; i++)
+		{
+			if("func" in structsAndfuncsGraph[i])
+			{
+				makeFunction(structsAndfuncsGraph[i].func, library, prog);
+			}
+		}
+	}
+
 	var graphNodes = graph.nodes;
     var connectionsGraph = graph.connections;
     for(var i = 0; i < graphNodes.length; i++)
@@ -49,23 +176,23 @@ function compileGraph(graph, lib, previousNodes)
 			{
 				if(nodeGraph.type == "var")
 				{
-					var val = makeExpr(nodeGraph.val, nodes);
+					var expr = makeExpr(nodeGraph.val, library, {});
 					var vor = varDeclarator(
 						identifier(id), newExpression(
 							identifier("Store"),
 							[
-								val.getAst(),
-								typeToAst(val.getType())
+								expr.getAst(),
+								typeToAst(expr.getType())
 							]
 						)
 					);
 					var von = varDeclaration([vor]);
 					prog.addStmnt(von);
-					nodes[id] = new Node(val.getType());
+					library.nodes[id] = new Node(expr.getType());
 				}
 				else
 				{
-					var val = makeExpr(nodeGraph.val, nodes);
+					var expr = makeExpr(nodeGraph.val, library, {});
 					// value is an object
 					// {
 					// 	get : function()
@@ -93,7 +220,7 @@ function compileGraph(graph, lib, previousNodes)
 	                                        "body": [
 	                                            {
 	                                                "type": "ReturnStatement",
-	                                                "argument": val.getAst()
+	                                                "argument": expr.getAst()
 	                                            }
 	                                        ]
 	                                    }
@@ -105,7 +232,7 @@ function compileGraph(graph, lib, previousNodes)
 					);
 					var von = varDeclaration([vor]);
 					prog.addStmnt(von);
-					nodes[id] = new Node(val.getType());
+					library.nodes[id] = new Node(expr.getType());
 				}
 			}
 			// catch(err) // For release version only

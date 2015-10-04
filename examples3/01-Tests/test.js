@@ -7,7 +7,8 @@ var library =
 {
 	nodes : {},
 	functions : functions,
-	actions : actions
+	actions : actions,
+	vals : {}
 };
 
 $.get("test.nodes", function( text ) {
