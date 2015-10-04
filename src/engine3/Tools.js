@@ -1,3 +1,8 @@
+function error(str)
+{
+	throw "Compilation error : " + str;
+}
+
 function check(test, str)
 {
 	if(!test)

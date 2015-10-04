@@ -1,7 +1,15 @@
 
 var functions = 
 {
-	"+" : maf2(function (x, y) {return x + "+" + y;})
+	"+" : maf2(function (x, y) {
+			return {
+                "type": "BinaryExpression",
+                "operator": "+",
+                "left": x,
+                "right": y
+            };
+		})
+	//maf2(function (x, y) {return x + "+" + y;})
 };
 
 

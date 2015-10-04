@@ -3,9 +3,9 @@ function getBaseType(type)
 	return type.base;
 }
 
-function getTypeParams(type)
+function getTypeArgs(type)
 {
-	return type.params;
+	return type.args;
 }
 
 function makeBaseType(typeStr)
@@ -16,6 +16,72 @@ function makeBaseType(typeStr)
 	}
 }
 
+function makeConcreteType(typeStr, args)
+{
+	return {
+		base : typeStr,
+		args : args
+	}
+}
+
+function isSameOrSubType(checkedType, refType)
+{
+	var checkedBaseType = getBaseType(checkedType);
+	var refBaseType = getBaseType(refType);
+	if(checkedBaseType != refBaseType)
+	{
+		if(refBaseType == "Float" && checkedBaseType == "Int")
+		{
+			return true;
+		}
+		if(checkedType in library.nodes)
+		{
+			return isStrictSubType(checkedType, refType);
+		}
+		return false;
+	}
+	var checkedTypeArgs = getTypeArgs(checkedType);
+	var refTypeArgs = getTypeArgs(refType);
+	if(checkedTypeArgs.length != refTypeArgs.length)
+	{
+		return false;
+	}
+
+	// Empty list is always sub-type of any other list type
+	if((checkedBaseType == "list") && (checkedTypeArgs[0] == ""))
+	{
+		return true
+	}
+
+	// Empty dict is always sub-type of any other dict type
+	if((checkedBaseType == "dict") && (checkedTypeArgs[1] == ""))
+	{
+		return true
+	}
+
+	if(!(_(checkedTypeArgs).zip(refTypeArgs).map(function(types)
+	{
+		return isSameOrSubType(types[0], types[1]);
+	}).every()))
+	{
+		return false;
+	}
+	return true;
+}
+
+function getCommonSuperClass(fstType, scdType)
+{
+	// return the most generic of the two types
+	if(isSameOrSubType(fstType, scdType))
+		return scdType;
+	if(isSameOrSubType(scdType, fstType))
+		return fstType;
+	var commonAncestor = findCommonSuperClass(fstType, scdType)
+	if(commonAncestor != undefined)
+		return commonAncestor;
+	error("Type parameters are not compatible : " + typeToString(fstType) + " and " + typeToString(scdType))
+	// return undefined;
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,7 +91,7 @@ function makeBaseType(typeStr)
 function typeToString(type)
 {
 	var baseType = getBaseType(type);
-	var typeParams = getTypeParams(type);
+	var typeParams = getTypeArgs(type);
 	if(typeParams.length == 0)
 	{
 		return baseType;
@@ -36,7 +102,7 @@ function typeToString(type)
 function typeToCompactString(type)
 {
 	var baseType = getBaseType(type);
-	var typeParams = getTypeParams(type);
+	var typeParams = getTypeArgs(type);
 	if(typeParams.length == 0)
 	{
 		return baseType;
@@ -59,51 +125,6 @@ function isStrictSubType(checkedType, refType)
 	}
 }
 
-function isSameOrSubType(checkedType, refType)
-{
-	var checkedBaseType = getBaseType(checkedType);
-	var refBaseType = getBaseType(refType);
-	if(checkedBaseType != refBaseType)
-	{
-		if(refBaseType == "float" && checkedBaseType == "int")
-		{
-			return true;
-		}
-		if(checkedType in library.nodes)
-		{
-			return isStrictSubType(checkedType, refType);
-		}
-		return false;
-	}
-	var checkedTypeParams = getTypeParams(checkedType);
-	var refTypeParams = getTypeParams(refType);
-	if(checkedTypeParams.length != refTypeParams.length)
-	{
-		return false;
-	}
-
-	// Empty list is always sub-type of any other list type
-	if((checkedBaseType == "list") && (checkedTypeParams[0] == ""))
-	{
-		return true
-	}
-
-	// Empty dict is always sub-type of any other dict type
-	if((checkedBaseType == "dict") && (checkedTypeParams[1] == ""))
-	{
-		return true
-	}
-
-	if(!(_(checkedTypeParams).zip(refTypeParams).map(function(types)
-	{
-		return isSameOrSubType(types[0], types[1]);
-	}).every()))
-	{
-		return false;
-	}
-	return true;
-}
-
 function findCommonSuperClass(fstType, scdType)
 {
 	var fstBaseType = getBaseType(fstType);
@@ -122,19 +143,6 @@ function findCommonSuperClass(fstType, scdType)
 	}
 }
 
-function getCommonSuperClass(fstType, scdType)
-{
-	// return the most generic of the two types
-	if(isSameOrSubType(fstType, scdType))
-		return scdType;
-	if(isSameOrSubType(scdType, fstType))
-		return fstType;
-	var commonAncestor = findCommonSuperClass(fstType, scdType)
-	if(commonAncestor != undefined)
-		return commonAncestor;
-	error("Type parameters are not compatible : " + typeToString(fstType) + " and " + typeToString(scdType))
-	// return undefined;
-}
 
 function sameTypes(firstType, secondType)
 {
@@ -144,8 +152,8 @@ function sameTypes(firstType, secondType)
 	}
 	if(_.isString(secondType))
 		return false;
-	var firstTemplates = getTypeParams(firstType);
-	var secondTemplates = getTypeParams(secondType);
+	var firstTemplates = getTypeArgs(firstType);
+	var secondTemplates = getTypeArgs(secondType);
 	if(firstTemplates.length != secondTemplates.length)
 		return false;
 	_(firstTemplates).zip(secondTemplates).each(function(types)

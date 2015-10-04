@@ -209,25 +209,20 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 		{
 			return [getTemplateFunc(args[0].type, args[1].type)];
 		},		
-		build : function(templates)
+		getInstance : function(typeArgs)
 		{
-			var inAndOutTypes = getInAndOutTypes(templates[0]);
+			var inAndOutTypes = getInAndOutTypes(typeArgs[0]);
 			return {
-				params : [["first" , inAndOutTypes.inputs[0]], ["second" , inAndOutTypes.inputs[1]]],
-				getStr : function(params) 
+				getAst : function(args) 
 				{	
-					return func2(params[0], params[1]);
+					return func2(args[0], args[1]);
 				},
-				type : inAndOutTypes.output,
-				getBeforeStr : function()
-				{
-					return "";
-				}
+				outType : inAndOutTypes.output
 			}
 		},
-		getType : function(templates)
+		getType : function(typeArgs)
 		{
-			return getInAndOutTypes(templates[0]);
+			return getInAndOutTypes(typeArgs[0]);
 		}
 	}
 }

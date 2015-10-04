@@ -40,6 +40,7 @@ $.get("test.nodes", function( text ) {
 	});
 	appendText(txt);
 	appendText(x.get());
+	appendText(t.get());
 }
 , "text" // Commenter pour lire du json
 );

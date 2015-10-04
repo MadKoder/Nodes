@@ -8,6 +8,11 @@ function setLibrary(lib)
 	library = lib;
 }
 
+function Node(type)
+{
+	this.type = type;
+}
+
 function compileGraph(graph, lib, previousNodes) 
 {
 	// globals init
@@ -30,8 +35,6 @@ function compileGraph(graph, lib, previousNodes)
 	prog.addLitVarDecl("float", "{}");
 	prog.addLitVarDecl("int", "{}");
 	prog.addLitVarDecl("string", "{}");
-
-	// return mainBlock.getStr(0);
 	
 	var graphNodes = graph.nodes;
     var connectionsGraph = graph.connections;
@@ -44,7 +47,7 @@ function compileGraph(graph, lib, previousNodes)
 			var id = nodeGraph.id;
 			//try
 			{
-				if(nodeGraph.type == "var" || isLit(nodeGraph.val))
+				if(nodeGraph.type == "var")
 				{
 					var val = makeExpr(nodeGraph.val, nodes);
 					var vor = varDeclarator(
@@ -58,19 +61,51 @@ function compileGraph(graph, lib, previousNodes)
 					);
 					var von = varDeclaration([vor]);
 					prog.addStmnt(von);
-					// var val = makeExpr(nodeGraph.val, nodes);
-					// mainBlock.addVar(id, "new Store(" + val.getVal() + ", " + typeToJson(val.getType()) + ")");
-					// nodes[id] = new Var(id + ".get()", id, node.getType(), "", id);
+					nodes[id] = new Node(val.getType());
 				}
 				else
 				{
-					var val = nodeGraph.val;
-					var expr =  makeExpr(nodeGraph.val, nodes);
-					var node = expr.getNode();
-					mainBlock.addVar(id, node.getStr(0));
-					var a = varDeclarator(identifier(id), literal(1));
-					var b = varDeclaration([a])
-					prog.addStmnt(b);
+					var val = makeExpr(nodeGraph.val, nodes);
+					// value is an object
+					// {
+					// 	get : function()
+					// 	{
+					// 		return valAst
+					// 	}
+					// }
+					var vor = varDeclarator(
+						identifier(id), 
+						{
+	                        "type": "ObjectExpression",
+	                        "properties": [
+	                            {
+	                                "type": "Property",
+	                                "key": {
+	                                    "type": "Identifier",
+	                                    "name": "get"
+	                                },
+	                                "value": {
+	                                    "type": "FunctionExpression",
+	                                    "params": [],
+	                                    "defaults": [],
+	                                    "body": {
+	                                        "type": "BlockStatement",
+	                                        "body": [
+	                                            {
+	                                                "type": "ReturnStatement",
+	                                                "argument": val.getAst()
+	                                            }
+	                                        ]
+	                                    }
+	                                },
+	                                "kind": "init"
+	                            }
+	                        ]
+	                    }
+					);
+					var von = varDeclaration([vor]);
+					prog.addStmnt(von);
+					nodes[id] = new Node(val.getType());
 				}
 			}
 			// catch(err) // For release version only

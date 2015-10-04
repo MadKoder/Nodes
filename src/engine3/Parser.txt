@@ -64,14 +64,14 @@ MaybeTypeAndId =
 	type:Type _ id:Id
 	{
 		return {
-			id : id,
+			id : id.name,
 			type : type
 		}
 	}
 	/ id:Id
 	{
 		return {
-			 id:id,
+			 id:id.name,
 			 type:null
 		};
 	}
@@ -81,7 +81,7 @@ Type =
 	{
 		return {
 			type : "Type",
-			base : t,
+			base : t.name,
 			args : args
 		}
 	}
@@ -89,16 +89,19 @@ Type =
 	{
 		return {
 			type : "Type",
-			base : t,
+			base : t.name,
 			args : []
 		}
 	}
 
 Id = 
 	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
-		return name.length == 1 ?
-			name[0] :
-			name[0] + name[1].join(""); 
+		return {
+			type : "Id",
+			name : name.length == 1 ?
+				name[0] :
+				name[0] + name[1].join("")
+		};
 	}
 
 Expression =
@@ -390,7 +393,7 @@ UnaryExpression
     / Atom
 
 Atom =
-	number
+	Number
 	/ Id
 
 UnaryOperator
@@ -398,7 +401,7 @@ UnaryOperator
   /  "!"
 
 Expression2 = 
-	number
+	Number
 	/ Id
 	/ LogicalORExpression
 	/ CallExpression
@@ -419,7 +422,6 @@ Expression2 =
 	// / ArrayDictAccess
 	// / Var
 	// / Message 
-	// / number 
 	// / "(" __ expression:Expression __ ")" { return expression; }
 	// / array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
 	// / String
@@ -1136,8 +1138,8 @@ StructPath =
 	}
 
 
-number "number" =
-	literal:(HexIntegerLiteral / DecimalLiteral) {
+Number "Number" =
+	literal:(HexIntegerLiteral / DecimalLiteral / Int) {
       return literal;
     }
 
@@ -1154,7 +1156,7 @@ DecimalLiteral =
 			val : parseFloat(parts.join(""))
 		};
 	}
-	/ parts:(SignedInteger ExponentPart?) {
+	/ parts:(SignedInteger ExponentPart) {
 		return {
 			type : "Float",
 			val : parseFloat(parts.join(""))
@@ -1182,8 +1184,11 @@ DecimalDigit
 NonZeroDigit
   = [1-9]
 
-ExponentPart
-  = ExponentIndicator SignedInteger
+ExponentPart =
+	ExponentIndicator exp:SignedInteger
+	{
+		return "e" + exp;
+	}
 
 ExponentIndicator
   = [eE]
