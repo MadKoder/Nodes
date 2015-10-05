@@ -8,14 +8,10 @@ function setLibrary(lib)
 	library = lib;
 }
 
-function Node(type)
+function Node(getterAst, type)
 {
 	this.type = type;
-}
-
-function Val(type)
-{
-	this.type = type;
+	this.getterAst = getterAst;
 }
 
 function makeFunction(funcGraph, library, prog)
@@ -50,9 +46,12 @@ function makeFunction(funcGraph, library, prog)
 			var exprType = null;
 			if(bodyGraph != null)
 			{							
-				var localVals = {};
+				var localNodes = {};
 				_.each(params, function(param) {
-					localVals[param.id.name] = new Val({
+					localNodes[param.id.name] = new Node({
+					        "type": "Identifier",
+					        "name": param.id.name
+					    }, {
 							base : param.type.base,
 							args : param.type.args
 						}
@@ -63,8 +62,7 @@ function makeFunction(funcGraph, library, prog)
 					bodyGraph, 
 					{
 						functions : library.functions,
-						nodes : {},
-						vals : localVals
+						nodes : localNodes
 					},
 					{}
 				);
@@ -178,61 +176,50 @@ function compileGraph(graph, library, previousNodes)
 				{
 					var expr = makeExpr(nodeGraph.val, library, {});
 					var vor = varDeclarator(
-						identifier(id), newExpression(
-							identifier("Store"),
-							[
-								expr.getAst(),
-								typeToAst(expr.getType())
-							]
-						)
+						identifier(id), expr.getAst()
 					);
 					var von = varDeclaration([vor]);
 					prog.addStmnt(von);
-					library.nodes[id] = new Node(expr.getType());
+					var getterAst = {
+                        "type": "Identifier",
+                        "name": id
+                    };
+                    library.nodes[id] = new Node(getterAst, expr.getType());
 				}
 				else
 				{
 					var expr = makeExpr(nodeGraph.val, library, {});
-					// value is an object
-					// {
-					// 	get : function()
-					// 	{
-					// 		return valAst
-					// 	}
-					// }
 					var vor = varDeclarator(
 						identifier(id), 
 						{
-	                        "type": "ObjectExpression",
-	                        "properties": [
-	                            {
-	                                "type": "Property",
-	                                "key": {
-	                                    "type": "Identifier",
-	                                    "name": "get"
-	                                },
-	                                "value": {
-	                                    "type": "FunctionExpression",
-	                                    "params": [],
-	                                    "defaults": [],
-	                                    "body": {
-	                                        "type": "BlockStatement",
-	                                        "body": [
-	                                            {
-	                                                "type": "ReturnStatement",
-	                                                "argument": expr.getAst()
-	                                            }
-	                                        ]
-	                                    }
-	                                },
-	                                "kind": "init"
-	                            }
-	                        ]
+	                        "type": "FunctionExpression",
+	                        "id": null,
+	                        "params": [],
+	                        "defaults": [],
+	                        "body": {
+	                            "type": "BlockStatement",
+	                            "body": [
+	                                {
+	                                    "type": "ReturnStatement",
+	                                    "argument": expr.getAst()
+	                                }
+	                            ]
+	                        },
+	                        "generator": false,
+	                        "expression": false
 	                    }
 					);
 					var von = varDeclaration([vor]);
 					prog.addStmnt(von);
-					library.nodes[id] = new Node(expr.getType());
+					var getterAst = {
+                        "type": "CallExpression",
+                        "callee": {
+                            "type": "Identifier",
+                            "name": id
+                        },
+                        "arguments": []
+                    }
+					library.nodes[id] = new Node(getterAst, expr.getType());
 				}
 			}
 			// catch(err) // For release version only

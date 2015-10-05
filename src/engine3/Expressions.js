@@ -49,40 +49,14 @@ function makeCallExpression(expr, library, genericTypeParams)
 function makeIdExpression(expr, library, genericTypeParams)
 {
 	var id = expr.name;
-	var idVal = null;
-	var type = null;
-	if(id in library.vals)
-	{
-	    idVal = {
-	        "type": "Identifier",
-	        "name": id
-	    };
-	    type = library.vals[id].type;
-	} else if(id in library.nodes)
-	{
-		idVal = {
-            "type": "CallExpression",
-            "callee": {
-                "type": "MemberExpression",
-                "computed": false,
-                "object": {
-                    "type": "Identifier",
-                    "name": id
-                },
-                "property": {
-                    "type": "Identifier",
-                    "name": "get"
-                }
-            },
-            "arguments": []
-        };
-        type = library.nodes[id].type;
-	}
-
-	if(idVal == null)
+	if(!(id in library.nodes))
 	{
 		error("Node " + id + " not in set of nodes nor of vals");
 	}
+		
+	var node = library.nodes[id];
+	var idVal = node.getterAst;
+    var type = node.type;
 
 	return new Expr(
 		idVal,
