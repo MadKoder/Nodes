@@ -7,7 +7,8 @@ var library =
 {
 	nodes : {},
 	functions : functions,
-	actions : actions
+	actions : actions,
+	types : {}
 };
 
 $.get("test.nodes", function( text ) {
@@ -41,6 +42,8 @@ $.get("test.nodes", function( text ) {
 	appendText(txt);
 	appendText(x());
 	appendText(t());
+	appendText(v().x);
+	appendText(v().y);
 }
 , "text" // Commenter pour lire du json
 );

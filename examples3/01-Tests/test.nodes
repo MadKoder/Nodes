@@ -1,3 +1,7 @@
+structs:
+	Vec2 :
+		Int x
+		Int y
 functions:
 	add(Int x, Int y) =
 		x + y
@@ -6,3 +10,4 @@ nodes:
 	var y = z
 	def x = y + z
 	def t = add(x, y)
+	def v = Vec2(x, y)

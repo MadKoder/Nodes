@@ -35,10 +35,6 @@ start "start" =
 	{
 		return struct;
 	}
-/ "trees " _ tree:Tree
-	{
-		return tree;
-	}
 	
 Node =
 	"def" _ maybeTypeAndId:MaybeTypeAndId _ "=" _ val:Expression _
@@ -539,25 +535,6 @@ MaybeTypeAndIds =
 	}
 
 lines = (_ v:Val _ LineTerminatorSequence {return v;})+
-
-Tree =  
-	_ id:Id  _ "(" _ fields:(fields:FieldsDef _ "," {return fields;})? _ 
-	"groups" _ "(" _ groups:Structs _ ")"  _
-	"," _ "leaves" _ "(" _ leaves:Structs _ ")"  _
-	")"
-	{
-		var ret = {
-			name : id,
-			groups : groups,
-			leaves : leaves
-		}
-		if(fields != null)
-		{
-			ret.fields = fields
-		}
-		return ret;
-
-	}
 	
 Structs =  
 	head:Struct tail:( _ "," _ (struct:Struct) {return struct})* 
@@ -566,21 +543,13 @@ Structs =
 	}
 	
 Struct = 
-	_ id:Id _ typeParams:("<" _ t:IdList _ ">" {return t;})? _ fieldsAndSubs:("(" _ fieldsAndSubs:FieldsAndSubs _ ")" {return fieldsAndSubs;})?
-	{
-		var ret = {
-			name : id
+	_ id:Id _ typeParams:("<" _ t:IdList _ ">" {return t;})? _ fieldsAndSubs:("(" _ fieldsAndSubs:FieldsAndSubs _ ")" {return fieldsAndSubs;})? {
+		return {
+			id : id.name,
+			fields : fieldsAndSubs != null ? fieldsAndSubs.fields : [],
+			subs : fieldsAndSubs != null ? fieldsAndSubs.subs : [],
+			typeParams : typeParams != null ? typeParams : []
 		}
-		if(fieldsAndSubs != null)
-		{
-					ret.fields = fieldsAndSubs.fields;
-					ret.subs = fieldsAndSubs.subs;
-		}
-		if(typeParams != null)
-		{
-			ret.typeParams = typeParams;
-		}
-		return ret;
 	}
 	
 FieldsAndSubs = 
@@ -613,9 +582,14 @@ FieldsDef =
 FieldDef = 
 	SlotDef
 	/ SignalDef
-	/ !"subs" _ type:Type _ id:Id _ 
-	{
-		return [id, type];
+	/ !"subs" _ type:Type _ id:Id _  {
+		return {
+			id : id.name,
+			type : {
+				base : type.base,
+				args : type.args
+			}
+		};
 	}
 	
 	
@@ -920,8 +894,13 @@ FieldList
       return fields;
     }
 
-Field
-  = id:Id _ ":" _ val:AdditiveExpression {return [id, val];}
+Field =
+	id:Id _ ":" _ val:Expression {
+		return {
+			id : id,
+			val : val
+		};
+	}
 
 Val = 
 	!Connection exp:Expression {return exp;}

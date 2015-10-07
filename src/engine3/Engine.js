@@ -14,6 +14,141 @@ function Node(getterAst, type)
 	this.getterAst = getterAst;
 }
 
+function makeStruct(structGraph, library, prog)
+{
+	if(structGraph.typeParams.length > 0)
+	{
+		var func = new FunctionTemplate(structGraph);
+		library.functions[structGraph.id] = func;
+		library.nodes[structGraph.id] = funcToNodeSpec(func);
+	}
+	else
+	{
+		// If the function has been predeclared, complete the object
+		if(structGraph.id in library.functions)
+		{
+			var func = library.functions[structGraph.id];
+			var funcNode = library.nodes[structGraph.id];
+		}
+		else
+		{
+			// Else create a new function instance object
+			var fields = structGraph.fields;
+			var fieldsType = _.map(fields, function(field) {
+				return {
+					base : field.type.base,
+					args : field.type.args
+				};
+			});
+
+			var bodyGraph = structGraph.body;
+			var expr = null;
+			var exprType = null;
+			if(bodyGraph != null)
+			{							
+				var localNodes = {};
+				_.each(fields, function(field) {
+					localNodes[field.id.name] = new Node({
+					        "type": "Identifier",
+					        "name": field.id.name
+					    }, {
+							base : field.type.base,
+							args : field.type.args
+						}
+					);
+				});
+
+				expr = makeExpr(
+					bodyGraph, 
+					{
+						functions : library.functions,
+						nodes : localNodes
+					},
+					{}
+				);
+				exprType = expr.type;
+			}
+
+			var inAndOutTypes = makeFunctionType(fieldsType, exprType);
+
+			var func = {
+				guessTypeArgs : function(args)
+				{
+					return [];
+				},		
+				getInstance : function(typeArgs)
+				{
+					return {
+						getAst : function(args) 
+						{	
+							return {
+				                "type": "CallExpression",
+				                "callee": {
+				                    "type": "Identifier",
+				                    "name": structGraph.id
+				                },
+				                "arguments": args
+				            }
+						},
+						type : inAndOutTypes.output
+					}
+				},
+				getType : function(typeArgs)
+				{
+					return inAndOutTypes;
+				}
+			}
+
+			library.functions[structGraph.id] = func;
+
+			var stmnt = {
+		        "type": "FunctionDeclaration",
+		        "id": {
+		            "type": "Identifier",
+		            "name": structGraph.id
+		        },
+		        "params": _.map(fields, function(field) {
+		        	return {
+		                "type": "Identifier",
+		                "name": field.id
+		            };}),
+		        "defaults": [],
+		        "body": {
+		            "type": "BlockStatement",
+		            "body": [
+		                {
+		                    "type": "ReturnStatement",
+		                    "argument": {
+	                            "type": "ObjectExpression",
+	                            "properties": _.map(fields, function(field) {
+	                                return {
+	                                    "type": "Property",
+	                                    "key": {
+	                                        "type": "Identifier",
+	                                        "name": field.id
+	                                    },
+	                                    "computed": false,
+	                                    "value": {
+	                                        "type": "Identifier",
+	                                        "name": field.id
+	                                    },
+	                                    "kind": "init",
+	                                    "method": false,
+	                                    "shorthand": false
+	                                };
+	                            })
+	                        }
+		                }
+		            ]
+		        },
+		        "generator": false,
+		        "expression": false
+		    }
+			prog.addStmnt(stmnt);
+		}
+	}
+}
+
 function makeFunction(funcGraph, library, prog)
 {
 	if(funcGraph.typeParams != null)
@@ -157,6 +292,9 @@ function compileGraph(graph, library, previousNodes)
 			if("func" in structsAndfuncsGraph[i])
 			{
 				makeFunction(structsAndfuncsGraph[i].func, library, prog);
+			} else //struct
+			{
+				makeStruct(structsAndfuncsGraph[i].struct, library, prog);
 			}
 		}
 	}
