@@ -229,11 +229,18 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 
 // Arithmetic (take float and int) functions
 // Beware : implicit cast if mixing int and float, not dangerous in javascript
-function maf2(func2)
+function maf2(operator)
 {
 	return mtf2
 	(
-		func2,
+		function (x, y) {
+			return {
+                "type": "BinaryExpression",
+                "operator": operator,
+                "left": x,
+                "right": y
+            };
+		},
 		function(template) // Input and output types
 		{
 			return inOut2(template, template, template);

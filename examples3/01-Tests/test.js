@@ -32,18 +32,9 @@ $.get("test.nodes", function( text ) {
 		$tmp.append("<div>" + txt + "</div>");
 	}
 
-	// appendText(genericOutputTest.get());
-	txt = escodegen.generate({
-	    type: 'BinaryExpression',
-	    operator: '+',
-	    left: { type: 'Literal', value: 40 },
-	    right: { type: 'Literal', value: 2 }
-	});
-	appendText(txt);
 	appendText(x());
 	appendText(t());
-	appendText(v().x);
-	appendText(v().y);
+	appendText([v().x, v().y].join(", "));
 }
 , "text" // Commenter pour lire du json
 );

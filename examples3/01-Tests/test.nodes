@@ -3,10 +3,10 @@ structs:
 		Int x
 		Int y
 functions:
-	add(Int x, Int y) =
+	add<T>(T x, T y) =
 		x + y
 nodes:
-	var z = 1 + 2
+	var z = 1 + 2.
 	var y = z
 	def x = y + z
 	def t = add(x, y)
