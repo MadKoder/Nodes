@@ -14,140 +14,6 @@ function Node(getterAst, type)
 	this.getterAst = getterAst;
 }
 
-function makeStruct(structGraph, library, prog)
-{
-	if(structGraph.typeParams.length > 0)
-	{
-		var func = new FunctionTemplate(structGraph);
-		library.functions[structGraph.id] = func;
-		library.nodes[structGraph.id] = funcToNodeSpec(func);
-	}
-	else
-	{
-		// If the function has been predeclared, complete the object
-		if(structGraph.id in library.functions)
-		{
-			var func = library.functions[structGraph.id];
-			var funcNode = library.nodes[structGraph.id];
-		}
-		else
-		{
-			// Else create a new function instance object
-			var fields = structGraph.fields;
-			var fieldsType = _.map(fields, function(field) {
-				return {
-					base : field.type.base,
-					args : field.type.args
-				};
-			});
-
-			var bodyGraph = structGraph.body;
-			var expr = null;
-			var exprType = null;
-			if(bodyGraph != null)
-			{							
-				var localNodes = {};
-				_.each(fields, function(field) {
-					localNodes[field.id.name] = new Node({
-					        "type": "Identifier",
-					        "name": field.id.name
-					    }, {
-							base : field.type.base,
-							args : field.type.args
-						}
-					);
-				});
-
-				expr = makeExpr(
-					bodyGraph, 
-					{
-						functions : library.functions,
-						nodes : localNodes
-					},
-					{}
-				);
-				exprType = expr.type;
-			}
-
-			var inAndOutTypes = makeFunctionType(fieldsType, exprType);
-
-			var func = {
-				guessTypeArgs : function(args)
-				{
-					return [];
-				},		
-				getInstance : function(typeArgs)
-				{
-					return {
-						getAst : function(args) 
-						{	
-							return {
-				                "type": "CallExpression",
-				                "callee": {
-				                    "type": "Identifier",
-				                    "name": structGraph.id
-				                },
-				                "arguments": args
-				            }
-						},
-						type : inAndOutTypes.output
-					}
-				},
-				getType : function(typeArgs)
-				{
-					return inAndOutTypes;
-				}
-			}
-
-			library.functions[structGraph.id] = func;
-
-			var stmnt = {
-		        "type": "FunctionDeclaration",
-		        "id": {
-		            "type": "Identifier",
-		            "name": structGraph.id
-		        },
-		        "params": _.map(fields, function(field) {
-		        	return {
-		                "type": "Identifier",
-		                "name": field.id
-		            };}),
-		        "defaults": [],
-		        "body": {
-		            "type": "BlockStatement",
-		            "body": [
-		                {
-		                    "type": "ReturnStatement",
-		                    "argument": {
-	                            "type": "ObjectExpression",
-	                            "properties": _.map(fields, function(field) {
-	                                return {
-	                                    "type": "Property",
-	                                    "key": {
-	                                        "type": "Identifier",
-	                                        "name": field.id
-	                                    },
-	                                    "computed": false,
-	                                    "value": {
-	                                        "type": "Identifier",
-	                                        "name": field.id
-	                                    },
-	                                    "kind": "init",
-	                                    "method": false,
-	                                    "shorthand": false
-	                                };
-	                            })
-	                        }
-		                }
-		            ]
-		        },
-		        "generator": false,
-		        "expression": false
-		    }
-			prog.addStmnt(stmnt);
-		}
-	}
-}
 
 function getTypeParamsToParamsPaths(typeParams, paramsType)
 {
@@ -203,23 +69,170 @@ function getTypeParamsToParamsPaths(typeParams, paramsType)
 	return typeParamsToParamsPaths;
 }
 
+function getParamsType(params) {
+	return _.map(params, function(param){return param.type;});
+}
+
+function makeGuessTypeArgs(typeParamsToParamsPaths) {
+	return function(params)
+	{
+		// Guess templates types from params types
+		var paramsType = getParamsType(params);
+		return _.map(typeParamsToParamsPaths, function(paths)
+		{
+			function getTypeArgFromPath(type, path)
+			{
+				if(path.length == 1)
+					return type.params[path[0]];
+				var subPath = path.slice(0);
+				var index = subPath.shift();	
+				return getTypeArgFromPath(type.params[index], subPath);
+			}
+
+			var typeArgsInPaths = _.map(paths, function(path)
+			{
+				if(path.length == 1)
+					return paramsType[path[0]];
+				var subPath = path.slice(0);
+				var index = subPath.shift();
+				try
+				{
+					return getTypeArgFromPath(paramsType[index], subPath);
+				}
+				catch(err)
+				{
+					console.log(err)
+					error("Type mismatch of param " + funcGraph.params[index].id.name + " for function " + funcGraph.id.name);
+				}
+			});
+			var firstTypeArg = typeArgsInPaths[0];
+			_.each(typeArgsInPaths, function(typeArg)
+			{
+				// If typeArg type is used at different places of parameters types, the instances must be of the same type
+				// e.g. if paramsType = [list<T>, pair<T, U>], we can have [list<int>, pair<int, float>] but not [list<int>, pair<float, int>]
+				if(typeArg != firstTypeArg)
+					throw "Type params not the same for different params : " + firstTypeArg + " vs " + typeArg;
+			});
+			return firstTypeArg;
+		});
+	};
+}
+
+function buildFunctionOrStruct(graph, id, params, returnType, returnStmnt, library, prog)
+{
+	var fieldsType = getParamsType(params);
+	var inAndOutTypes = makeFunctionType(fieldsType, returnType);
+
+	typeParamsToParamsPaths = getTypeParamsToParamsPaths(graph.typeParams, fieldsType);
+
+	library.functions[id] = {
+		guessTypeArgs : makeGuessTypeArgs(typeParamsToParamsPaths),
+		getInstance : function(typeArgs)
+		{
+			return {
+				getAst : function(args) 
+				{	
+					return {
+		                "type": "CallExpression",
+		                "callee": {
+		                    "type": "Identifier",
+		                    "name": id
+		                },
+		                "arguments": args
+		            }
+				},
+				type : inAndOutTypes.output
+			}
+		},
+		getType : function(typeArgs)
+		{
+			return inAndOutTypes;
+		}
+	};
+
+	var stmnt = {
+        "type": "FunctionDeclaration",
+        "id": {
+            "type": "Identifier",
+            "name": id
+        },
+        "params": _.map(params, function(param) {
+        	return {
+                "type": "Identifier",
+                "name": param.id.name
+            };}),
+        "defaults": [],
+        "body": {
+            "type": "BlockStatement",
+            "body": [
+                {
+                    "type": "ReturnStatement",
+                    "argument": returnStmnt
+                }
+            ]
+        },
+        "generator": false,
+        "expression": false
+    }
+	prog.addStmnt(stmnt);
+}
+
+function makeStruct(structGraph, library, prog)
+{
+	var id = structGraph.id.name;
+	// If the function has been predeclared, complete the object
+	if(id in library.functions)
+	{
+		var func = library.functions[id];
+		var funcNode = library.nodes[id];
+	}
+	else
+	{
+		// Else create a new function instance object
+		buildFunctionOrStruct(
+			structGraph,
+			id,
+			structGraph.fields,
+			makeType(id, structGraph.typeParams),
+			{
+                "type": "ObjectExpression",
+                "properties": _.map(structGraph.fields, function(field) {
+                    return {
+                        "type": "Property",
+                        "key": {
+                            "type": "Identifier",
+                            "name": field.id.name
+                        },
+                        "computed": false,
+                        "value": {
+                            "type": "Identifier",
+                            "name": field.id.name
+                        },
+                        "kind": "init",
+                        "method": false,
+                        "shorthand": false
+                    };
+                })
+            },
+            library,
+            prog
+        );
+	}
+}
+
 function makeFunction(funcGraph, library, prog)
 {
+	var id = funcGraph.id.name;		
 	// If the function has been predeclared, complete the object
-	if(funcGraph.id in library.functions)
+	if(id in library.functions)
 	{
-		var func = library.functions[funcGraph.id];
-		var funcNode = library.nodes[funcGraph.id];
+		var func = library.functions[id];
+		var funcNode = library.nodes[id];
 	}
 	else
 	{
 		// Else create a new function instance object
 		var params = funcGraph.params;
-		function getParamsType(params) {
-			return _.map(params, function(param){return param.type;});
-		}
-		var paramsType = getParamsType(params);
-
 		var bodyGraph = funcGraph.body;
 		var expr = null;
 		var exprType = null;
@@ -248,109 +261,15 @@ function makeFunction(funcGraph, library, prog)
 			exprType = expr.type;
 		}
 
-		var inAndOutTypes = makeFunctionType(paramsType, exprType);
-
-		typeParamsToParamsPaths = getTypeParamsToParamsPaths(funcGraph.typeParams, paramsType);
-
-		guessTypeArgs = function(params)
-		{
-			// Guess templates types from params types
-			var paramsType = getParamsType(params);
-			return _.map(typeParamsToParamsPaths, function(paths)
-			{
-				function getTypeArgFromPath(type, path)
-				{
-					if(path.length == 1)
-						return type.params[path[0]];
-					var subPath = path.slice(0);
-					var index = subPath.shift();	
-					return getTypeArgFromPath(type.params[index], subPath);
-				}
-
-				var typeArgsInPaths = _.map(paths, function(path)
-				{
-					if(path.length == 1)
-						return paramsType[path[0]];
-					var subPath = path.slice(0);
-					var index = subPath.shift();
-					try
-					{
-						return getTypeArgFromPath(paramsType[index], subPath);
-					}
-					catch(err)
-					{
-						console.log(err)
-						error("Type mismatch of param " + funcGraph.params[index].id.name + " for function " + funcGraph.id);
-					}
-				});
-				var firstTypeArg = typeArgsInPaths[0];
-				_.each(typeArgsInPaths, function(typeArg)
-				{
-					// If typeArg type is used at different places of parameters types, the instances must be of the same type
-					// e.g. if paramsType = [list<T>, pair<T, U>], we can have [list<int>, pair<int, float>] but not [list<int>, pair<float, int>]
-					if(typeArg != firstTypeArg)
-						throw "Type params not the same for different params : " + firstTypeArg + " vs " + typeArg;
-				});
-				return firstTypeArg;
-			});
-		};
-
-		var func = {
-			guessTypeArgs : guessTypeArgs
-			/*function(args)
-			{
-				return [];
-			}*/,		
-			getInstance : function(typeArgs)
-			{
-				return {
-					getAst : function(args) 
-					{	
-						return {
-			                "type": "CallExpression",
-			                "callee": {
-			                    "type": "Identifier",
-			                    "name": funcGraph.id
-			                },
-			                "arguments": args
-			            }
-					},
-					type : inAndOutTypes.output
-				}
-			},
-			getType : function(typeArgs)
-			{
-				return inAndOutTypes;
-			}
-		}
-
-		library.functions[funcGraph.id] = func;
-
-		var stmnt = {
-	        "type": "FunctionDeclaration",
-	        "id": {
-	            "type": "Identifier",
-	            "name": funcGraph.id
-	        },
-	        "params": _.map(params, function(param) {
-	        	return {
-	                "type": "Identifier",
-	                "name": param.id.name
-	            };}),
-	        "defaults": [],
-	        "body": {
-	            "type": "BlockStatement",
-	            "body": [
-	                {
-	                    "type": "ReturnStatement",
-	                    "argument": expr.getAst()
-	                }
-	            ]
-	        },
-	        "generator": false,
-	        "expression": false
-	    }
-		prog.addStmnt(stmnt);
+		buildFunctionOrStruct(
+			funcGraph,
+			id,
+			params,
+			exprType,
+			expr.getAst(),
+            library,
+            prog
+        );
 	}
 }
 
@@ -396,7 +315,7 @@ function compileGraph(graph, library, previousNodes)
 		for(var j = 0; j < nodeRow.length; j++)
 		{
 			var nodeGraph = nodeRow[j];
-			var id = nodeGraph.id;
+			var id = nodeGraph.id.name;
 			//try
 			{
 				if(nodeGraph.type == "var")

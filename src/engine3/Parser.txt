@@ -60,14 +60,14 @@ MaybeTypeAndId =
 	type:Type _ id:Id
 	{
 		return {
-			id : id.name,
+			id : id,
 			type : type
 		}
 	}
 	/ id:Id
 	{
 		return {
-			 id:id.name,
+			 id:id,
 			 type:null
 		};
 	}
@@ -545,7 +545,7 @@ Structs =
 Struct = 
 	_ id:Id _ typeParams:("<" _ t:IdList _ ">" {return t;})? _ fieldsAndSubs:("(" _ fieldsAndSubs:FieldsAndSubs _ ")" {return fieldsAndSubs;})? {
 		return {
-			id : id.name,
+			id : id,
 			fields : fieldsAndSubs != null ? fieldsAndSubs.fields : [],
 			subs : fieldsAndSubs != null ? fieldsAndSubs.subs : [],
 			typeParams : typeParams != null ? typeParams : []
@@ -584,7 +584,7 @@ FieldDef =
 	/ SignalDef
 	/ !"subs" _ type:Type _ id:Id _  {
 		return {
-			id : id.name,
+			id : id,
 			type : {
 				base : type.base,
 				args : type.args

@@ -1,9 +1,4 @@
 
-function getId(node)
-{
-	return "id" in node ? node.id : (("def" in node) ? node.def : ("var" in node ? node["var"] : node["cache"]))
-}
-
 function Expr(ast, type)
 {
 	this.ast = ast;

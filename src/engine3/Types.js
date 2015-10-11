@@ -16,7 +16,7 @@ function makeBaseType(typeStr)
 	}
 }
 
-function makeConcreteType(typeStr, args)
+function makeType(typeStr, args)
 {
 	return {
 		base : typeStr,
