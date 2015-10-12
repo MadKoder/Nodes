@@ -32,7 +32,7 @@ function makeFunctionType(paramsType, returnType)
 	};
 }
 
-function isSameOrSubType(checkedType, refType)
+function isSubType(checkedType, refType)
 {
 	var checkedBaseType = getBaseType(checkedType);
 	var refBaseType = getBaseType(refType);
@@ -42,10 +42,10 @@ function isSameOrSubType(checkedType, refType)
 		{
 			return true;
 		}
-		if(checkedType in library.nodes)
-		{
-			return isStrictSubType(checkedType, refType);
-		}
+		// if(checkedType in library.nodes)
+		// {
+		// 	return isStrictSubType(checkedType, refType);
+		// }
 		return false;
 	}
 	var checkedTypeArgs = getTypeArgs(checkedType);
@@ -69,7 +69,7 @@ function isSameOrSubType(checkedType, refType)
 
 	if(!(_(checkedTypeArgs).zip(refTypeArgs).map(function(types)
 	{
-		return isSameOrSubType(types[0], types[1]);
+		return isSubType(types[0], types[1]);
 	}).every()))
 	{
 		return false;
@@ -80,9 +80,9 @@ function isSameOrSubType(checkedType, refType)
 function getCommonSuperClass(fstType, scdType)
 {
 	// return the most generic of the two types
-	if(isSameOrSubType(fstType, scdType))
+	if(isSubType(fstType, scdType))
 		return scdType;
-	if(isSameOrSubType(scdType, fstType))
+	if(isSubType(scdType, fstType))
 		return fstType;
 	var commonAncestor = findCommonSuperClass(fstType, scdType)
 	if(commonAncestor != undefined)

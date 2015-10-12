@@ -1,5 +1,5 @@
 structs:
-	Vec2<T> :
+	Vec2<T>:
 		T x
 		T y
 functions:
@@ -11,3 +11,7 @@ nodes:
 	def x = y + z
 	def t = add(x, y)
 	def v = Vec2(x, y)
+actions:
+	tick: 
+		y = y + 1
+		z = z + y

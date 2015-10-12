@@ -19,15 +19,14 @@
 
 start "start" = 
   "functions " _ func:FunctionDeclaration {return func;}
-/ "actions " _ id:Var _ params:("(" _ params:ParamsDecl _")" {return params})? _ action:Action
+/ "actions " _ id:Id _ params:("(" _ params:ParamsDecl _")" {return params})? _ statements:Statements
 	{
-		var a = action;
-		a.id = id;
-		if(params != null)
-		{
-			a.inParams = params;
-		}
-		return a;
+		return {
+			type : "Action",
+			id : id,
+			params : params != null ? params : [],
+			statements : statements
+		};
 	}
 / "nodes " _ node:Node {return node;}
 / "events " _ event:Event {return event;}
@@ -412,7 +411,6 @@ Expression2 =
 	// / Closure
 	// / Range
 	// / Comprehension
-	// / ListView 
 	// / Array 
 	// / Dict
 	// / ArrayDictAccess
@@ -430,7 +428,7 @@ Connections =
    
 Connection =
 	// Check if Var is OK for all, else we need to make a special case for functions
-	_ signal:Var _ "=>" _ action:Action  _ 
+	_ signal:Var _ "=>" _ action:Statement  _ 
 	{
 		var ret = {
 			action : action
@@ -443,7 +441,7 @@ Connection =
 	}
 	
 Event =
-	cond:Val _ action:Action
+	cond:Val _ action:Statement
 	{
 		return {
 			"when" : cond,
@@ -471,20 +469,18 @@ ParamDecl =
 		};
 	}
 
-Affectation = 
-	loc:("loc")? _ slot:VarOrDestructVar _ "=" _ val:Val 
+Assignment = 
+	local:("var")? _ target:Id _ "=" _ value:Val 
     {
-		var affect = 
-		{
-            "set": val,
-            "slots": [slot]
+		return {
+			type : "Assignment",
+            target : target,
+            value : value,
+            local : local != null
         };
-		if(loc != null)
-			affect.loc = true;
-		return affect;
 	}
 
-AccessAffectation = 
+AccessAssignment = 
 	_ slot:Var _ "[" _ indexOrKey:Val _ "]" _ "=" _ val:Val 
     {
 		var affect = 
@@ -594,7 +590,7 @@ FieldDef =
 	
 	
 SlotDef = 
-	_ "slot" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _ action:Action
+	_ "slot" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _ action:Statement
 	{
 		return {
 			slot : id,
@@ -661,21 +657,6 @@ Range =
 		};
 	}
 
-ListView = 
-	"$[" _ val:Val _ "for " _ it:Id _ index:("," _ i:Id {return i;})? _ "in " _ array:Var _ "]" 
-	{
-		var res = {
-			"listView" : val,
-			"for" : it,
-			"in" : array,
-		};
-		if(index != null)
-		{
-			res["index"] = index;
-		}
-		return res;
-	}
-
 IdOrDestructId = 
 	Id
 	/ DestructId
@@ -694,24 +675,26 @@ Ids =
 		return [head].concat(tail);
 	}
 
-Actions "Actions" = 
-   head:Action tail:( _ "," _ (i:Action) {return i})* {return [head].concat(tail);}
+Statements "Statements" = 
+	"(" _ head:Statement tail:( _ "," _ (i:Statement) {return i})* ")" _ {
+		return [head].concat(tail);
+	}
 
-Action "Action" = 
-  Affectation 
-  / AccessAffectation
+Statement "Statement" = 
+  Assignment 
+  / AccessAssignment
   / Foreach
-  / ForAction
-  / MatchAction
-  / MatchTypeAction
+  / ForStatement
+  / MatchStatement
+  / MatchTypeStatement
   / SlotCall
   / Update
-  /  _ "(" _ actions:Actions _ ")" _ 
+  /  _ "(" _ actions:Statements _ ")" _ 
   	{return  {
 			slots : actions
 		};}
-  / IfAction 
-  / "while" _ param:Expression  _ "do" _ action:Action _ 
+  / IfStatement 
+  / "while" _ param:Expression  _ "do" _ action:Statement _ 
 	{
 		return {
 			while:param, 
@@ -725,9 +708,9 @@ Action "Action" =
 		};
 	}
 
-ForAction =
+ForStatement =
 	_ "for" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ 
-	array:Val _ "do" _ action:Action
+	array:Val _ "do" _ action:Statement
 	{
 		var res =  {
 			"for" : it,
@@ -741,8 +724,8 @@ ForAction =
 		return res;
 	}
 	
-MatchAction =
-	"match" _ what:Val _ "do" _ "("_ cases:ActionCases elseCase:ElseActionCase? _")"
+MatchStatement =
+	"match" _ what:Val _ "do" _ "("_ cases:StatementCases elseCase:ElseStatementCase? _")"
 	{
 		var ret = {
 			match : what,
@@ -755,14 +738,14 @@ MatchAction =
 		return ret;
 	}
 
-ActionCases =
-	head:ActionCase _ tail:( _ "," _ (i:ActionCase) {return i})* 
+StatementCases =
+	head:StatementCase _ tail:( _ "," _ (i:StatementCase) {return i})* 
 	{
 		return [head].concat(tail);
 	}
 
-ActionCase =
-	vals:Vals _ "=>" _ action:Action
+StatementCase =
+	vals:Vals _ "=>" _ action:Statement
 	{
 		return {
 			vals : vals, 
@@ -770,15 +753,15 @@ ActionCase =
 		};
 	}
 
-ElseActionCase =
-	(",")? _ "_" _ "=>" _ action:Action
+ElseStatementCase =
+	(",")? _ "_" _ "=>" _ action:Statement
 	{
 		return action;
 	}
 
 
-MatchTypeAction = 
-	"type" _ id:Var _ "do" _ "(" _ matchCases:TypeActionCases _ ")" 
+MatchTypeStatement = 
+	"type" _ id:Var _ "do" _ "(" _ matchCases:TypeStatementCases _ ")" 
 	{
 		return {
 			matchType : id,
@@ -786,14 +769,14 @@ MatchTypeAction =
 		};
 	}
 		
-TypeActionCases = 
-	head:TypeActionCase _ tail:( _ "," _ (i:TypeActionCase) {return i})* 
+TypeStatementCases = 
+	head:TypeStatementCase _ tail:( _ "," _ (i:TypeStatementCase) {return i})* 
 	{
 		return [head].concat(tail);
 	}
 	
-TypeActionCase = 
-	type:Id _ "=>" _ action:Action
+TypeStatementCase = 
+	type:Id _ "=>" _ action:Statement
 	{
 		return {
 			type : type,
@@ -870,17 +853,17 @@ Var =
 		return finalPath;
 	}
   
-IfAction =
-	"if" _ param:Expression  _ "then" _ action:Action _ elseAction:("else" _ action:Action {return action;})?
+IfStatement =
+	"if" _ param:Expression  _ "then" _ action:Statement _ elseStatement:("else" _ action:Statement {return action;})?
 	{
 		var graph =
 		{
 			if:param, 
 			then:action
 		};
-		if(elseAction != null)
+		if(elseStatement != null)
 		{
-			graph["else"] = elseAction;
+			graph["else"] = elseStatement;
 		}
 		return graph;
 	}
@@ -940,7 +923,7 @@ String =
 	}
 
 Merge = 
-	id:Var _ "\\" _ affectations:MergeAffectations
+	id:Var _ "\\" _ affectations:MergeAssignments
 	{
 		return {
 			merge : id,
@@ -948,37 +931,37 @@ Merge =
 		};
 	}
 		
-MergeAffectations =
-	head:MergeAffectation _ tail:( _ "\\" _ (i:MergeAffectation) {return i})* 
+MergeAssignments =
+	head:MergeAssignment _ tail:( _ "\\" _ (i:MergeAssignment) {return i})* 
 	{
 		return [head].concat(tail);
 	}
 	
-MergeAffectation = 
-	"if " _ cond:Val _ "then " _ affectations:UncondAffectations _ elseAffectations:("else " _ affectation:UncondAffectations {return affectation})?
+MergeAssignment = 
+	"if " _ cond:Val _ "then " _ affectations:UncondAssignments _ elseAssignments:("else " _ affectation:UncondAssignments {return affectation})?
 	{
 		var aff = {
 			"cond" : cond,
 			"affectations" : affectations
 		}
 		
-		if(elseAffectations != null)
+		if(elseAssignments != null)
 		{
-			aff["else"] = elseAffectations;
+			aff["else"] = elseAssignments;
 		}
 		return aff;
 	}
-	/ UncondAffectation
-	/ "(" _ aff:MergeAffectation _ ")" {return aff;}
+	/ UncondAssignment
+	/ "(" _ aff:MergeAssignment _ ")" {return aff;}
 
 
-UncondAffectations =
-	head:UncondAffectation _ tail:( _ "," _ (i:UncondAffectation) {return i})* 
+UncondAssignments =
+	head:UncondAssignment _ tail:( _ "," _ (i:UncondAssignment) {return i})* 
 	{
 		return [head].concat(tail);
 	}
 	
-UncondAffectation =
+UncondAssignment =
 	paths:MergePaths _ "=" _ val:Val
 	{
 		return {

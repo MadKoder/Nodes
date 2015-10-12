@@ -375,35 +375,63 @@ function compileGraph(graph, library, previousNodes)
 			// }
 		}
     }
-
-    return prog;
-    return mainBlock.getStr(-1);
 	
+	var actionsGraph = graph.actions;
 	for(var i = 0; i < actionsGraph.length; i++)
 	{
 		var actionGraph = actionsGraph[i];
-		var id = getId(actionGraph);
-		if(id.length == 1)
-		{
-			var localNodes = _.clone(nodes);
 
-			var inputStr = "";
-			if(actionGraph.inParams)
-			{
-				inputStr = _.map(actionGraph.inParams, function(param)
-				{
-					localNodes[param[0]] = new Var(param[0] + ".get()", param[0], param[1]);
-					return param[0];
-				}).join(", ");
-			}
-
-			var action =  makeAction(actionGraph, localNodes);
-			src += "function " + id[0] + "(" + inputStr + "){\n";
-			src += action.getBeforeStr();
-			src += action.getNode() + "}\n";
+		function makeAssignment(assignmentGraph, library) {
+			var exprAst = makeExpr(assignmentGraph.value, library, {}).getAst();
+			// TODO check existence and type of target
+			return {
+                "type": "ExpressionStatement",
+                "expression": {
+                    "type": "AssignmentExpression",
+                    "operator": "=",
+                    "left": {
+                        "type": "Identifier",
+                        "name": assignmentGraph.target.name
+                    },
+                    "right": exprAst
+                }
+            };
 		}
+		function makeStatement(statementGraph, library) {
+			switch(statementGraph.type) {
+				case "Assignment":
+					return makeAssignment(statementGraph, library);
+			}
+		}
+		function makeAction(actionGraph, library, prog) {
+			var statements = _.map(actionGraph.statements, function(statement) {
+				return makeStatement(statement, library)
+			});
+			var actionAst = {
+	            "type": "FunctionDeclaration",
+	            "id": {
+	                "type": "Identifier",
+	                "name": actionGraph.id.name
+	            },
+	            "params": [],
+	            "defaults": [],
+	            "body": {
+	                "type": "BlockStatement",
+	                "body": statements	                
+	            },
+	            "generator": false,
+	            "expression": false
+	        };
+
+			prog.addStmnt(actionAst);
+		}
+
+		makeAction(actionGraph, library, prog);
     }
-	
+
+
+    return prog;
+
 	var eventsGraph = graph.events;
 	var eventIndex = 0;
 	for(var i = 0; i < eventsGraph.length; i++)

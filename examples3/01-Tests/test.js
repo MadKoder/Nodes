@@ -32,6 +32,7 @@ $.get("test.nodes", function( text ) {
 		$tmp.append("<div>" + txt + "</div>");
 	}
 
+	tick();
 	appendText(x());
 	appendText(t());
 	appendText([v().x, v().y].join(", "));
