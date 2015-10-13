@@ -19,14 +19,9 @@
 
 start "start" = 
   "functions " _ func:FunctionDeclaration {return func;}
-/ "actions " _ id:Id _ params:("(" _ params:ParamsDecl _")" {return params})? _ statements:Statements
+/ "actions " _ slot:Slot
 	{
-		return {
-			type : "Action",
-			id : id,
-			params : params != null ? params : [],
-			statements : statements
-		};
+		return slot
 	}
 / "nodes " _ node:Node {return node;}
 / "events " _ event:Event {return event;}
@@ -35,6 +30,17 @@ start "start" =
 		return struct;
 	}
 	
+Slot =
+	id:Id _ params:("(" _ params:ParamsDecl? _")" {return params})? _ statements:Statements _
+	{
+		return {
+			type : "Slot",
+			id : id,
+			params : params != null ? params : [],
+			statements : statements
+		};
+	}
+
 Node =
 	"def" _ maybeTypeAndId:MaybeTypeAndId _ "=" _ val:Expression _
 	{
@@ -529,8 +535,6 @@ MaybeTypeAndIds =
 	{
 		return [head].concat(tail);
 	}
-
-lines = (_ v:Val _ LineTerminatorSequence {return v;})+
 	
 Structs =  
 	head:Struct tail:( _ "," _ (struct:Struct) {return struct})* 
@@ -545,7 +549,7 @@ Struct =
 			fields : fieldsAndSubs != null ? fieldsAndSubs.fields : [],
 			subs : fieldsAndSubs != null ? fieldsAndSubs.subs : [],
 			typeParams : typeParams != null ? typeParams : []
-		}
+		};
 	}
 	
 FieldsAndSubs = 
@@ -576,26 +580,15 @@ FieldsDef =
 	}
 
 FieldDef = 
-	SlotDef
+	"slot " slot:Slot {
+		return slot
+	}
 	/ SignalDef
 	/ !"subs" _ type:Type _ id:Id _  {
 		return {
+			type : "Var",			
 			id : id,
-			type : {
-				base : type.base,
-				args : type.args
-			}
-		};
-	}
-	
-	
-SlotDef = 
-	_ "slot" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _ action:Statement
-	{
-		return {
-			slot : id,
-			action : action,
-			params : (params != null) ? params : []
+			varType : type
 		};
 	}
 	
@@ -700,11 +693,12 @@ Statement "Statement" =
 			while:param, 
 			do:action};
 	}  
-  / id:Id _ params:("("_ params:ExpressionList? _ ")" {return params;})? 
+  / id:Id _ "("_ args:ExpressionList? _ ")" 
 	{ 
 		return {
-			signal : id,
-			params : params != null ? params : [],
+			type : "Signal",
+			slot : id,
+			args : args != null ? args : [],
 		};
 	}
 
@@ -758,7 +752,6 @@ ElseStatementCase =
 	{
 		return action;
 	}
-
 
 MatchTypeStatement = 
 	"type" _ id:Var _ "do" _ "(" _ matchCases:TypeStatementCases _ ")" 
@@ -835,11 +828,11 @@ Foreach =
 	}
   
 SlotCall =
-	_ id:Id _ path:StructPath _ "(" _ params:ExpressionList? _ ")" _
-	{
+	id:Id _ path:StructPath _ "(" _ params:ExpressionList? _ ")" _ {
 		var varPath = [id].concat(path.slice(0, path.length - 1));
 		return {
-			signal : path.pop(),
+			type : "Signal",
+			slot : path.pop(),
 			params : params != null ? params : [],
 			var : varPath
 		};

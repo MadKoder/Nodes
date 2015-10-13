@@ -2,6 +2,8 @@ structs:
 	Vec2<T>:
 		T x
 		T y
+		slot inc(Int i):
+			x = x + i
 functions:
 	add<T>(T x, T y) =
 		x + y
@@ -14,4 +16,9 @@ nodes:
 actions:
 	tick(Int i, Int j): 
 		y = y + i
-		z = z + y + j
+		subTick(0, y)
+		simpleSignal()
+	subTick(Int x, Int y):
+		z = z + x + y 
+	simpleSignal:
+		y = y + 2

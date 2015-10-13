@@ -34,6 +34,8 @@ $.get("test.nodes", function( text ) {
 
 	tick(10, 5);
 	appendText(x());
+	appendText(y);
+	appendText(z);
 	appendText(t());
 	appendText([v().x, v().y].join(", "));
 }

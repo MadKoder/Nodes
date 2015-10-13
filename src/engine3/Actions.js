@@ -14,12 +14,34 @@ function makeAssignment(assignmentGraph, library) {
         }
     };
 }
+
+function makeSignal(signalGraph, library) {
+	// TODO check existence and type of slot
+	var argsAst = _.map(signalGraph.args, function(arg) {
+		return makeExpr(arg, library, {}).getAst();
+	});
+	return {
+        "type": "ExpressionStatement",
+        "expression": {
+            "type": "CallExpression",
+            "callee": {
+                "type": "Identifier",
+                "name": signalGraph.slot.name
+            },
+            "arguments": argsAst
+        }
+    };
+}
+
 function makeStatement(statementGraph, library) {
 	switch(statementGraph.type) {
 		case "Assignment":
 			return makeAssignment(statementGraph, library);
+		case "Signal":
+			return makeSignal(statementGraph, library);
 	}
 }
+
 function makeAction(actionGraph, library, prog) {
 	var localLibrary = _.clone(library);
 	localLibrary.nodes = _.clone(localLibrary.nodes);

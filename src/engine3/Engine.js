@@ -120,10 +120,10 @@ function makeGuessTypeArgs(typeParamsToParamsPaths) {
 
 function buildFunctionOrStruct(graph, id, params, returnType, returnStmnt, library, prog)
 {
-	var fieldsType = getParamsType(params);
-	var inAndOutTypes = makeFunctionType(fieldsType, returnType);
+	var paramsType = getParamsType(params);
+	var inAndOutTypes = makeFunctionType(paramsType, returnType);
 
-	typeParamsToParamsPaths = getTypeParamsToParamsPaths(graph.typeParams, fieldsType);
+	typeParamsToParamsPaths = getTypeParamsToParamsPaths(graph.typeParams, paramsType);
 
 	library.functions[id] = {
 		guessTypeArgs : makeGuessTypeArgs(typeParamsToParamsPaths),
@@ -189,30 +189,43 @@ function makeStruct(structGraph, library, prog)
 	else
 	{
 		// Else create a new function instance object
+		var vars = _.filter(structGraph.fields, function(field) {
+			return field.type === "Var";
+		});
+			
+		var properties = _.map(vars, function(field) {
+            return {
+                "type": "Property",
+                "key": {
+                    "type": "Identifier",
+                    "name": field.id.name
+                },
+                "computed": false,
+                "value": {
+                    "type": "Identifier",
+                    "name": field.id.name
+                },
+                "kind": "init",
+                "method": false,
+                "shorthand": false
+            };
+        });
+
+        var params = _.map(vars, function(variable) {
+            return {
+                id : variable.id,
+                type : variable.varType
+            };
+        });
+        
 		buildFunctionOrStruct(
 			structGraph,
 			id,
-			structGraph.fields,
+			params,
 			makeType(id, structGraph.typeParams),
 			{
                 "type": "ObjectExpression",
-                "properties": _.map(structGraph.fields, function(field) {
-                    return {
-                        "type": "Property",
-                        "key": {
-                            "type": "Identifier",
-                            "name": field.id.name
-                        },
-                        "computed": false,
-                        "value": {
-                            "type": "Identifier",
-                            "name": field.id.name
-                        },
-                        "kind": "init",
-                        "method": false,
-                        "shorthand": false
-                    };
-                })
+                "properties": properties
             },
             library,
             prog
