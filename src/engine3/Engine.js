@@ -379,54 +379,7 @@ function compileGraph(graph, library, previousNodes)
 	var actionsGraph = graph.actions;
 	for(var i = 0; i < actionsGraph.length; i++)
 	{
-		var actionGraph = actionsGraph[i];
-
-		function makeAssignment(assignmentGraph, library) {
-			var exprAst = makeExpr(assignmentGraph.value, library, {}).getAst();
-			// TODO check existence and type of target
-			return {
-                "type": "ExpressionStatement",
-                "expression": {
-                    "type": "AssignmentExpression",
-                    "operator": "=",
-                    "left": {
-                        "type": "Identifier",
-                        "name": assignmentGraph.target.name
-                    },
-                    "right": exprAst
-                }
-            };
-		}
-		function makeStatement(statementGraph, library) {
-			switch(statementGraph.type) {
-				case "Assignment":
-					return makeAssignment(statementGraph, library);
-			}
-		}
-		function makeAction(actionGraph, library, prog) {
-			var statements = _.map(actionGraph.statements, function(statement) {
-				return makeStatement(statement, library)
-			});
-			var actionAst = {
-	            "type": "FunctionDeclaration",
-	            "id": {
-	                "type": "Identifier",
-	                "name": actionGraph.id.name
-	            },
-	            "params": [],
-	            "defaults": [],
-	            "body": {
-	                "type": "BlockStatement",
-	                "body": statements	                
-	            },
-	            "generator": false,
-	            "expression": false
-	        };
-
-			prog.addStmnt(actionAst);
-		}
-
-		makeAction(actionGraph, library, prog);
+		makeAction(actionsGraph[i], library, prog);
     }
 
 

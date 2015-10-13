@@ -12,6 +12,6 @@ nodes:
 	def t = add(x, y)
 	def v = Vec2(x, y)
 actions:
-	tick: 
-		y = y + 1
-		z = z + y
+	tick(Int i, Int j): 
+		y = y + i
+		z = z + y + j
