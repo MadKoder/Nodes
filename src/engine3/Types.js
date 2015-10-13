@@ -77,6 +77,19 @@ function isSubType(checkedType, refType)
 	return true;
 }
 
+function isSameType(first, second) {
+	return (
+		(first.base === second.base) && (
+			((first.args.length === 0) && (second.args.length === 0)) ||
+			_.zip(first.args, second.args)
+				.map(function(firstTypeParam, secondTypeParam) {
+					return isSameType(firstTypeParam, secondTypeParam);
+				})
+				.all()
+		)
+	);
+}
+
 function getCommonSuperClass(fstType, scdType)
 {
 	// return the most generic of the two types

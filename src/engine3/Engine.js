@@ -110,7 +110,8 @@ function makeGuessTypeArgs(typeParamsToParamsPaths) {
 			{
 				// If typeArg type is used at different places of parameters types, the instances must be of the same type
 				// e.g. if paramsType = [list<T>, pair<T, U>], we can have [list<int>, pair<int, float>] but not [list<int>, pair<float, int>]
-				if(typeArg != firstTypeArg)
+				var st = isSameType(typeArg, firstTypeArg);
+				if(!st)
 					throw "Type params not the same for different params : " + firstTypeArg + " vs " + typeArg;
 			});
 			return firstTypeArg;
@@ -217,7 +218,7 @@ function makeStruct(structGraph, library, prog)
                 type : variable.varType
             };
         });
-        
+
 		buildFunctionOrStruct(
 			structGraph,
 			id,
