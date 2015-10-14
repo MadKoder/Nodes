@@ -1,0 +1,166 @@
+{
+    function makeCallExpression(func, funcCalls)    {   
+        var result = {
+            type : "CallExpression",
+            func : func,
+            args : funcCalls[0]
+        };
+        for (var i = 1; i < funcCalls.length; i++) {
+            var params = funcCalls[i];
+            result = {
+                type : "CallExpression",
+                func : result,
+                args : params,
+            };
+        }
+        return result
+    }
+}
+
+Expression =
+AdditiveExpression
+
+AdditiveExpression =
+head:MultiplicativeExpression _ tail:(AdditiveOperator _ operand:MultiplicativeExpression _ {return operand;} )+ {
+    var result = {
+        type : "CallExpression",
+        func : {
+            type : "Type",
+            base : "+",
+            args : []
+        },
+        args : [head, tail[0]]
+    };
+    for (var i = 1; i < tail.length; i++) {
+        result = {
+            type : "CallExpression",
+            func : {
+                type : "Type",
+                base : "+",
+                args : []
+            },
+            args : [result, tail[i]]
+        };
+    };
+    return result;
+}
+/ MultiplicativeExpression
+
+AdditiveOperator =
+    "+" !("+" / "=") { return "+"; }
+    / "-" !("-" / "=") { return "-"; }
+
+MultiplicativeExpression = 
+    head:ChainedExpression _ tail:(MultiplicativeOperator _ operand:ChainedExpression _ {return operand;} )+ {
+        var result = {
+            type : "CallExpression",
+            func : {
+                type : "Type",
+                base : "*",
+                args : []
+            },
+            args : [head, tail[0]]
+        };
+        for (var i = 1; i < tail.length; i++) {
+            result = {
+                type : "CallExpression",
+                func : {
+                    type : "Type",
+                    base : "+",
+                    args : []
+                },
+                args : [result, tail[i]]
+            };
+        };
+        return result;
+    }
+    / ChainedExpression
+
+MultiplicativeOperator =
+    operator:("*" / "/" / "%") !"=" { return operator; }
+
+ChainedExpression =
+    head:Atom _ operations:(CallOrMember)+ {
+        var result = operations[0];
+        result[
+            (result.type === "MemberExpression") ? 
+                "struct" :
+                "func"
+        ] = head;
+        for (var i = 1; i < operations.length; i++) {
+            var operation = operations[i];
+            operation[
+                (operation.type === "MemberExpression") ? 
+                    "struct" :
+                    "func"
+            ] = result;
+            result = operation;
+        }
+        return result 
+    }
+    / Atom
+
+CallOrMember =
+    CallExpression
+    / MemberExpression
+
+MemberExpression =
+    "." _ field:Id _ {
+        return {
+            type: "MemberExpression",
+            /*struct: struct,*/
+            field: field
+        };
+    }
+
+CallExpression "CallExpression" = 
+    "(" _ args:ExpressionList _ ")" _
+    {   
+        return {
+            type : "CallExpression",
+            /*func : func,*/
+            args : args
+        };
+    }
+
+FuncCall = 
+    "(" _ args:ExpressionList _ ")"
+    {
+        return args;
+    }
+
+ExpressionList = 
+    headExpr:Expression tailExpr:( _ "," _ (i:Expression) {return i})*
+    {
+        return [headExpr].concat(tailExpr);
+    }
+
+Atom = Id
+    / "(" _ expr:Expression _ ")" _ {return expr;}
+
+FieldPath =
+    "." path:Expression {
+        var finalPath = path;
+        return finalPath;
+    }
+
+Id = 
+    name:([a-zA-Z_][a-zA-Z0-9_]*) { 
+        return {
+            type : "Id",
+            name : name.length == 1 ?
+            name[0] :
+            name[0] + name[1].join("")
+        };
+    }
+
+_ = 
+    (WhiteSpace)*
+
+
+WhiteSpace "whitespace"
+= [\t\v\f \u00A0\uFEFF]
+/ Zs
+
+// Separator, Space
+Zs = [\u0020\u00A0\u1680\u180E\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000]

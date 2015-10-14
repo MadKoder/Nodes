@@ -106,8 +106,27 @@ Id =
 	}
 
 Expression =
-	CallExpression
-	/ "(" __ expression:CallExpression __ ")" { return expression; }
+	MemberExpression
+	/ "(" __ expression:MemberExpression __ ")" { return expression; }
+
+
+MemberExpression =
+	struct:CallExpression _ fieldPath:FieldPath _ {
+		return {
+			type: "MemberExpression",
+            struct: struct,
+            fieldPath: fieldPath
+		};
+	}
+	/ CallExpression
+
+FieldPath =
+	"." path:Id subPath:(FieldPath)? {
+		var finalPath = [path];
+		if(subPath != null)
+			finalPath = finalPath.concat(subPath);
+		return finalPath;
+	}
 
 CallExpression "CallExpression" = 
 	func:Type _ funcCalls:(FuncCall)+ _
@@ -123,7 +142,6 @@ CallExpression "CallExpression" =
 		return makeCallExpression(func, funcCalls);
 	}
 	/ ConditionalExpression
-
 
 TypeArgs =
 	"<" _ types:Ids _ ">"
@@ -275,10 +293,8 @@ BitwiseANDExpression
       return result;
     }
 
-
 BitwiseANDOperator
   = "&" !("&" / "=") { return "&"; }
-
 
 EqualityExpression
   = head:RelationalExpression
@@ -292,7 +308,6 @@ EqualityExpression
       }
       return result;
     }
-
 
 EqualityOperator
   = "==="
@@ -383,7 +398,6 @@ MultiplicativeExpression
 MultiplicativeOperator
   = operator:("*" / "/" / "%") !"=" { return operator; }
   
-
 UnaryExpression
   = operator:UnaryOperator __ expression:UnaryExpression {
       return {
@@ -567,7 +581,6 @@ FieldsAndSubs =
 			subs : structs
 		};
 	}
-
 
 FieldsDef =  
 	head:FieldDef tail:( _ "," _ field:FieldDef {return field})* 
@@ -881,19 +894,6 @@ Field =
 Val = 
 	!Connection exp:Expression {return exp;}
 	/ !Connection exp:Expression {return exp;}
-	
-
-
-	
-Params "params"
-  =
-  slot:Var _ "=" _ val:Expression  {return {
-            "set": val,
-            "slots": [slot]
-        };}
-  / _ fields:FieldList {return {fields : fields};}
-  / _ expr:ExpressionList {return {params : expr};} 
-  / _ fields:FieldList _ "," expr:ExpressionList {return {params : expr, fields : fields};}
 
 ExpressionList = 
 	headExpr:Val tailExpr:( _ "," _ (i:Val) {return i})* {return [headExpr].concat(tailExpr);}
@@ -946,7 +946,6 @@ MergeAssignment =
 	}
 	/ UncondAssignment
 	/ "(" _ aff:MergeAssignment _ ")" {return aff;}
-
 
 UncondAssignments =
 	head:UncondAssignment _ tail:( _ "," _ (i:UncondAssignment) {return i})* 

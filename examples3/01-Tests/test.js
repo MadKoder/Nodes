@@ -38,6 +38,7 @@ $.get("test.nodes", function( text ) {
 	appendText(z);
 	appendText(t());
 	appendText([v().x, v().y].join(", "));
+	appendText([w.x, w.y].join(", "));
 }
 , "text" // Commenter pour lire du json
 );
