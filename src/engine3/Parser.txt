@@ -1,21 +1,24 @@
 {
-	function makeCallExpression(func, funcCalls) 	{	
-		var result = {
-			type : "CallExpression",
-			func : func,
-			args : funcCalls[0]
-		};
-		for (var i = 1; i < funcCalls.length; i++) {
-			var params = funcCalls[i];
-			result = {
-				type : "CallExpression",
-				func : result,
-				args : params,
-			};
-		}
-		return result
+	function makeCallExpression(func, args) {
+		return {
+            type : "CallExpression",
+            func : {
+                type : "Id",
+                name : func
+            },
+            args : args
+        };
 	}
+
+    function makeInfixExpression(head, tail) {
+        var result = makeCallExpression(tail[0].operator, [head, tail[0].operand]);
+        for (var i = 1; i < tail.length; i++) {
+            result = makeCallExpression(tail[i].operator, [result, tail[i].operand]);            
+        };
+        return result;
+    }
 }
+
 
 start "start" = 
   "functions " _ func:FunctionDeclaration {return func;}
@@ -95,70 +98,10 @@ Type =
 		}
 	}
 
-Id = 
-	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
-		return {
-			type : "Id",
-			name : name.length == 1 ?
-				name[0] :
-				name[0] + name[1].join("")
-		};
-	}
-
-Expression =
-	MemberExpression
-	/ "(" __ expression:MemberExpression __ ")" { return expression; }
-
-
-MemberExpression =
-	struct:CallExpression _ fieldPath:FieldPath _ {
-		return {
-			type: "MemberExpression",
-            struct: struct,
-            fieldPath: fieldPath
-		};
-	}
-	/ CallExpression
-
-FieldPath =
-	"." path:Id subPath:(FieldPath)? {
-		var finalPath = [path];
-		if(subPath != null)
-			finalPath = finalPath.concat(subPath);
-		return finalPath;
-	}
-
-CallExpression "CallExpression" = 
-	func:Type _ funcCalls:(FuncCall)+ _
-	{	
-		return makeCallExpression(func, funcCalls);
-	}
-	/ func:ConditionalExpression _ funcCalls:(FuncCall)+ _
-	{	
-		return makeCallExpression(func, funcCalls);
-	}
-	/ _ "(" _ func:ConditionalExpression _ ")" _ funcCalls:(FuncCall)+ _
-	{	
-		return makeCallExpression(func, funcCalls);
-	}
-	/ ConditionalExpression
-
 TypeArgs =
 	"<" _ types:Ids _ ">"
 	{
 		return types;
-	}
-
-FuncCall = 
-	"(" _ args:ExpressionList _ ")"
-	{
-		return args;
-	}
-
-ExpressionList = 
-	headExpr:Expression tailExpr:( _ "," _ (i:Expression) {return i})*
-	{
-		return [headExpr].concat(tailExpr);
 	}
 
 ConditionalExpression = 
@@ -351,69 +294,142 @@ ShiftOperator
   = "<<"
   / ">>"
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Expressions /////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+Expression =
+    AdditiveExpression
+
 AdditiveExpression =
-	head:MultiplicativeExpression tail:(_ AdditiveOperator _ operand:AdditiveExpression {return operand})+ {
-		var result = {
-			type : "CallExpression",
-			func : {
-				type : "Type",
-				base : "+",
-				args : []
-			},
-			args : [head, tail[0]]
-		};
-		for (var i = 1; i < tail.length; i++) {
-			result = {
-				type : "CallExpression",
-				func : {
-					type : "Type",
-					base : "+",
-					args : []
-				},
-				args : [result, tail[i]],
-			};
-		};
-		return result;
+    head:MultiplicativeExpression _ tail:(operator:AdditiveOperator _ operand:MultiplicativeExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    })+ {
+        return makeInfixExpression(head, tail);
     }
     / MultiplicativeExpression
 
-AdditiveOperator
-  = "+" !("+" / "=") { return "+"; }
-  / "-" !("-" / "=") { return "-"; }
+AdditiveOperator =
+    "+" !("=") { return "+"; }
+    / "-" !("=") { return "-"; }
 
-MultiplicativeExpression
-  = head:UnaryExpression
-    tail:(__ MultiplicativeOperator __ AdditiveExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
+MultiplicativeExpression = 
+    head:UnaryExpression _ tail:(operator:MultiplicativeOperator _ operand:UnaryExpression _ {
+        return {
+            operator: operator,
+            operand: operand
         };
-  
-      }
-      return result;
+    } )+ {
+        return makeInfixExpression(head, tail);
     }
+    / UnaryExpression
 
-MultiplicativeOperator
-  = operator:("*" / "/" / "%") !"=" { return operator; }
+MultiplicativeOperator =
+    operator:("*" / "/" / "%") !"=" { return operator; }
   
 UnaryExpression
   = operator:UnaryOperator __ expression:UnaryExpression {
-      return {
-          type:     operator == "-" ? "neg" : operator,
-          params : [expression]
-      };
+      return makeCallExpression((operator == "-") ? "opposite" : operator, [expression]);
+    }
+    / ChainedExpression
+
+UnaryOperator
+	= "-"
+	/  "not"
+
+ChainedExpression =
+    head:Atom _ operations:(ChainedOperation)+ {
+        var result = operations[0];
+        result[
+            (result.type === "MemberExpression") ? 
+                "struct" :
+                "func"
+        ] = head;
+        for (var i = 1; i < operations.length; i++) {
+            var operation = operations[i];
+            operation[
+                (operation.type === "MemberExpression") ? 
+                    "struct" :
+                    "func"
+            ] = result;
+            result = operation;
+        }
+        return result 
     }
     / Atom
 
+ChainedOperation =
+    CallExpression
+    / MemberExpression
+
+MemberExpression =
+    "." _ field:Id _ {
+        return {
+            type: "MemberExpression",
+            /*struct: struct,*/
+            field: field
+        };
+    }
+
+CallExpression "CallExpression" = 
+    "(" _ args:ExpressionList _ ")" _
+    {   
+        return {
+            type : "CallExpression",
+            /*func : func,*/
+            args : args
+        };
+    }
+
+ExpressionList = 
+    headExpr:Expression tailExpr:( _ "," _ (i:Expression) {return i})*
+    {
+        return [headExpr].concat(tailExpr);
+    }
+
 Atom =
 	Number
+	/ GenericInstance
 	/ Id
+	/ "(" _ expr:Expression _ ")" _ {return expr;}
 
-UnaryOperator
-  = "-"
-  /  "!"
+GenericInstance = 
+	base:Id _ "<" _ args:ExpressionList _ ">" _
+	{
+		return {
+			type : "Type",
+			base : base.name,
+			args : args
+		}
+	}
+
+Ids = 
+	head:Id _ tail:( _ "," _ (i:Id) {return i})* 
+	{
+		return [head].concat(tail);
+	}
+
+Id = 
+	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
+		return {
+			type : "Id",
+			name : name.length == 1 ?
+				name[0] :
+				name[0] + name[1].join("")
+		};
+	}
+
+
+
+/*********************************************************************************************/
+/*********************************************************************************************/
+// End expressions ////////////////////////////////////////////////////////////////////////////
+/*********************************************************************************************/
+/*********************************************************************************************/
 
 Expression2 = 
 	Number
@@ -675,12 +691,6 @@ DestructId =
 		};
 	}
 	
-Ids = 
-	head:Id _ tail:( _ "," _ (i:Id) {return i})* 
-	{
-		return [head].concat(tail);
-	}
-
 Statements "Statements" = 
 	"(" _ head:Statement tail:( _ "," _ (i:Statement) {return i})* ")" _ {
 		return [head].concat(tail);

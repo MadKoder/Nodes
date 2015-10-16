@@ -396,7 +396,6 @@ function compileGraph(graph, library, previousNodes)
 		makeAction(actionsGraph[i], library, prog);
     }
 
-
     return prog;
 
 	var eventsGraph = graph.events;
