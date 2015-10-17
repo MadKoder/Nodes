@@ -44,14 +44,15 @@ function makeCallExpression(expr, library, genericTypeParams)
 			_.map(args, function(arg) {
 				return arg.ast;
 		})),
-		funcInstance.outType
+		funcInstance.type.output
 	);
 }
 
-function makeMemberExpression(expr, library, genericTypeParams)
+function makeMemberExpression(exprGraph, library, genericTypeParams)
 {
-	var struct = expr.struct;
+	var struct = exprGraph.struct;
 	var id = null;
+	var funcSpec = null;
 	if(struct.type == "Id")
 	{
 		var id = struct.name;		
@@ -59,28 +60,30 @@ function makeMemberExpression(expr, library, genericTypeParams)
 		{
 			error("Object " + type + " not found in nodes library");
 		}
-		var funcSpec = library.functions[id];
+		funcSpec = library.functions[id];
 	}
 	else
 	{
 		error("Object type not supported: " + struct.type);
 	}
 	
-	var idExpr = makeIdExpression(struct, library, genericTypeParams);
+	var expr = makeIdExpression(struct, library, genericTypeParams);
 	// TODO check types
 
+	var fieldName = exprGraph.field.name;
+    var classType = library.classes[expr.type.base](expr.type.args);
+    var type = classType.vars[fieldName];
 	return new Expr(
 		{
             "type": "MemberExpression",
             "computed": false,
-            "object": idExpr.getAst(),
+            "object": expr.getAst(),
             "property": {
                 "type": "Identifier",
-                "name": expr.field.name
+                "name": fieldName
             }
         },
-        //TODO
-        null
+        type
 	);
 }
 

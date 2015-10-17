@@ -24,6 +24,44 @@ function makeType(typeStr, args)
 	}
 }
 
+function typeGraphToCompact(typeGraph) {
+	if(typeGraph.type == "Id") {
+		return makeBaseType(typeGraph.name);
+	} else {
+		return makeType(
+			typeGraph.base,
+			_.map(typeGraph.args, typeGraphToCompact)
+		);
+	}
+}
+
+function instanciateType(genericType, kwTypeArgs){
+	var genericBase = genericType.base;
+	if(genericBase in kwTypeArgs) {
+		return kwTypeArgs[genericBase];
+	}
+	
+	var args = _.map(genericType.args, function(resultArgType) {
+			return instanciateType(
+				resultArgType,
+				kwTypeArgs
+			);
+		})
+	return {
+		base : genericBase,
+		args : args
+	};
+}
+
+function instanciateFunctionType(genericType, kwTypeArgs){
+	return {
+		inputs : _.map(genericType.inputs, function(input) {
+			return instanciateType(input, kwTypeArgs);
+		}),
+		output : instanciateType(genericType.output, kwTypeArgs)
+	};
+}
+
 function makeFunctionType(paramsType, returnType)
 {
 	return {
@@ -102,6 +140,112 @@ function getCommonSuperClass(fstType, scdType)
 		return commonAncestor;
 	error("Type parameters are not compatible : " + typeToString(fstType) + " and " + typeToString(scdType))
 	// return undefined;
+}
+
+function getTypeParamsToParamsPaths(typeParams, paramsType)
+{
+	// For all parameters types, recursively add paths to leaf types (typeParams), with leaf types at the end
+	// e.g. : [list<list<T>>, pair<F,G>, int] -> [[0, 0, 0, T], [1, 0, F], [1, 1, G], [2, int]]
+	function getTypePaths(paramsType, parentPath)
+	{
+		return _.reduce
+		(
+			paramsType, 
+			function(paths, type, index)
+			{
+				var typeParams = type.args;
+				if(typeParams.length == 0)
+				{
+					return paths.concat(
+						[parentPath.concat([index, type])]
+					);
+				}
+				return paths.concat(
+					getTypePaths(
+						typeParams, 
+						parentPath.concat([index])
+					)
+				);
+			},
+			[]
+		);
+	}
+	var paramsTypePaths = getTypePaths(paramsType, []);
+	
+	// Dict associant a chaque typeParam les chemins dans les parametres qui l'utilisent
+	// Sert pour deviner les typeParams a partir des types des parametres
+	var typeParamsToParamsPaths = _.zipObject(
+		_.map(typeParams, function(typeParam) {return typeParam.name;}),
+		_.map(Array(typeParams.length), function(){return [];})
+	);
+
+	// For each path, if leaf type is a typeParam, adds the path to the typeParams param paths array
+	_.each(paramsTypePaths, function(typePath)
+	{
+		var last = _.last(typePath);
+		if(last.base in typeParamsToParamsPaths)
+		{
+			// The leaf type is a typeParam, use the map to find the index, and adds the path without leaf type
+			typeParamsToParamsPaths[last.base].push(_.first(typePath, typePath.length - 1));
+		}
+	});
+
+	return typeParamsToParamsPaths;
+}
+
+function getParamsType(params) {
+	return _.map(params, function(param) {
+		return typeGraphToCompact(param.type)}
+	);
+}
+
+function makeGuessTypeArgs(typeParamsToParamsPaths, typeParams) {
+	return function(params)
+	{
+		// Guess templates types from params types
+		var paramsType = getParamsType(params);
+		return _.zipObject(
+			typeParams,
+			_.map(typeParamsToParamsPaths, function(paths, typeParam)
+			{
+				function getTypeArgFromPath(type, path)
+				{
+					if(path.length == 1)
+						return type.params[path[0]];
+					var subPath = path.slice(0);
+					var index = subPath.shift();	
+					return getTypeArgFromPath(type.params[index], subPath);
+				}
+
+				var typeArgsInPaths = _.map(paths, function(path)
+				{
+					if(path.length == 1)
+						return paramsType[path[0]];
+					var subPath = path.slice(0);
+					var index = subPath.shift();
+					try
+					{
+						return getTypeArgFromPath(paramsType[index], subPath);
+					}
+					catch(err)
+					{
+						console.log(err)
+						error("Type mismatch of param " + funcGraph.params[index].id.name + " for function " + funcGraph.id.name);
+					}
+				});
+				var firstTypeArg = typeArgsInPaths[0];
+				_.each(typeArgsInPaths, function(typeArg)
+				{
+					// If typeArg type is used at different places of parameters types, the instances must be of the same type
+					// e.g. if paramsType = [list<T>, pair<T, U>], we can have [list<int>, pair<int, float>] but not [list<int>, pair<float, int>]
+					var st = isSameType(typeArg, firstTypeArg);
+					if(!st)
+						throw "Type params not the same for different params : " + firstTypeArg + " vs " + typeArg;
+				});
+				return firstTypeArg;
+			})
+		);
+	};
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////

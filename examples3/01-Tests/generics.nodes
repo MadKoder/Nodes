@@ -1,0 +1,6 @@
+structs:
+	Vec2<T>:
+		T x
+		T y
+nodes:
+	def v = Vec2(1, 2)

@@ -211,13 +211,12 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 		},		
 		getInstance : function(typeArgs)
 		{
-			var inAndOutTypes = getInAndOutTypes(typeArgs[0]);
 			return {
 				getAst : function(args) 
 				{	
 					return func2(args[0], args[1]);
 				},
-				outType : inAndOutTypes.output
+				type : getInAndOutTypes(typeArgs[0])
 			}
 		},
 		getType : function(typeArgs)

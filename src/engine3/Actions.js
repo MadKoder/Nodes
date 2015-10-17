@@ -51,7 +51,7 @@ function makeAction(actionGraph, library, prog) {
             "type": "Identifier",
             "name": param.id.name
         };
-		localLibrary.nodes[param.id.name] = new Node(getterAst, param.type);
+		localLibrary.nodes[param.id.name] = new Node(getterAst, typeGraphToCompact(param.type));
 	});	
 	var statements = _.map(actionGraph.statements, function(statement) {
 		return makeStatement(statement, localLibrary)

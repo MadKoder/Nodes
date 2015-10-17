@@ -8,10 +8,14 @@ var library =
 	nodes : {},
 	functions : functions,
 	actions : actions,
+	classes : {},
 	types : {}
 };
 
-$.get("test.nodes", function( text ) {
+var fileName = "test.nodes";
+// var fileName = "objects.nodes";
+// var fileName = "generics.nodes";
+$.get(fileName, function( text ) {
 	// setLodash(_);
 	setEngineLodash(_);
 
@@ -25,20 +29,24 @@ $.get("test.nodes", function( text ) {
 
 	$.globalEval(src)
 
-	// tick();
-
-	function appendText(txt)
-	{
+	function appendText(txt) {
 		$tmp.append("<div>" + txt + "</div>");
 	}
 
-	tick(10, 5);
-	appendText(x());
-	appendText(y);
-	appendText(z);
-	appendText(t());
-	appendText([v().x, v().y].join(", "));
-	appendText([w.x, w.y].join(", "));
+	if(fileName == "test.nodes") {
+		tick(10, 5);
+		appendText(x());
+		appendText(y);
+		appendText(z);
+		appendText(t());
+		appendText([v().x, v().y].join(", "));
+		appendText([w.x, w.y].join(", "));
+	} else if(fileName == "generics.nodes") {
+		appendText([v().x, v().y].join(", "));
+	} else if(fileName == "objects.nodes") {
+		appendText([v().x, v().y].join(", "));
+		appendText(x);
+	}
 }
 , "text" // Commenter pour lire du json
 );

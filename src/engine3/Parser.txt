@@ -81,22 +81,8 @@ MaybeTypeAndId =
 	}
 
 Type = 
-	t:Id _ args:TypeArgs
-	{
-		return {
-			type : "Type",
-			base : t.name,
-			args : args
-		}
-	}
-	/ t:Id
-	{
-		return {
-			type : "Type",
-			base : t.name,
-			args : []
-		}
-	}
+	GenericInstance
+	/ Id
 
 TypeArgs =
 	"<" _ types:Ids _ ">"
@@ -401,7 +387,7 @@ GenericInstance =
 	base:Id _ "<" _ args:ExpressionList _ ">" _
 	{
 		return {
-			type : "Type",
+			type : "GenericInstance",
 			base : base.name,
 			args : args
 		}
