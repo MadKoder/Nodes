@@ -1,5 +1,6 @@
 function makeAssignment(assignmentGraph, library) {
 	var exprAst = makeExpr(assignmentGraph.value, library, {}).getAst();
+    var targetAst
 	// TODO check existence and type of target
 	return {
         "type": "ExpressionStatement",
@@ -15,19 +16,41 @@ function makeAssignment(assignmentGraph, library) {
     };
 }
 
+function makeRefAst(ref, library, genericTypeParams)
+{
+    // TODO check existence, type ...
+    if(ref.type == "Id")
+    {
+        return {
+            "type": "Identifier",
+            "name": ref.name
+        }
+    } else if(ref.type == "MemberReference")
+    {
+        var objAst = makeRefAst(ref.obj, library, {});
+        return {
+            "type": "MemberExpression",
+            "computed": false,
+            "object": objAst,
+            "property": {
+                "type": "Identifier",
+                "name": ref.field.name
+            }
+        }
+    }
+}
+
 function makeSignal(signalGraph, library) {
 	// TODO check existence and type of slot
 	var argsAst = _.map(signalGraph.args, function(arg) {
 		return makeExpr(arg, library, {}).getAst();
 	});
+    var slotAst = makeRefAst(signalGraph.slot, library, {});
 	return {
         "type": "ExpressionStatement",
         "expression": {
             "type": "CallExpression",
-            "callee": {
-                "type": "Identifier",
-                "name": signalGraph.slot.name
-            },
+            "callee": slotAst,
             "arguments": argsAst
         }
     };

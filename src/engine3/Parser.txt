@@ -332,14 +332,14 @@ ChainedExpression =
         var result = operations[0];
         result[
             (result.type === "MemberExpression") ? 
-                "struct" :
+                "obj" :
                 "func"
         ] = head;
         for (var i = 1; i < operations.length; i++) {
             var operation = operations[i];
             operation[
                 (operation.type === "MemberExpression") ? 
-                    "struct" :
+                    "obj" :
                     "func"
             ] = result;
             result = operation;
@@ -356,7 +356,7 @@ MemberExpression =
     "." _ field:Id _ {
         return {
             type: "MemberExpression",
-            /*struct: struct,*/
+            /*obj: obj,*/
             field: field
         };
     }
@@ -689,7 +689,7 @@ Statement "Statement" =
   / ForStatement
   / MatchStatement
   / MatchTypeStatement
-  / SlotCall
+  / ChainedSlotCall
   / Update
   /  _ "(" _ actions:Statements _ ")" _ 
   	{return  {
@@ -701,15 +701,7 @@ Statement "Statement" =
 		return {
 			while:param, 
 			do:action};
-	}  
-  / id:Id _ "("_ args:ExpressionList? _ ")" 
-	{ 
-		return {
-			type : "Signal",
-			slot : id,
-			args : args != null ? args : [],
-		};
-	}
+	} 
 
 ForStatement =
 	_ "for" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ 
@@ -836,7 +828,7 @@ Foreach =
 		};
 	}
   
-SlotCall =
+SlotCall = 
 	id:Id _ path:StructPath _ "(" _ params:ExpressionList? _ ")" _ {
 		var varPath = [id].concat(path.slice(0, path.length - 1));
 		return {
@@ -846,6 +838,34 @@ SlotCall =
 			var : varPath
 		};
 	}
+
+ChainedSlotCall =
+    head:Id _ operations:(ChainedReference)* _ "(" _ args:ExpressionList? _ ")" _ {
+		var result = head;
+        for (var i = 0; i < operations.length; i++) {
+            var operation = operations[i];
+            operation["obj"] = result;
+            result = operation;
+        }
+        result = {
+			type : "Signal",
+			slot : result,
+			args : args != null ? args : []
+		};
+        return result 
+    }
+
+ChainedReference =
+	MemberReference
+
+MemberReference =
+    "." _ field:Id _ {
+        return {
+            type: "MemberReference",
+            /*obj: obj,*/
+            field: field
+        };
+    }
 
 Var = 
 	start:Id subPath:(SubPath)?{

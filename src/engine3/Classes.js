@@ -53,18 +53,24 @@ function makeStruct(structGraph, library, prog)
             prog
         );
 		
+		var typeParamsName = _.map(typeParams, function(typeParam) {
+			return typeParam.base;
+		});
+
         library.classes[id] = function(typeArgs) {
         	return {
-	        	vars : _.zipObject(
+        		// Dict from vars name to its type
+	        	varsType : _.zipObject(
         			_.map(params, function(variable) {
 	        			return [
 	        				variable.id.name,
 	        				instanciateType(
 	        					typeGraphToCompact(variable.type),
+	        					// Converts positionnal typeArgs to genericToInstanceDict
+	        					// First param is name of type params
+	        					// Seccond param is list of their args
 	        					_.zipObject(
-	        						_.map(typeParams, function(typeParam) {
-	        							return typeParam.base;
-	        						}),
+	        						typeParamsName,
 	        						typeArgs
         						)
         					)

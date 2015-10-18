@@ -35,18 +35,19 @@ function typeGraphToCompact(typeGraph) {
 	}
 }
 
-function instanciateType(genericType, kwTypeArgs){
+function instanciateType(genericType, genericToInstanceDict){
 	var genericBase = genericType.base;
-	if(genericBase in kwTypeArgs) {
-		return kwTypeArgs[genericBase];
+	if(genericBase in genericToInstanceDict) {
+		return genericToInstanceDict[genericBase];
 	}
 	
 	var args = _.map(genericType.args, function(resultArgType) {
-			return instanciateType(
-				resultArgType,
-				kwTypeArgs
-			);
-		})
+		return instanciateType(
+			resultArgType,
+			genericToInstanceDict
+		);
+	});
+
 	return {
 		base : genericBase,
 		args : args

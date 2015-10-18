@@ -50,12 +50,12 @@ function makeCallExpression(expr, library, genericTypeParams)
 
 function makeMemberExpression(exprGraph, library, genericTypeParams)
 {
-	var struct = exprGraph.struct;
+	var obj = exprGraph.obj;
 	var id = null;
 	var funcSpec = null;
-	if(struct.type == "Id")
+	if(obj.type == "Id")
 	{
-		var id = struct.name;		
+		var id = obj.name;		
 		if(!(id in library.nodes))
 		{
 			error("Object " + type + " not found in nodes library");
@@ -64,15 +64,17 @@ function makeMemberExpression(exprGraph, library, genericTypeParams)
 	}
 	else
 	{
-		error("Object type not supported: " + struct.type);
+		error("Object type not supported: " + obj.type);
 	}
 	
-	var expr = makeIdExpression(struct, library, genericTypeParams);
+	var expr = makeIdExpression(obj, library, genericTypeParams);
 	// TODO check types
 
 	var fieldName = exprGraph.field.name;
+	// Instanciate class type
     var classType = library.classes[expr.type.base](expr.type.args);
-    var type = classType.vars[fieldName];
+    // And get the member type
+    var fieldType = classType.varsType[exprGraph.field.name];
 	return new Expr(
 		{
             "type": "MemberExpression",
@@ -83,7 +85,7 @@ function makeMemberExpression(exprGraph, library, genericTypeParams)
                 "name": fieldName
             }
         },
-        type
+        fieldType
 	);
 }
 

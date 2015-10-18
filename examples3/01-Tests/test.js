@@ -13,7 +13,7 @@ var library =
 };
 
 var fileName = "test.nodes";
-// var fileName = "objects.nodes";
+var fileName = "objects.nodes";
 // var fileName = "generics.nodes";
 $.get(fileName, function( text ) {
 	// setLodash(_);
@@ -44,8 +44,9 @@ $.get(fileName, function( text ) {
 	} else if(fileName == "generics.nodes") {
 		appendText([v().x, v().y].join(", "));
 	} else if(fileName == "objects.nodes") {
-		appendText([v().x, v().y].join(", "));
-		appendText(x);
+		tick();
+		appendText([v.x, v.y].join(", "));
+		appendText(x());
 	}
 }
 , "text" // Commenter pour lire du json
