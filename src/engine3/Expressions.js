@@ -51,23 +51,23 @@ function makeCallExpression(expr, library, genericTypeParams)
 function makeMemberExpression(exprGraph, library, genericTypeParams)
 {
 	var obj = exprGraph.obj;
-	var id = null;
-	var funcSpec = null;
-	if(obj.type == "Id")
-	{
-		var id = obj.name;		
-		if(!(id in library.nodes))
-		{
-			error("Object " + type + " not found in nodes library");
-		}
-		funcSpec = library.functions[id];
-	}
-	else
-	{
-		error("Object type not supported: " + obj.type);
-	}
+	// var id = null;
+	// var funcSpec = null;
+	// if(obj.type == "Id")
+	// {
+	// 	var id = obj.name;		
+	// 	if(!(id in library.nodes))
+	// 	{
+	// 		error("Object " + type + " not found in nodes library");
+	// 	}
+	// 	funcSpec = library.functions[id];
+	// }
+	// else
+	// {
+	// 	error("Object type not supported: " + obj.type);
+	// }
 	
-	var expr = makeIdExpression(obj, library, genericTypeParams);
+	var expr = makeExpr(obj, library, genericTypeParams);
 	// TODO check types
 
 	var fieldName = exprGraph.field.name;

@@ -13,12 +13,13 @@ nodes:
 	def x = y + z
 	def t = add(x, y)
 	def v = Vec2(x, y)
-	var w = Vec2(0, 0)
+	var w = Vec2(0, 1)
 actions:
 	tick(Int i, Int j): 
 		y = y + v.y
 		subTick(0, y)
 		simpleSignal()
+		w.inc(w.y)
 	subTick(Int x, Int y):
 		z = z + x + y 
 	simpleSignal:

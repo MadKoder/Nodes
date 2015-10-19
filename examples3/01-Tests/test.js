@@ -14,7 +14,7 @@ var library =
 };
 
 var fileName = "test.nodes";
-var fileName = "objects.nodes";
+// var fileName = "objects.nodes";
 // var fileName = "generics.nodes";
 $.get(fileName, function( text ) {
 	// setLodash(_);
@@ -47,6 +47,7 @@ $.get(fileName, function( text ) {
 	} else if(fileName == "objects.nodes") {
 		tick();
 		appendText([v.x, v.y].join(", "));
+		appendText([r.pos.x, r.pos.y].join(", "));
 		appendText(x());
 	}
 }

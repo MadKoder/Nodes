@@ -212,10 +212,10 @@ function makeGuessTypeArgs(typeParamsToParamsPaths, typeParams) {
 				function getTypeArgFromPath(type, path)
 				{
 					if(path.length == 1)
-						return type.params[path[0]];
+						return type.args[path[0]];
 					var subPath = path.slice(0);
 					var index = subPath.shift();	
-					return getTypeArgFromPath(type.params[index], subPath);
+					return getTypeArgFromPath(type.args[index], subPath);
 				}
 
 				var typeArgsInPaths = _.map(paths, function(path)
@@ -231,7 +231,7 @@ function makeGuessTypeArgs(typeParamsToParamsPaths, typeParams) {
 					catch(err)
 					{
 						console.log(err)
-						error("Type mismatch of param " + funcGraph.params[index].id.name + " for function " + funcGraph.id.name);
+						error("Type mismatch of param " + paramsType[index].id.name + " for function " + funcGraph.id.name);
 					}
 				});
 				var firstTypeArg = typeArgsInPaths[0];
