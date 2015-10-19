@@ -14,7 +14,7 @@ function makeStruct(structGraph, library, prog)
 			return field.type === "Var";
 		});
 			
-		var properties = _.map(vars, function(field) {
+		var propertiesAst = _.map(vars, function(field) {
             return {
                 "type": "Property",
                 "key": {
@@ -32,6 +32,52 @@ function makeStruct(structGraph, library, prog)
             };
         });
 
+		var slots = _.filter(structGraph.fields, function(field) {
+			return field.type === "Slot";
+		});
+
+        propertiesAst = propertiesAst.concat(_.map(slots, function(slotGraph) {
+		    var localLibrary = _.clone(library);
+		    localLibrary.nodes = _.clone(localLibrary.nodes);
+		    localLibrary.attribs = _.clone(localLibrary.attribs);
+		    _.each(vars, function(varGraph) {
+				var getterAst = {
+                    "type": "MemberExpression",
+                    "computed": false,
+                    "object": {
+                        "type": "ThisExpression"
+                    },
+                    "property": {
+                        "type": "Identifier",
+                        "name": varGraph.id.name
+                    }
+                };
+                localLibrary.nodes[varGraph.id.name] = new Node(getterAst, typeGraphToCompact(varGraph.varType));
+                localLibrary.attribs[varGraph.id.name] = {};
+			});	
+
+			var slotAst = makeSlot(
+		        slotGraph,
+		        localLibrary,
+		        prog,
+		        "FunctionExpression",
+		        null
+		    );
+
+			return {
+                "type": "Property",
+                "key": {
+                    "type": "Identifier",
+                    "name": "inc"
+                },
+                "computed": false,
+                "value": slotAst,
+                "kind": "init",
+                "method": false,
+                "shorthand": false
+            }
+        }));
+
         var params = _.map(vars, function(variable) {
             return {
                 id : variable.id,
@@ -47,7 +93,7 @@ function makeStruct(structGraph, library, prog)
 			makeType(id, typeParams),
 			{
                 "type": "ObjectExpression",
-                "properties": properties
+                "properties": propertiesAst
             },
             library,
             prog

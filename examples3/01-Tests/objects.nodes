@@ -2,17 +2,19 @@ structs:
 	Vec2<T>:
 		T x
 		T y
-		slot inc(Int i):
+		slot inc(T i):
 			x = x + i
 	Rect<T>:
 		Vec2<T> pos
 		Vec2<T> size
 nodes:
-	var v = Vec2(0, 0)
+	var v = Vec2(0, 10)
 	# var r = Rect(Vec2(0, 0), Vec2(10, 10))
 	# var r2 = r
 	def x = v.y
+	var y = 0
 actions:
 	tick(): 
-		v.inc(1)
-		# r.pos.x.inc(1)
+		y = 1
+		v.inc(1 + v.y)
+		# r.pos.inc(1)

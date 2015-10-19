@@ -9,7 +9,8 @@ var library =
 	functions : functions,
 	actions : actions,
 	classes : {},
-	types : {}
+	types : {},
+	attribs : {}
 };
 
 var fileName = "test.nodes";
