@@ -138,148 +138,6 @@ CompIterator =
 		return res;
 	}
 
-LogicalORExpression
-  = head:LogicalANDExpression
-    tail:(__ LogicalOROperator __ LogicalANDExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-LogicalOROperator
-  = "||" !"=" { return "||"; }
-
-LogicalANDExpression
-  = head:BitwiseORExpression
-    tail:(__ LogicalANDOperator __ BitwiseORExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-LogicalANDOperator
-  = "&&" !"=" { return "&&"; }
-
-BitwiseORExpression
-  = head:BitwiseXORExpression
-    tail:(__ BitwiseOROperator __ BitwiseXORExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     "BinaryExpression",
-          operator: tail[i][1],
-          left:     result,
-          right:    tail[i][3]
-        };
-      }
-      return result;
-    }
-
-
-BitwiseOROperator
-  = "|" !("|" / "=") { return "|"; }
-
-BitwiseXORExpression
-  = head:BitwiseANDExpression
-    tail:(__ BitwiseXOROperator __ BitwiseANDExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     "BinaryExpression",
-          operator: tail[i][1],
-          left:     result,
-          right:    tail[i][3]
-        };
-      }
-      return result;
-    }
-
-BitwiseXOROperator
-  = "^" !("^" / "=") { return "^"; }
-
-BitwiseANDExpression
-  = head:EqualityExpression
-    tail:(__ BitwiseANDOperator __ EqualityExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     "BinaryExpression",
-          operator: tail[i][1],
-          left:     result,
-          right:    tail[i][3]
-        };
-      }
-      return result;
-    }
-
-BitwiseANDOperator
-  = "&" !("&" / "=") { return "&"; }
-
-EqualityExpression
-  = head:RelationalExpression
-    tail:(__ EqualityOperator __ RelationalExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1] == "==" ? "==" : "!=",
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-EqualityOperator
-  = "==="
-  / "!=="
-  / "=="
-  / "!="
-
-RelationalExpression
-  = head:ShiftExpression
-    tail:(__ RelationalOperator __ ShiftExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1],
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-RelationalOperator
-  = "<="
-  / ">="
-  / "<"
-  / ">"
-
-ShiftExpression
-  = head:AdditiveExpression
-    tail:(__ ShiftOperator __ AdditiveExpression)* {
-      var result = head;
-      for (var i = 0; i < tail.length; i++) {
-        result = {
-          type:     tail[i][1] == "<<" ? "LShift" : "RShift",
-          params : [result, tail[i][3]]
-        };
-      }
-      return result;
-    }
-
-ShiftOperator
-  = "<<"
-  / ">>"
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Expressions /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -304,7 +162,7 @@ AdditiveOperator =
     / "-" !("=") { return "-"; }
 
 MultiplicativeExpression = 
-    head:UnaryExpression _ tail:(operator:MultiplicativeOperator _ operand:UnaryExpression _ {
+    head:LogicalORExpression _ tail:(operator:MultiplicativeOperator _ operand:LogicalORExpression _ {
         return {
             operator: operator,
             operand: operand
@@ -312,11 +170,128 @@ MultiplicativeExpression =
     } )+ {
         return makeInfixExpression(head, tail);
     }
-    / UnaryExpression
+	/ LogicalORExpression
 
 MultiplicativeOperator =
     operator:("*" / "/" / "%") !"=" { return operator; }
-  
+
+LogicalORExpression =
+	head:LogicalANDExpression _ tail:(operator:LogicalOROperator _ operand:LogicalANDExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    })+ {
+        return makeInfixExpression(head, tail);
+    }
+	/ LogicalANDExpression
+
+LogicalOROperator
+  = "or" { return "or"; }
+
+LogicalANDExpression =
+	head:BitwiseORExpression _ tail:(operator:LogicalANDOperator _ operand:BitwiseORExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    })+ {
+        return makeInfixExpression(head, tail);
+    }
+	/ BitwiseORExpression
+
+LogicalANDOperator
+  = "and" { return "and"; }
+
+BitwiseORExpression =
+	head:BitwiseXORExpression _ tail:(operator:BitwiseOROperator _ operand:BitwiseXORExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    })+ {
+        return makeInfixExpression(head, tail);
+    }
+	/ BitwiseXORExpression
+
+BitwiseOROperator
+  = "|" !("|" / "=") { return "|"; }
+
+BitwiseXORExpression =
+	head:BitwiseANDExpression _ tail:(operator:BitwiseXOROperator _ operand:BitwiseANDExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    })+ {
+        return makeInfixExpression(head, tail);
+    }
+	/ BitwiseANDExpression
+
+BitwiseXOROperator
+  = "^" !("^" / "=") { return "^"; }
+
+BitwiseANDExpression =
+	head:EqualityExpression _ tail:(operator:BitwiseANDOperator _ operand:EqualityExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    })+ {
+        return makeInfixExpression(head, tail);
+    }
+	/ EqualityExpression
+
+BitwiseANDOperator
+  = "&" !("&" / "=") { return "&"; }
+
+EqualityExpression =
+	head:RelationalExpression _ tail:(operator:EqualityOperator _ operand:RelationalExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    })+ {
+        return makeInfixExpression(head, tail);
+    }
+	/ RelationalExpression
+
+EqualityOperator =
+	"=="
+ 	/ "!="
+
+RelationalExpression =
+	head:ShiftExpression _ tail:(operator:RelationalOperator _ operand:ShiftExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    })+ {
+        return makeInfixExpression(head, tail);
+    }
+	/ ShiftExpression
+
+RelationalOperator
+  = "<="
+  / ">="
+  / "<"
+  / ">"
+
+ShiftExpression =
+	head:UnaryExpression _ tail:(operator:ShiftOperator _ operand:UnaryExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    })+ {
+        return makeInfixExpression(head, tail);
+    }
+	/ UnaryExpression	
+
+ShiftOperator
+  = "<<"
+  / ">>"
+
 UnaryExpression
   = operator:UnaryOperator __ expression:UnaryExpression {
       return makeCallExpression((operator == "-") ? "opposite" : operator, [expression]);
@@ -378,7 +353,7 @@ ExpressionList =
     }
 
 Atom =
-	Number
+	Literal
 	/ GenericInstance
 	/ Id
 	/ "(" _ expr:Expression _ ")" _ {return expr;}
@@ -391,6 +366,47 @@ GenericInstance =
 			base : base.name,
 			args : args
 		}
+	}
+
+Literal =
+	BooleanLiteral
+	/ StringLiteral
+	/ Number
+
+/*  / value:NumericLiteral {
+      return {
+        type:  "NumericLiteral",
+        value: value
+      };
+    }
+  / value:StringLiteral {
+      return {
+        type:  "StringLiteral",
+        value: value
+      };
+    }
+  / RegularExpressionLiteral*/
+
+BooleanLiteral =
+	"true" !IdentifierPart {
+		return {
+			type : "BooleanLiteral",
+			val : true
+		}
+	}
+	/ "false" !IdentifierPart {
+		return {
+			type : "BooleanLiteral",
+			val : false
+		}
+	}
+
+StringLiteral = 
+	"\"" text:([^"\\] / dq:('\\' c:. {return c;}))* "\"" {
+		return {
+			type : "StringLiteral",
+			val : text.join("")
+		};
 	}
 
 Ids = 
@@ -409,7 +425,21 @@ Id =
 		};
 	}
 
+IdentifierStart
+  = [a-zA-Z_]
+  / "$"
+  / "_"
+  / "\\" sequence:UnicodeEscapeSequence { return sequence; }
 
+IdentifierPart
+  = IdentifierStart
+  / "\u200C" { return "\u200C"; } // zero-width non-joiner
+  / "\u200D" { return "\u200D"; } // zero-width joiner
+
+UnicodeEscapeSequence
+  = "u" digits:$(HexDigit HexDigit HexDigit HexDigit) {
+      return String.fromCharCode(parseInt("0x" + digits));
+    }
 
 /*********************************************************************************************/
 /*********************************************************************************************/
@@ -923,14 +953,6 @@ ArrayDictAccess =
         };
 	}
 
-String = 
-	"\"" text:([^"\\] / dq:('\\' c:. {return c;}))* "\"" {
-		return {
-			type : "String",
-			val : text.join("")
-		};
-	}
-
 Merge = 
 	id:Var _ "\\" _ affectations:MergeAssignments
 	{
@@ -1092,19 +1114,19 @@ Number "Number" =
 DecimalLiteral = 
 	parts:(SignedInteger"." DecimalDigits? ExponentPart?) {
 		return {
-			type : "Float",
+			type : "FloatLiteral",
 			val : parseFloat(parts.join(""))
 		};
 	}
 	/ parts:("." DecimalDigits ExponentPart?) {
 		return {
-			type : "Float",
+			type : "FloatLiteral",
 			val : parseFloat(parts.join(""))
 		};
 	}
 	/ parts:(SignedInteger ExponentPart) {
 		return {
-			type : "Float",
+			type : "FloatLiteral",
 			val : parseFloat(parts.join(""))
 		}
 	}
@@ -1113,7 +1135,7 @@ Int =
 	int:DecimalIntegerLiteral 
 	{
 		return {
-			type : "Int",
+			type : "IntLiteral",
 			val : parseInt(int)
 		}
 	}
@@ -1147,10 +1169,6 @@ HexIntegerLiteral
 
 HexDigit
   = [0-9a-fA-F]
-
-IdentifierStart
-  = "$"
-  / "_"
 
 _
   = (WhiteSpace)*

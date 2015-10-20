@@ -156,15 +156,23 @@ function mllf1(func1)
 function mf2(func2, inAndOutTypes)
 {
 	return {
-		params : [["first", inAndOutTypes.inputs[0]], ["second", inAndOutTypes.inputs[1]]],
-		getStr : function(params) 
-		{	
-			return func2(params[0], params[1]);
-		},
-		type : inAndOutTypes.output,
-		getBeforeStr : function()
+		guessTypeArgs : function(args)
 		{
-			return "";
+			return [];
+		},		
+		getInstance : function(typeArgs)
+		{
+			return {
+				getAst : function(args) 
+				{	
+					return func2(args[0], args[1]);
+				},
+				type : inAndOutTypes
+			}
+		},
+		getType : function(typeArgs)
+		{
+			return inAndOutTypes;
 		}
 	}
 }
@@ -180,25 +188,44 @@ function mff2(func2)
 	)
 }
 
-
-
-// Comparison functions
-function mcf2(func2)
+// Relational functions
+function mrf2(operator)
 {
-	return mf2
+	return mtf2
 	(
-		func2,
-		inOut2("float", "float", "bool")
+		function (x, y) {
+			return {
+                "type": "BinaryExpression",
+                "operator": operator,
+                "left": x,
+                "right": y
+            };
+		},
+		function(template) // Input and output types
+		{
+			return inOut2(template, template, makeBaseType("bool"));
+		},
+		function(x, y)	// Template guess from input types
+		{
+			return(getCommonSuperClass(x, y));
+		}
 	)
 }
 
-// Boolean (logical) functions
-function mbf2(func2)
+// Logical functions
+function mlf2(operator)
 {
 	return mf2
 	(
-		func2,
-		inOut2("bool", "bool", "bool")
+		function (x, y) {
+			return {
+                "type": "LogicalExpression",
+                "operator": operator,
+                "left": x,
+                "right": y
+            };
+		},
+		inOut2(makeBaseType("bool"), makeBaseType("bool"), makeBaseType("bool"))
 	)
 }
 

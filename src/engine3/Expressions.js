@@ -39,6 +39,17 @@ function makeCallExpression(expr, library, genericTypeParams)
 	typeArgs = funcSpec.guessTypeArgs(args);
 	funcInstance = funcSpec.getInstance(typeArgs);
 
+	_.each(
+		_.zip(args, funcInstance.type.inputs),
+		function(argAndInputType) {
+			if(!isSameType(argAndInputType[0].type, argAndInputType[1])) {
+				error(
+					"Arg type " + typeToString(argAndInputType[0].type) + " different from formal parameter type " + typeToString(argAndInputType[1])
+				);
+			}
+		}
+	);
+
 	return new Expr(
 		funcInstance.getAst(
 			_.map(args, function(arg) {
@@ -51,22 +62,6 @@ function makeCallExpression(expr, library, genericTypeParams)
 function makeMemberExpression(exprGraph, library, genericTypeParams)
 {
 	var obj = exprGraph.obj;
-	// var id = null;
-	// var funcSpec = null;
-	// if(obj.type == "Id")
-	// {
-	// 	var id = obj.name;		
-	// 	if(!(id in library.nodes))
-	// 	{
-	// 		error("Object " + type + " not found in nodes library");
-	// 	}
-	// 	funcSpec = library.functions[id];
-	// }
-	// else
-	// {
-	// 	error("Object type not supported: " + obj.type);
-	// }
-	
 	var expr = makeExpr(obj, library, genericTypeParams);
 	// TODO check types
 
@@ -107,24 +102,26 @@ function makeIdExpression(expr, library, genericTypeParams)
 	);
 }
 
-function makeExpr(expr, library, genericTypeParams)
-{
-	if(isNumber(expr))
-	{
-		return new Expr(literal(expr.val), makeBaseType(expr.type));
-	} else if(expr.type == "CallExpression")
-	{
+function makeExpr(expr, library, genericTypeParams) {
+	if(isInArray(expr.type, ["IntLiteral", "FloatLiteral"])) {
+		return new Expr(
+			literal(expr.val),
+			makeBaseType(
+				expr.type == "IntLiteral" ?
+					"int" :
+					"float"
+			)
+		);
+	} else if(expr.type == "BooleanLiteral") {
+		return new Expr(
+			literal(expr.val),
+			makeBaseType("bool")
+		);
+	} else if(expr.type == "CallExpression") {
 		return makeCallExpression(expr, library, genericTypeParams);
-	} else if(expr.type == "Id")
-	{
+	} else if(expr.type == "Id") {
 		return makeIdExpression(expr, library, genericTypeParams);
-	}  else if(expr.type == "MemberExpression")
-	{
+	}  else if(expr.type == "MemberExpression") {
 		return makeMemberExpression(expr, library, genericTypeParams);
 	} 
-}
-
-function isLit(expr)
-{
- 	return (_.isNumber(expr) || _.isBoolean(expr));
 }

@@ -17,25 +17,6 @@ function write(str, val)
 	}
 }
 
-function typeToString(type)
-{
-	if(isString(type))
-	{
-		return type;
-	}
-	var str = type.base + "<";
-	for(var i = 0; i < type.params.length; i++)
-	{
-		str += typeToString(type.params[i]);
-		if(i < type.params.length - 1)
-		{
-			str += ", "
-		}
-	}
-	str += ">";
-	return str;
-}
-
 function getTemplates(type)
 {
 	if(isString(type))

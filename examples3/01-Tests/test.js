@@ -40,6 +40,7 @@ $.get(fileName, function( text ) {
 		appendText(y);
 		appendText(z);
 		appendText(t());
+		appendText(b);
 		appendText([v().x, v().y].join(", "));
 		appendText([w.x, w.y].join(", "));
 	} else if(fileName == "generics.nodes") {

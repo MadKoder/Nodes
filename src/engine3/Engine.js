@@ -28,10 +28,6 @@ function compileGraph(graph, library, previousNodes)
 	    	this.addStmnt(makeLitVarDecl(id, litVal));
 	    }
 	};
-
-	prog.addLitVarDecl("float", "{}");
-	prog.addLitVarDecl("int", "{}");
-	prog.addLitVarDecl("string", "{}");
 	
 	if("structsAndFuncs" in graph)
 	{

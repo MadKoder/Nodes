@@ -77,7 +77,7 @@ function isSubType(checkedType, refType)
 	var refBaseType = getBaseType(refType);
 	if(checkedBaseType != refBaseType)
 	{
-		if(refBaseType == "Float" && checkedBaseType == "Int")
+		if(refBaseType == "float" && checkedBaseType == "int")
 		{
 			return true;
 		}

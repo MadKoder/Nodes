@@ -1,11 +1,20 @@
 
-var functions = 
-{
-	"+" : maf2("+")
-	//maf2(function (x, y) {return x + "+" + y;})
-};
+var functions = {};
 
+var arithmeticFunctions = _.zipObject(_.map(["+", "-", "*", "/"], function(operand) {
+	return [operand, maf2(operand)];
+}));
+_.merge(functions, arithmeticFunctions);
 
+var predicates = _.zipObject(_.map(["==", "!=", "<", ">", "<=", ">="], function(operand) {
+	return [operand, mrf2(operand)];
+}));
+_.merge(functions, predicates);
+
+var logicalFunctions = _.zipObject(_.map(["and", "or"], function(operand) {
+	return [operand, mlf2(operand == "and" ? "&&" : "||")];
+}));
+_.merge(functions, logicalFunctions);
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
