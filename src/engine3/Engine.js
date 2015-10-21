@@ -14,6 +14,22 @@ function Node(getterAst, type)
 	this.getterAst = getterAst;
 }
 
+// Recursively gets sources of an expression				
+function makeDependencies(exprGraph, sinkId, sinkToSources)
+{
+	// If the expression is an id, it is a source (maybe not root)
+	if(exprGraph.type == "Id") {
+		var sourceId = exprGraph.name;
+		sinkToSources[sinkId][sourceId] = {};
+	} else if(exprGraph.type == "CallExpression") {
+		_.each(exprGraph.args, function(arg) {
+			makeDependencies(arg, sinkId, sinkToSources);
+		});
+	}  else if(exprGraph.type == "MemberExpression") {
+		makeDependencies(exprGraph.obj, sinkId, sinkToSources);
+	}
+}
+
 function compileGraph(graph, library, previousNodes) 
 {
 	prog = {
@@ -44,8 +60,67 @@ function compileGraph(graph, library, previousNodes)
 		}
 	}
 
+	// Builds the sinkToSources dict
+	// For each leaf sink (defs), get its direct sources by examining its expression
+	// Note that sources in this dict may also be defs, i.e. not root sources
 	var graphNodes = graph.nodes;
     var connectionsGraph = graph.connections;
+    var sinkToSources = {};
+    for(var i = 0; i < graphNodes.length; i++)
+	{
+		var nodeRow = graphNodes[i];
+		for(var j = 0; j < nodeRow.length; j++)
+		{
+			var nodeGraph = nodeRow[j];
+			var sinkId = nodeGraph.id.name;
+			// If node is a def, it is a leaf sink
+			if(nodeGraph.type == "def")
+			{
+				sinkToSources[sinkId] = {};
+
+				// Recursively gets sources of an expression				
+				makeDependencies(nodeGraph.val, sinkId, sinkToSources);
+			}
+		}
+	}
+
+	// Adds events sources to the sink to sources dict
+	var eventsGraph = graph.events;
+	var eventIndex = 0;
+	for(var i = 0; i < eventsGraph.length; i++) {
+		var eventGraph = eventsGraph[i];
+		var eventId = "__event__" + i;
+		sinkToSources[eventId] = {};
+		makeDependencies(eventGraph.condition, eventId, sinkToSources);
+	}
+
+	// Builds the root sources to leaf sinks dict,
+	// From each sink, go to its sources, and recursively sources of sources ...
+	// When a source is not in the sinkToSources dict, it's a root source (a var)
+    var sourceToSinks = {};
+	for(sinkId in sinkToSources) {
+		var sources = sinkToSources[sinkId];
+		for(sourceId in sources) {
+			function addSinkToFinalSources(sourceId) {
+				// Source is a def, adds its sinks
+				if(sourceId in sinkToSources) {
+					var sources = sinkToSources[sourceId];
+					_.each(sources, function(dummy, sourceId) {
+						addSinkToFinalSources(sourceId)
+					});
+				} else {
+					// Source root, adds it to the dict if not already in,
+					// And adds the leaf sink in its sinks dict
+					if(!(sourceId in sourceToSinks)) {
+						sourceToSinks[sourceId] = {};
+					}
+					sourceToSinks[sourceId][sinkId] = {};
+				}
+			}
+			addSinkToFinalSources(sourceId);
+		}
+	}
+
     for(var i = 0; i < graphNodes.length; i++)
 	{
 		var nodeRow = graphNodes[i];
@@ -67,7 +142,7 @@ function compileGraph(graph, library, previousNodes)
                         "type": "Identifier",
                         "name": id
                     };
-                    library.nodes[id] = new Node(getterAst, expr.getType());
+                    library.nodes[id] = new Node(getterAst, expr.type);
 				}
 				else
 				{
@@ -87,9 +162,7 @@ function compileGraph(graph, library, previousNodes)
 	                                    "argument": expr.getAst()
 	                                }
 	                            ]
-	                        },
-	                        "generator": false,
-	                        "expression": false
+	                        }
 	                    }
 					);
 					var von = varDeclaration([vor]);
@@ -102,7 +175,7 @@ function compileGraph(graph, library, previousNodes)
                         },
                         "arguments": []
                     }
-					library.nodes[id] = new Node(getterAst, expr.getType());
+					library.nodes[id] = new Node(getterAst, expr.type);
 				}
 			}
 			// catch(err) // For release version only

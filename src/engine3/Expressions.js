@@ -102,26 +102,26 @@ function makeIdExpression(expr, library, genericTypeParams)
 	);
 }
 
-function makeExpr(expr, library, genericTypeParams) {
-	if(isInArray(expr.type, ["IntLiteral", "FloatLiteral"])) {
+function makeExpr(exprGraph, library, genericTypeParams) {
+	if(isInArray(exprGraph.type, ["IntLiteral", "FloatLiteral"])) {
 		return new Expr(
-			literal(expr.val),
+			literal(exprGraph.val),
 			makeBaseType(
-				expr.type == "IntLiteral" ?
+				exprGraph.type == "IntLiteral" ?
 					"int" :
 					"float"
 			)
 		);
-	} else if(expr.type == "BooleanLiteral") {
+	} else if(exprGraph.type == "BooleanLiteral") {
 		return new Expr(
-			literal(expr.val),
+			literal(exprGraph.val),
 			makeBaseType("bool")
 		);
-	} else if(expr.type == "CallExpression") {
-		return makeCallExpression(expr, library, genericTypeParams);
-	} else if(expr.type == "Id") {
-		return makeIdExpression(expr, library, genericTypeParams);
-	}  else if(expr.type == "MemberExpression") {
-		return makeMemberExpression(expr, library, genericTypeParams);
+	} else if(exprGraph.type == "Id") {
+		return makeIdExpression(exprGraph, library, genericTypeParams);
+	} else if(exprGraph.type == "CallExpression") {
+		return makeCallExpression(exprGraph, library, genericTypeParams);
+	}  else if(exprGraph.type == "MemberExpression") {
+		return makeMemberExpression(exprGraph, library, genericTypeParams);
 	} 
 }

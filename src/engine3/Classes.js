@@ -11,7 +11,7 @@ function makeStruct(structGraph, library, prog)
 	{
 		// Else create a new function instance object
 		var vars = _.filter(structGraph.fields, function(field) {
-			return field.type === "Var";
+			return field.type === "Property";
 		});
 			
 		var propertiesAst = _.map(vars, function(field) {

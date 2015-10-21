@@ -42,10 +42,7 @@ function makeRefAst(ref, library, genericTypeParams)
 function makeAssignment(assignmentGraph, library, genericTypeParams) {
     var exprAst = makeExpr(assignmentGraph.value, library, genericTypeParams).getAst();
     var targetAst =  makeRefAst(assignmentGraph.target, library, genericTypeParams, true);
-    // {
-    //             "type": "Identifier",
-    //             "name": assignmentGraph.target.name
-    //         };
+
     // TODO check existence and type of target
     return {
         "type": "ExpressionStatement",

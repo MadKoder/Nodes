@@ -34,8 +34,7 @@ start "start" =
 	}
 	
 Slot =
-	id:Id _ params:("(" _ params:ParamsDecl? _")" {return params})? _ statements:Statements _
-	{
+	id:Id _ params:("(" _ params:ParamsDecl? _")" {return params})? _ statements:Statements _ {
 		return {
 			type : "Slot",
 			id : id,
@@ -103,7 +102,7 @@ ConditionalExpression =
 	/ Comprehension
 
 Comprehension = 
-	"[" _ val:LogicalORExpression _ "for " _ it:CompIterators _ when:("when " _ test:Val {return test})? _ "]" 
+	"[" _ val:Expression _ "for " _ it:CompIterators _ when:("when " _ test:Expression {return test})? _ "]" 
 	{
 		var res = {
 			"comp" : val,
@@ -116,7 +115,7 @@ Comprehension =
 		return res;
 
 	}
-	/ LogicalORExpression
+	/ Expression
 
 CompIterators = 
 	head:CompIterator _ tail:( _ "," _ (i:CompIterator) {return i})* 
@@ -125,7 +124,7 @@ CompIterators =
 	}
 	
 CompIterator = 
-	it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Val
+	it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Expression
 	{
 		var res = {
 			"for" : it,
@@ -161,6 +160,22 @@ AdditiveOperator =
     "+" !("=") { return "+"; }
     / "-" !("=") { return "-"; }
 
+// This one shortcut most expression for faster testing
+MultiplicativeExpression = 
+    head:ChainedExpression _ tail:(operator:MultiplicativeOperator _ operand:ChainedExpression _ {
+        return {
+            operator: operator,
+            operand: operand
+        };
+    } )+ {
+        return makeInfixExpression(head, tail);
+    }
+	/ ChainedExpression
+
+MultiplicativeOperator =
+    operator:("*" / "/" / "%") !"=" { return operator; }
+
+// The real one, replace previous one for delivery
 MultiplicativeExpression = 
     head:LogicalORExpression _ tail:(operator:MultiplicativeOperator _ operand:LogicalORExpression _ {
         return {
@@ -172,8 +187,7 @@ MultiplicativeExpression =
     }
 	/ LogicalORExpression
 
-MultiplicativeOperator =
-    operator:("*" / "/" / "%") !"=" { return operator; }
+
 
 LogicalORExpression =
 	head:LogicalANDExpression _ tail:(operator:LogicalOROperator _ operand:LogicalANDExpression _ {
@@ -373,20 +387,6 @@ Literal =
 	/ StringLiteral
 	/ Number
 
-/*  / value:NumericLiteral {
-      return {
-        type:  "NumericLiteral",
-        value: value
-      };
-    }
-  / value:StringLiteral {
-      return {
-        type:  "StringLiteral",
-        value: value
-      };
-    }
-  / RegularExpressionLiteral*/
-
 BooleanLiteral =
 	"true" !IdentifierPart {
 		return {
@@ -429,79 +429,32 @@ IdentifierStart
   = [a-zA-Z_]
   / "$"
   / "_"
-  / "\\" sequence:UnicodeEscapeSequence { return sequence; }
+  // / "\\" sequence:UnicodeEscapeSequence { return sequence; }
 
 IdentifierPart
   = IdentifierStart
   / "\u200C" { return "\u200C"; } // zero-width non-joiner
   / "\u200D" { return "\u200D"; } // zero-width joiner
 
-UnicodeEscapeSequence
-  = "u" digits:$(HexDigit HexDigit HexDigit HexDigit) {
-      return String.fromCharCode(parseInt("0x" + digits));
-    }
+// UnicodeEscapeSequence
+//   = "u" digits:$(HexDigit HexDigit HexDigit HexDigit) {
+//       return String.fromCharCode(parseInt("0x" + digits));
+//     }
 
 /*********************************************************************************************/
 /*********************************************************************************************/
 // End expressions ////////////////////////////////////////////////////////////////////////////
 /*********************************************************************************************/
 /*********************************************************************************************/
-
-Expression2 = 
-	Number
-	/ Id
-	/ LogicalORExpression
-	/ CallExpression
-	/ ConditionalExpression 
-	// / Let
-	// / Merge 
-	// / Match 
-	// / MatchType 
-	// / "true" {return true;}
-	// / "false" {return false;}
-	// / "[]" { return {array : []};}
-	// / Closure
-	// / Range
-	// / Comprehension
-	// / Array 
-	// / Dict
-	// / ArrayDictAccess
-	// / Var
-	// / Message 
-	// / "(" __ expression:Expression __ ")" { return expression; }
-	// / array:( "[" __ (item:(Expression __ "," __) {return item[0];})* Expression __"]" ) { return [array[2].concat(array[3])]; }
-	// / String
-
-Connections = 
-   head:Connection _ tail:(_ "," _ (c:Connection) {return c})* 
-   {
-      return [head].concat(tail);
-   }
-   
-Connection =
-	// Check if Var is OK for all, else we need to make a special case for functions
-	_ signal:Var _ "=>" _ action:Statement  _ 
-	{
-		var ret = {
-			action : action
-		};
-		if(signal)
-		{
-			ret.signal = signal;
-		}
-		return ret;
-	}
 	
 Event =
-	cond:Val _ action:Statement
-	{
+	condition:Expression _ statements:Statements{
 		return {
-			"when" : cond,
-			"do" : action
+			type : "Event",
+			condition : condition,
+			statements : statements
 		};
 	}
-
-Slots = IdList 
 
 IdList = 
    head:Id _ tail:(_ "," _ (slot:Id) {return slot})* 
@@ -522,7 +475,7 @@ ParamDecl =
 	}
 
 Assignment = 
-	local:("var")? _ target:Id _ "=" _ value:Val 
+	local:("var")? _ target:Id _ "=" _ value:Expression 
     {
 		return {
 			type : "Assignment",
@@ -533,7 +486,7 @@ Assignment =
 	}
 
 AccessAssignment = 
-	_ slot:Var _ "[" _ indexOrKey:Val _ "]" _ "=" _ val:Val 
+	_ slot:Expression _ "[" _ indexOrKey:Expression _ "]" _ "=" _ val:Expression 
     {
 		var affect = 
 		{
@@ -542,24 +495,6 @@ AccessAssignment =
             indexOrKey : indexOrKey
         };
 		return affect;
-	}
-
-VarOrDestructVar = 
-	Var
-	/ DestructVar
-	
-DestructVar = 
-	"(" _ vars:Vars _ ")"
-	{
-		return {
-			destruct : vars
-		};
-	}
-	
-Vars =  
-	head:Var tail:( _ "," _ (struct:Var) {return struct})* 
-	{
-		return [head].concat(tail);
 	}
 	
 FunctionDeclaration =
@@ -631,7 +566,7 @@ FieldDef =
 	/ SignalDef
 	/ !"subs" _ type:Type _ id:Id _  {
 		return {
-			type : "Var",			
+			type : "Property",
 			id : id,
 			varType : type
 		};
@@ -647,7 +582,7 @@ SignalDef =
 	}
 
 Closure = 
-	params:MaybeTypeAndIds _ "->" _ val:Val
+	params:MaybeTypeAndIds _ "->" _ val:Expression
 	{
 		return{
 			"closure" : val,
@@ -674,13 +609,13 @@ Dict =
 	}
 
 DictEntry = 
-	id:Id _ ":" _ val:Val
+	id:Id _ ":" _ val:Expression
 	{
 		return [id, val]
 	}
 
 Array = 
-	"[" _ head:Val tail:( _ "," _ (i:Val) {return i})* _ "]"
+	"[" _ head:Expression tail:( _ "," _ (i:Expression) {return i})* _ "]"
 	{
 		return {
 			array : [head].concat(tail)
@@ -721,10 +656,6 @@ Statement "Statement" =
   / MatchTypeStatement
   / ChainedSlotCall
   / Update
-  /  _ "(" _ actions:Statements _ ")" _ 
-  	{return  {
-			slots : actions
-		};}
   / IfStatement 
   / "while" _ param:Expression  _ "do" _ action:Statement _ 
 	{
@@ -735,7 +666,7 @@ Statement "Statement" =
 
 ForStatement =
 	_ "for" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ 
-	array:Val _ "do" _ action:Statement
+	array:Expression _ "do" _ action:Statement
 	{
 		var res =  {
 			"for" : it,
@@ -750,7 +681,7 @@ ForStatement =
 	}
 	
 MatchStatement =
-	"match" _ what:Val _ "do" _ "("_ cases:StatementCases elseCase:ElseStatementCase? _")"
+	"match" _ what:Expression _ "do" _ "("_ cases:StatementCases elseCase:ElseStatementCase? _")"
 	{
 		var ret = {
 			match : what,
@@ -785,7 +716,7 @@ ElseStatementCase =
 	}
 
 MatchTypeStatement = 
-	"type" _ id:Var _ "do" _ "(" _ matchCases:TypeStatementCases _ ")" 
+	"type" _ id:Expression _ "do" _ "(" _ matchCases:TypeStatementCases _ ")" 
 	{
 		return {
 			matchType : id,
@@ -809,8 +740,8 @@ TypeStatementCase =
 	}
 
 Update =
-	"update" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ array:Val _
-	"with" _ val:ValOrCondUpdate _ filter:("filter " _ test:Val {return test})?
+	"update" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ array:Expression _
+	"with" _ val:ValOrCondUpdate _ filter:("filter " _ test:Expression {return test})?
 	{
 		var res = {
 			"update" : it,
@@ -837,10 +768,10 @@ Update =
 
 ValOrCondUpdate =
 	cond:CondUpdate {return {cond : cond};}
-	/ val:Val {return {val : val};}
+	/ val:Expression {return {val : val};}
 
 CondUpdate =
-	_ val:Val _ "if" _ cond:Val 
+	_ val:Expression _ "if" _ cond:Expression 
 	{
 		return {
 			"val" : val,
@@ -849,7 +780,7 @@ CondUpdate =
 	}
 	
 Foreach =
-	_ "foreach " _ id:Var _ signal:Id _ params:("(" _ params:ExpressionList? _ ")" {return params})?
+	_ "foreach " _ id:Expression _ signal:Id _ params:("(" _ params:ExpressionList? _ ")" {return params})?
 	{
 		return {
 			foreach : id,
@@ -867,6 +798,14 @@ SlotCall =
 			params : params != null ? params : [],
 			var : varPath
 		};
+	}
+	
+StructPath =
+	"." path:Id subPath:(StructPath)? {
+		var finalPath = [path];
+		if(subPath != null)
+			finalPath = finalPath.concat(subPath);
+		return finalPath;
 	}
 
 ChainedSlotCall =
@@ -896,14 +835,6 @@ MemberReference =
             field: field
         };
     }
-
-Var = 
-	start:Id subPath:(SubPath)?{
-		var finalPath = [start];
-		if(subPath != null)
-			finalPath = finalPath.concat(subPath);
-		return finalPath;
-	}
   
 IfStatement =
 	"if" _ param:Expression  _ "then" _ action:Statement _ elseStatement:("else" _ action:Statement {return action;})?
@@ -937,15 +868,11 @@ Field =
 		};
 	}
 
-Val = 
-	!Connection exp:Expression {return exp;}
-	/ !Connection exp:Expression {return exp;}
-
 ExpressionList = 
-	headExpr:Val tailExpr:( _ "," _ (i:Val) {return i})* {return [headExpr].concat(tailExpr);}
+	headExpr:Expression tailExpr:( _ "," _ (i:Expression) {return i})* {return [headExpr].concat(tailExpr);}
 
 ArrayDictAccess =
-	_ id:Var _ "[" _ indexOrKey:Val _ "]" _
+	_ id:Expression _ "[" _ indexOrKey:Expression _ "]" _
     {
 		return {
             access: id,
@@ -954,7 +881,7 @@ ArrayDictAccess =
 	}
 
 Merge = 
-	id:Var _ "\\" _ affectations:MergeAssignments
+	id:Expression _ "\\" _ affectations:MergeAssignments
 	{
 		return {
 			merge : id,
@@ -969,7 +896,7 @@ MergeAssignments =
 	}
 	
 MergeAssignment = 
-	"if " _ cond:Val _ "then " _ affectations:UncondAssignments _ elseAssignments:("else " _ affectation:UncondAssignments {return affectation})?
+	"if " _ cond:Expression _ "then " _ affectations:UncondAssignments _ elseAssignments:("else " _ affectation:UncondAssignments {return affectation})?
 	{
 		var aff = {
 			"cond" : cond,
@@ -992,7 +919,7 @@ UncondAssignments =
 	}
 	
 UncondAssignment =
-	paths:MergePaths _ "=" _ val:Val
+	paths:MergePaths _ "=" _ val:Expression
 	{
 		return {
 			paths : paths,
@@ -1001,13 +928,13 @@ UncondAssignment =
 	}
 	
 MergePaths = 
-	head:Var _ tail:( _ "," _ (i:Var) {return i})* 
+	head:Expression _ tail:( _ "," _ (i:Expression) {return i})* 
 	{
 		return [head].concat(tail);
 	}
 
 Match =
-	"match" _ what:Val _ "("_ cases:Cases elseCase:ElseCase _")"
+	"match" _ what:Expression _ "("_ cases:Cases elseCase:ElseCase _")"
 	{
 		return {
 			match : what,
@@ -1023,7 +950,7 @@ Cases =
 	}
 
 Case =
-	vals:Vals _ ":" _ out:Val
+	vals:Vals _ ":" _ out:Expression
 	{
 		return {
 			vals : vals, 
@@ -1032,13 +959,13 @@ Case =
 	}
 	
 ElseCase =
-	(",")? _ "_" _ ":" _ out:Val
+	(",")? _ "_" _ ":" _ out:Expression
 	{
 		return out;
 	}
 	
 Vals =
-	!("_"!Id) head:Val _ tail:( _ "," _ (i:Val) {return i})* 
+	!("_"!Id) head:Expression _ tail:( _ "," _ (i:Expression) {return i})* 
 	{
 		return [head].concat(tail);
 	}
@@ -1059,7 +986,7 @@ TypeCases =
 	}
 	
 TypeCase = 
-	type:Type _ ":" _ val:Val
+	type:Type _ ":" _ val:Expression
 	{
 		return {
 			type : type,
@@ -1067,7 +994,7 @@ TypeCase =
 		}
 	}
 
-Let = "let" _ what:OneOrMoreNode  _ "in" _ val:Val
+Let = "let" _ what:OneOrMoreNode  _ "in" _ val:Expression
 {
 	return {
 		let : what,
@@ -1083,26 +1010,6 @@ Nodes =
 	head:Node _ tail:( _ "," _ (i:Node) {return i})* 
 	{
 		return [head].concat(tail);
-	}
-
-Message = 
-	"<-" _ id:Id _ params:("(" _ params:ExpressionList _ ")" {return params})?
-	{
-		return {
-			msg : id,
-			params : params != null ? params :  []
-		};
-	}
-	
-SubPath = 
-	StructPath
-	
-StructPath =
-	"." path:Id subPath:(SubPath)? {
-		var finalPath = [path];
-		if(subPath != null)
-			finalPath = finalPath.concat(subPath);
-		return finalPath;
 	}
 
 
