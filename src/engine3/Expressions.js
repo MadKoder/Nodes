@@ -105,7 +105,7 @@ function makeIdExpression(expr, library, genericTypeParams)
 function makeExpr(exprGraph, library, genericTypeParams) {
 	if(isInArray(exprGraph.type, ["IntLiteral", "FloatLiteral"])) {
 		return new Expr(
-			literal(exprGraph.val),
+			ast.literal(exprGraph.val),
 			makeBaseType(
 				exprGraph.type == "IntLiteral" ?
 					"int" :
@@ -114,7 +114,7 @@ function makeExpr(exprGraph, library, genericTypeParams) {
 		);
 	} else if(exprGraph.type == "BooleanLiteral") {
 		return new Expr(
-			literal(exprGraph.val),
+			ast.literal(exprGraph.val),
 			makeBaseType("bool")
 		);
 	} else if(exprGraph.type == "Id") {

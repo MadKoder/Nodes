@@ -8,10 +8,35 @@ function setLibrary(lib)
 	library = lib;
 }
 
-function Node(getterAst, type)
+function Node(getterAst, type, sinkListVarName)
 {
 	this.type = type;
 	this.getterAst = getterAst;
+	this.sinkListVarName = sinkListVarName != undefined ? sinkListVarName : "";
+}
+
+function __dirtySinks(sinks){
+	_.each(sinks, function(sink) {
+		sink.dirty();
+	});
+}
+
+function __def(getter)
+{
+	return {
+		get : function() {
+			if(this.isDirty) {
+				this.val = getter();
+				this.isDirty = false;
+			}
+			return this.val;
+		},
+		isDirty : true,
+		dirty : function() {
+			this.isDirty = true;
+		},
+		val : null
+	};
 }
 
 // Recursively gets sources of an expression				
@@ -38,10 +63,6 @@ function compileGraph(graph, library, previousNodes)
 	    addStmnt : function(stmnt)
 	    {
 	    	this.body.push(stmnt);
-	    },
-	    addLitVarDecl : function(id, litVal)
-	    {
-	    	this.addStmnt(makeLitVarDecl(id, litVal));
 	    }
 	};
 	
@@ -86,7 +107,6 @@ function compileGraph(graph, library, previousNodes)
 
 	// Adds events sources to the sink to sources dict
 	var eventsGraph = graph.events;
-	var eventIndex = 0;
 	for(var i = 0; i < eventsGraph.length; i++) {
 		var eventGraph = eventsGraph[i];
 		var eventId = "__event__" + i;
@@ -95,86 +115,133 @@ function compileGraph(graph, library, previousNodes)
 	}
 
 	// Builds the root sources to leaf sinks dict,
-	// From each sink, go to its sources, and recursively sources of sources ...
+	// From each sink, goes up to its sources, and recursively sources of sources ...
 	// When a source is not in the sinkToSources dict, it's a root source (a var)
     var sourceToSinks = {};
-	for(sinkId in sinkToSources) {
-		var sources = sinkToSources[sinkId];
-		for(sourceId in sources) {
-			function addSinkToFinalSources(sourceId) {
-				// Source is a def, adds its sinks
-				if(sourceId in sinkToSources) {
-					var sources = sinkToSources[sourceId];
-					_.each(sources, function(dummy, sourceId) {
-						addSinkToFinalSources(sourceId)
-					});
-				} else {
-					// Source root, adds it to the dict if not already in,
-					// And adds the leaf sink in its sinks dict
-					if(!(sourceId in sourceToSinks)) {
-						sourceToSinks[sourceId] = {};
-					}
-					sourceToSinks[sourceId][sinkId] = {};
+	for(leafSinkId in sinkToSources) {
+		function addRootSourcesOfCurrentLeafSink(sourceId) {
+			// Source is a def, adds its sinks
+			if(sourceId in sinkToSources) {
+				var sources = sinkToSources[sourceId];
+				_.each(sources, function(dummy, sourceId) {
+					addRootSourcesOfCurrentLeafSink(sourceId)
+				});
+			} else {
+				// Source root, adds it to the dict if not already in,
+				// And adds the leaf sink in its sinks dict
+				if(!(sourceId in sourceToSinks)) {
+					sourceToSinks[sourceId] = [];
 				}
+				// Adds the sink if not already in the sink array
+				sourceToSinks[sourceId] = _.union(
+					sourceToSinks[sourceId],
+					[leafSinkId]
+				);
 			}
-			addSinkToFinalSources(sourceId);
 		}
+
+		// Begin with the leaf sink as its own source
+		addRootSourcesOfCurrentLeafSink(leafSinkId);
 	}
 
-    for(var i = 0; i < graphNodes.length; i++)
-	{
+	var sinksListDeclarations = [];
+    for(var i = 0; i < graphNodes.length; i++) {
 		var nodeRow = graphNodes[i];
-		for(var j = 0; j < nodeRow.length; j++)
-		{
+		for(var j = 0; j < nodeRow.length; j++) {
 			var nodeGraph = nodeRow[j];
 			var id = nodeGraph.id.name;
 			//try
 			{
-				if(nodeGraph.type == "var")
-				{
+				if(nodeGraph.type == "var") {
 					var expr = makeExpr(nodeGraph.val, library, {});
-					var vor = varDeclarator(
-						identifier(id), expr.getAst()
+					var getterAst, declaratorInit;
+					// if(id in sourceToSinks) {
+					if(false) {
+						declaratorInit = {
+	                        "type": "NewExpression",
+	                        "callee": {
+	                            "type": "Identifier",
+	                            "name": "Store"
+	                        },
+	                        "arguments": [
+	                            expr.getAst()
+	                        ]
+	                    };
+                    }
+					else {
+						declaratorInit = expr.getAst();
+					}
+					var varDeclarator = ast.varDeclarator(
+						ast.identifier(id), declaratorInit
 					);
-					var von = varDeclaration([vor]);
-					prog.addStmnt(von);
+					var varDeclaration = ast.varDeclaration([varDeclarator]);
+					prog.addStmnt(varDeclaration);
+					var sinkListVarName = "";
+					if(id in sourceToSinks) {
+						sinkListVarName = id + "$sinkList";
+						var sinks = sourceToSinks[id];
+						var declaratorInit = {
+	                        "type": "ArrayExpression",
+	                        "elements": _.map(sinks, ast.identifier)
+	                    }
+						var varDeclarator = ast.varDeclarator(
+							ast.identifier(sinkListVarName), declaratorInit
+						);
+						var varDeclaration = ast.varDeclaration([varDeclarator]);
+						sinksListDeclarations.push(varDeclaration);
+					}
 					var getterAst = {
                         "type": "Identifier",
                         "name": id
                     };
-                    library.nodes[id] = new Node(getterAst, expr.type);
+                    library.nodes[id] = new Node(getterAst, expr.type, sinkListVarName);
 				}
 				else
 				{
 					var expr = makeExpr(nodeGraph.val, library, {});
-					var vor = varDeclarator(
-						identifier(id), 
+					var varDeclarator = ast.varDeclarator(
+						ast.identifier(id), 
 						{
-	                        "type": "FunctionExpression",
-	                        "id": null,
-	                        "params": [],
-	                        "defaults": [],
-	                        "body": {
-	                            "type": "BlockStatement",
-	                            "body": [
-	                                {
-	                                    "type": "ReturnStatement",
-	                                    "argument": expr.getAst()
-	                                }
-	                            ]
-	                        }
+	                        "type": "CallExpression",
+	                        "callee": {
+	                            "type": "Identifier",
+	                            "name": "__def"
+	                        },
+	                        "arguments": [
+	                            {
+	                                "type": "FunctionExpression",
+	                                "params": [],
+	                                "body": {
+	                                    "type": "BlockStatement",
+	                                    "body": [
+	                                        {
+	                                            "type": "ReturnStatement",
+	                                            "argument": expr.getAst()
+	                                        }
+	                                    ]
+	                                },
+	                            }
+	                        ]
 	                    }
 					);
-					var von = varDeclaration([vor]);
-					prog.addStmnt(von);
+					var varDeclaration = ast.varDeclaration([varDeclarator]);
+					prog.addStmnt(varDeclaration);
 					var getterAst = {
                         "type": "CallExpression",
                         "callee": {
-                            "type": "Identifier",
-                            "name": id
+                            "type": "MemberExpression",
+                            "computed": false,
+                            "object": {
+                                "type": "Identifier",
+                                "name": id
+                            },
+                            "property": {
+                                "type": "Identifier",
+                                "name": "get"
+                            }
                         },
                         "arguments": []
-                    }
+                    };
 					library.nodes[id] = new Node(getterAst, expr.type);
 				}
 			}
@@ -185,11 +252,23 @@ function compileGraph(graph, library, previousNodes)
 			// }
 		}
     }
+
 	
 	var actionsGraph = graph.actions;
 	for(var i = 0; i < actionsGraph.length; i++)
 	{
 		makeAction(actionsGraph[i], library, prog);
+    }
+
+    // Adds events sources to the sink to sources dict
+	for(var i in eventsGraph) {
+		var eventGraph = eventsGraph[i];
+		var eventId = "__event__" + i;
+		makeEvent(eventGraph, eventId, library, prog);
+	}
+
+    for(var i in sinksListDeclarations) {
+		prog.addStmnt(sinksListDeclarations[i]);
     }
 
     return prog;
