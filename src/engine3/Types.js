@@ -118,11 +118,18 @@ function isSubType(checkedType, refType)
 
 function isSameType(first, second) {
 	return (
+		// base types must be the same
 		(first.base === second.base) && (
+			// And have no args
 			((first.args.length === 0) && (second.args.length === 0)) ||
-			_.zip(first.args, second.args)
-				.map(function(firstTypeParam, secondTypeParam) {
-					return isSameType(firstTypeParam, secondTypeParam);
+			// Or each args are the same type
+			// Args are zipped two by two
+			// result is true iff all pairs are same types
+			_(first.args)
+				.zip(second.args)
+				.map(function(args) {
+					// Compare each pair of args
+					return isSameType(args[0], args[1]);
 				})
 				.all()
 		)

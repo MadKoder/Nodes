@@ -355,7 +355,6 @@ CallExpression "CallExpression" =
     {   
         return {
             type : "CallExpression",
-            /*func : func,*/
             args : args
         };
     }
@@ -373,7 +372,7 @@ Atom =
 	/ "(" _ expr:Expression _ ")" _ {return expr;}
 
 GenericInstance = 
-	base:Id _ "<" _ args:ExpressionList _ ">" _
+	base:Id _ "<" _ args:Ids _ ">" _
 	{
 		return {
 			type : "GenericInstance",
@@ -867,9 +866,6 @@ Field =
 			val : val
 		};
 	}
-
-ExpressionList = 
-	headExpr:Expression tailExpr:( _ "," _ (i:Expression) {return i})* {return [headExpr].concat(tailExpr);}
 
 ArrayDictAccess =
 	_ id:Expression _ "[" _ indexOrKey:Expression _ "]" _

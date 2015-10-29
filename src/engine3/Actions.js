@@ -193,6 +193,13 @@ function makeEvent(eventGraph, eventId, library, prog) {
         return makeStatement(statement, localLibrary, {})
     });
 
+    // var __event__index = {
+    //     dirty : function() {
+    //         if(condition) {
+    //             statements...
+    //         }
+    //     }
+    // };
     var eventAst = {
         "type": "VariableDeclaration",
         "declarations": [
