@@ -14,6 +14,7 @@ var library =
 };
 
 var fileName = "test.nodes";
+var fileName = "refs.nodes";
 // var fileName = "clone.nodes";
 // var fileName = "events.nodes";
 // var fileName = "objects.nodes";
@@ -46,6 +47,10 @@ $.get(fileName, function( text ) {
 		appendText([v.get().x, v.get().y].join(", "));
 		appendText([w0.x, w0.y].join(", "));
 		appendText([w.x, w.y].join(", "));
+	} else if(fileName == "refs.nodes") {
+		tick();
+		appendText([v.x, v.y].join(", "));
+		appendText(s.sum);
 	} else if(fileName == "clone.nodes") {
 		tick();
 		appendText([t.x, t.y].join(", "));

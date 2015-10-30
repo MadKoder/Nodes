@@ -2,7 +2,7 @@ structs:
 	Vec2<T>:
 		T x
 		T y
-		slot inc(T i):
+		slot add(T i):
 			x = x + i
 nodes:
 	var t = Vec2(0, 0)
@@ -13,7 +13,7 @@ nodes:
 	var z = y
 actions:
 	tick(): 
-		u.inc(1)
+		u.add(1)
 		w = v
-		w.inc(1)
-		z.inc(1)
+		w.add(1)
+		z.add(1)

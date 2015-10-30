@@ -26,15 +26,15 @@ ast = {
     {
     	return {
     		type : "VariableDeclarator",
-    		id : id,
+    		id : this.identifier(id),
     		init : init
     	}
     },
-    varDeclaration : function(declarators)
+    varDeclaration : function(id, init)
     {
     	return {
     		type: "VariableDeclaration",
-    	    declarations: declarators,
+    	    declarations: [this.varDeclarator(id, init)],
     	    kind: "var"
     	}
     },

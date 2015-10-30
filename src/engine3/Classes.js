@@ -10,11 +10,15 @@ function makeStruct(structGraph, library, prog)
 	else
 	{
 		// Else create a new function instance object
-		var vars = _.filter(structGraph.fields, function(field) {
+
+        // Extract attribs (attribs) from the list of fields
+		var attribs = _.filter(structGraph.fields, function(field) {
 			return field.type === "Property";
 		});
 			
-		var propertiesAst = _.map(vars, function(field) {
+        // Make properties ast from attributes graph
+		var propertiesAst = _.map(attribs, function(field) {
+            // field.id.name : field.id.name
             return {
                 "type": "Property",
                 "key": {
@@ -32,15 +36,18 @@ function makeStruct(structGraph, library, prog)
             };
         });
 
+        // Extract slots from the list of fields
 		var slots = _.filter(structGraph.fields, function(field) {
 			return field.type === "Slot";
 		});
 
+        // Concat properties ast made from slots graph
         propertiesAst = propertiesAst.concat(_.map(slots, function(slotGraph) {
 		    var localLibrary = _.clone(library);
 		    localLibrary.nodes = _.clone(localLibrary.nodes);
 		    localLibrary.attribs = _.clone(localLibrary.attribs);
-		    _.each(vars, function(varGraph) {
+		    _.each(attribs, function(varGraph) {
+                // this.varGraph.id.name
 				var getterAst = {
                     "type": "MemberExpression",
                     "computed": false,
@@ -56,6 +63,7 @@ function makeStruct(structGraph, library, prog)
                 localLibrary.attribs[varGraph.id.name] = {};
 			});	
 
+            // function(...) {...}
 			var slotAst = makeSlot(
 		        slotGraph,
 		        localLibrary,
@@ -64,11 +72,12 @@ function makeStruct(structGraph, library, prog)
 		        null
 		    );
 
+            // slotGraph.id.name : function(...) {...}
 			return {
                 "type": "Property",
                 "key": {
                     "type": "Identifier",
-                    "name": "inc"
+                    "name": slotGraph.id.name
                 },
                 "computed": false,
                 "value": slotAst,
@@ -78,7 +87,8 @@ function makeStruct(structGraph, library, prog)
             }
         }));
 
-        var params = _.map(vars, function(variable) {
+        // Extract parameters id and type from list of attributes
+        var params = _.map(attribs, function(variable) {
             return {
                 id : variable.id,
                 type : variable.varType
@@ -105,7 +115,7 @@ function makeStruct(structGraph, library, prog)
 
         library.classes[id] = function(typeArgs) {
         	return {
-        		// Dict from vars name to its type
+        		// Dict from attribs name to its type
 	        	varsType : _.zipObject(
         			_.map(params, function(variable) {
 	        			return [
