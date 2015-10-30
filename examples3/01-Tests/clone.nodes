@@ -1,0 +1,19 @@
+structs:
+	Vec2<T>:
+		T x
+		T y
+		slot inc(T i):
+			x = x + i
+nodes:
+	var t = Vec2(0, 0)
+	var u = t
+	var v = Vec2(0, 0)
+	var w = v
+	def y = Vec2(0, 0)
+	var z = y
+actions:
+	tick(): 
+		u.inc(1)
+		w = v
+		w.inc(1)
+		z.inc(1)

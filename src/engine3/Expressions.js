@@ -102,6 +102,10 @@ function makeIdExpression(expr, library, genericTypeParams)
 	);
 }
 
+function isId(exprGraph) {
+	return exprGraph.type == "Id";
+}
+
 function makeExpr(exprGraph, library, genericTypeParams) {
 	if(isInArray(exprGraph.type, ["IntLiteral", "FloatLiteral"])) {
 		return new Expr(
@@ -117,7 +121,7 @@ function makeExpr(exprGraph, library, genericTypeParams) {
 			ast.literal(exprGraph.val),
 			makeBaseType("bool")
 		);
-	} else if(exprGraph.type == "Id") {
+	} else if(isId(exprGraph)) {
 		return makeIdExpression(exprGraph, library, genericTypeParams);
 	} else if(exprGraph.type == "CallExpression") {
 		return makeCallExpression(exprGraph, library, genericTypeParams);

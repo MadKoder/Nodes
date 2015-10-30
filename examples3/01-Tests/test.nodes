@@ -14,7 +14,8 @@ nodes:
 	def t = add(x, z)
 	def v = Vec2(x, y)
 	def u = v.x + t
-	var w = Vec2(0, 1)
+	var w0 = v
+	var w = w0
 	var b = 1 < 2 and y == z
 actions:
 	tick(int i, int j): 

@@ -32,7 +32,7 @@ start "start" =
 	{
 		return struct;
 	}
-	
+
 Slot =
 	id:Id _ params:("(" _ params:ParamsDecl? _")" {return params})? _ statements:Statements _ {
 		return {
@@ -63,31 +63,9 @@ Node =
 		};
 	}
 
-MaybeTypeAndId =
-	type:Type _ id:Id
-	{
-		return {
-			id : id,
-			type : type
-		}
-	}
-	/ id:Id
-	{
-		return {
-			 id:id,
-			 type:null
-		};
-	}
-
 Type = 
 	GenericInstance
 	/ Id
-
-TypeArgs =
-	"<" _ types:Ids _ ">"
-	{
-		return types;
-	}
 
 ConditionalExpression = 
 	_ "if" _ test:Comprehension _ "then" _ consequent:Comprehension _ "else " _ alternate:Comprehension
@@ -161,16 +139,6 @@ AdditiveOperator =
     / "-" !("=") { return "-"; }
 
 // This one shortcut most expression for faster testing
-MultiplicativeExpression = 
-    head:ChainedExpression _ tail:(operator:MultiplicativeOperator _ operand:ChainedExpression _ {
-        return {
-            operator: operator,
-            operand: operand
-        };
-    } )+ {
-        return makeInfixExpression(head, tail);
-    }
-	/ ChainedExpression
 
 MultiplicativeOperator =
     operator:("*" / "/" / "%") !"=" { return operator; }
@@ -188,7 +156,6 @@ MultiplicativeExpression =
 	/ LogicalORExpression
 
 
-
 LogicalORExpression =
 	head:LogicalANDExpression _ tail:(operator:LogicalOROperator _ operand:LogicalANDExpression _ {
         return {
@@ -204,49 +171,7 @@ LogicalOROperator
   = "or" { return "or"; }
 
 LogicalANDExpression =
-	head:BitwiseORExpression _ tail:(operator:LogicalANDOperator _ operand:BitwiseORExpression _ {
-        return {
-            operator: operator,
-            operand: operand
-        };
-    })+ {
-        return makeInfixExpression(head, tail);
-    }
-	/ BitwiseORExpression
-
-LogicalANDOperator
-  = "and" { return "and"; }
-
-BitwiseORExpression =
-	head:BitwiseXORExpression _ tail:(operator:BitwiseOROperator _ operand:BitwiseXORExpression _ {
-        return {
-            operator: operator,
-            operand: operand
-        };
-    })+ {
-        return makeInfixExpression(head, tail);
-    }
-	/ BitwiseXORExpression
-
-BitwiseOROperator
-  = "|" !("|" / "=") { return "|"; }
-
-BitwiseXORExpression =
-	head:BitwiseANDExpression _ tail:(operator:BitwiseXOROperator _ operand:BitwiseANDExpression _ {
-        return {
-            operator: operator,
-            operand: operand
-        };
-    })+ {
-        return makeInfixExpression(head, tail);
-    }
-	/ BitwiseANDExpression
-
-BitwiseXOROperator
-  = "^" !("^" / "=") { return "^"; }
-
-BitwiseANDExpression =
-	head:EqualityExpression _ tail:(operator:BitwiseANDOperator _ operand:EqualityExpression _ {
+	head:EqualityExpression _ tail:(operator:LogicalANDOperator _ operand:EqualityExpression _ {
         return {
             operator: operator,
             operand: operand
@@ -256,8 +181,65 @@ BitwiseANDExpression =
     }
 	/ EqualityExpression
 
-BitwiseANDOperator
-  = "&" !("&" / "=") { return "&"; }
+LogicalANDOperator
+  = "and" { return "and"; }
+
+// BitwiseORExpression =
+// 	head:BitwiseXORExpression _ tail:(operator:BitwiseOROperator _ operand:BitwiseXORExpression _ {
+//         return {
+//             operator: operator,
+//             operand: operand
+//         };
+//     })+ {
+//         return makeInfixExpression(head, tail);
+//     }
+// 	/ BitwiseXORExpression
+
+// BitwiseOROperator
+//   = "|" !("|" / "=") { return "|"; }
+
+// BitwiseXORExpression =
+// 	head:BitwiseANDExpression _ tail:(operator:BitwiseXOROperator _ operand:BitwiseANDExpression _ {
+//         return {
+//             operator: operator,
+//             operand: operand
+//         };
+//     })+ {
+//         return makeInfixExpression(head, tail);
+//     }
+// 	/ BitwiseANDExpression
+
+// BitwiseXOROperator
+//   = "^" !("^" / "=") { return "^"; }
+
+// BitwiseANDExpression =
+// 	head:EqualityExpression _ tail:(operator:BitwiseANDOperator _ operand:EqualityExpression _ {
+//         return {
+//             operator: operator,
+//             operand: operand
+//         };
+//     })+ {
+//         return makeInfixExpression(head, tail);
+//     }
+// 	/ EqualityExpression
+
+// BitwiseANDOperator
+//   = "&" !("&" / "=") { return "&"; }
+
+// ShiftExpression =
+// 	head:UnaryExpression _ tail:(operator:ShiftOperator _ operand:UnaryExpression _ {
+//         return {
+//             operator: operator,
+//             operand: operand
+//         };
+//     })+ {
+//         return makeInfixExpression(head, tail);
+//     }
+// 	/ UnaryExpression	
+
+// ShiftOperator
+//   = "<<"
+//   / ">>"
 
 EqualityExpression =
 	head:RelationalExpression _ tail:(operator:EqualityOperator _ operand:RelationalExpression _ {
@@ -275,7 +257,7 @@ EqualityOperator =
  	/ "!="
 
 RelationalExpression =
-	head:ShiftExpression _ tail:(operator:RelationalOperator _ operand:ShiftExpression _ {
+	head:UnaryExpression _ tail:(operator:RelationalOperator _ operand:UnaryExpression _ {
         return {
             operator: operator,
             operand: operand
@@ -283,28 +265,13 @@ RelationalExpression =
     })+ {
         return makeInfixExpression(head, tail);
     }
-	/ ShiftExpression
+	/ UnaryExpression
 
 RelationalOperator
   = "<="
   / ">="
   / "<"
   / ">"
-
-ShiftExpression =
-	head:UnaryExpression _ tail:(operator:ShiftOperator _ operand:UnaryExpression _ {
-        return {
-            operator: operator,
-            operand: operand
-        };
-    })+ {
-        return makeInfixExpression(head, tail);
-    }
-	/ UnaryExpression	
-
-ShiftOperator
-  = "<<"
-  / ">>"
 
 UnaryExpression
   = operator:UnaryOperator __ expression:UnaryExpression {
@@ -372,7 +339,7 @@ Atom =
 	/ "(" _ expr:Expression _ ")" _ {return expr;}
 
 GenericInstance = 
-	base:Id _ "<" _ args:Ids _ ">" _
+	base:Id _ "<" _ args:IdList _ ">" _
 	{
 		return {
 			type : "GenericInstance",
@@ -406,12 +373,6 @@ StringLiteral =
 			type : "StringLiteral",
 			val : text.join("")
 		};
-	}
-
-Ids = 
-	head:Id _ tail:( _ "," _ (i:Id) {return i})* 
-	{
-		return [head].concat(tail);
 	}
 
 Id = 
@@ -455,24 +416,6 @@ Event =
 		};
 	}
 
-IdList = 
-   head:Id _ tail:(_ "," _ (slot:Id) {return slot})* 
-   {
-      return [head].concat(tail);
-   }
-
-ParamsDecl =
-	head:ParamDecl tail:( _ "," _ (p:ParamDecl) {return p})* {return [head].concat(tail);}
-	
-ParamDecl = 
-	type:Type _ id:Id 
-	{
-		return {
-			type : type,
-			id : id
-		};
-	}
-
 Assignment = 
 	local:("var")? _ target:Id _ "=" _ value:Expression 
     {
@@ -510,12 +453,6 @@ FunctionDeclaration =
 		};
 	}
 
-MaybeTypeAndIds =
-	head:MaybeTypeAndId tail:( _ "," _ (type:MaybeTypeAndId) {return type})* 
-	{
-		return [head].concat(tail);
-	}
-	
 Structs =  
 	head:Struct tail:( _ "," _ (struct:Struct) {return struct})* 
 	{
@@ -580,6 +517,18 @@ SignalDef =
 		};
 	}
 
+ParamsDecl =
+	head:ParamDecl tail:( _ "," _ (p:ParamDecl) {return p})* {return [head].concat(tail);}
+	
+ParamDecl = 
+	type:Type _ id:Id 
+	{
+		return {
+			type : type,
+			id : id
+		};
+	}
+
 Closure = 
 	params:MaybeTypeAndIds _ "->" _ val:Expression
 	{
@@ -588,7 +537,30 @@ Closure =
 			"params" : params
 		};
 	}
-	
+
+MaybeTypeAndIds =
+	head:MaybeTypeAndId tail:( _ "," _ (type:MaybeTypeAndId) {return type})* 
+	{
+		return [head].concat(tail);
+	}
+
+MaybeTypeAndId =
+	type:Type _ id:Id
+	{
+		return {
+			id : id,
+			type : type
+		}
+	}
+	/ id:Id
+	{
+		return {
+			 id:id,
+			 type:null
+		};
+	}
+
+
 Dict = 
 	"{" _ head:DictEntry? tail:( _ "," _ (i:DictEntry) {return i})* _ "}"
 	{
@@ -634,13 +606,17 @@ IdOrDestructId =
 	/ DestructId
 	
 DestructId = 
-	"(" _ ids:Ids _ ")"
-	{
+	"(" _ ids:IdList _ ")" {
 		return {
 			destruct : ids
 		};
 	}
 	
+IdList = 
+	head:Id _ tail:( _ "," _ (i:Id) {return i})* {
+		return [head].concat(tail);
+	}
+
 Statements "Statements" = 
 	"(" _ head:Statement tail:( _ "," _ (i:Statement) {return i})* ")" _ {
 		return [head].concat(tail);

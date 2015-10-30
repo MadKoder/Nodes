@@ -14,7 +14,8 @@ var library =
 };
 
 var fileName = "test.nodes";
-var fileName = "events.nodes";
+// var fileName = "clone.nodes";
+// var fileName = "events.nodes";
 // var fileName = "objects.nodes";
 // var fileName = "generics.nodes";
 $.get(fileName, function( text ) {
@@ -43,7 +44,16 @@ $.get(fileName, function( text ) {
 		appendText(t.get());
 		appendText(b);
 		appendText([v.get().x, v.get().y].join(", "));
+		appendText([w0.x, w0.y].join(", "));
 		appendText([w.x, w.y].join(", "));
+	} else if(fileName == "clone.nodes") {
+		tick();
+		appendText([t.x, t.y].join(", "));
+		appendText([u.x, u.y].join(", "));
+		appendText([v.x, v.y].join(", "));
+		appendText([w.x, w.y].join(", "));
+		appendText([y.get().x, y.get().y].join(", "));
+		appendText([z.x, z.y].join(", "));
 	} else if(fileName == "generics.nodes") {
 		appendText([v.get().x, v.get().y].join(", "));
 	} else if(fileName == "events.nodes") {

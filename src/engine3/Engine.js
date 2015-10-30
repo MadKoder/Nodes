@@ -154,23 +154,35 @@ function compileGraph(graph, library, previousNodes)
 			{
 				if(nodeGraph.type == "var") {
 					var expr = makeExpr(nodeGraph.val, library, {});
-					var getterAst, declaratorInit;
-					// if(id in sourceToSinks) {
-					if(false) {
+					var declaratorInit = expr.getAst();
+					if(isId(nodeGraph.val)) {
+						// If initial expression is a reference, clone its value
+						// so any change to the var won't impact the referenced node
 						declaratorInit = {
-	                        "type": "NewExpression",
+	                        "type": "CallExpression",
 	                        "callee": {
-	                            "type": "Identifier",
-	                            "name": "Store"
+	                            "type": "MemberExpression",
+	                            "computed": false,
+	                            "object": {
+	                                "type": "Identifier",
+	                                "name": "_"
+	                            },
+	                            "property": {
+	                                "type": "Identifier",
+	                                "name": "clone"
+	                            }
 	                        },
 	                        "arguments": [
-	                            expr.getAst()
+	                            expr.getAst(),
+	                            {
+	                                "type": "Literal",
+	                                "value": true,
+	                                "raw": "true"
+	                            }
 	                        ]
 	                    };
-                    }
-					else {
-						declaratorInit = expr.getAst();
 					}
+
 					var varDeclarator = ast.varDeclarator(
 						ast.identifier(id), declaratorInit
 					);

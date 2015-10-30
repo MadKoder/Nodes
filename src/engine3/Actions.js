@@ -77,9 +77,35 @@ function makeDirtyAst(ref, library, genericTypeParams)
 
 function makeAssignment(assignmentGraph, library, genericTypeParams) {
     var exprAst = makeExpr(assignmentGraph.value, library, genericTypeParams).getAst();
-    var targetAst =  makeRefAst(assignmentGraph.target, library, genericTypeParams);
-    var dirtyAst =  makeDirtyAst(assignmentGraph.target, library, genericTypeParams);
+    var rightAst = exprAst;
+    // If the right expression is an id, clone it
+    if(isId(assignmentGraph.value)) {
+        rightAst = {
+            "type": "CallExpression",
+            "callee": {
+                "type": "MemberExpression",
+                "computed": false,
+                "object": {
+                    "type": "Identifier",
+                    "name": "_"
+                },
+                "property": {
+                    "type": "Identifier",
+                    "name": "clone"
+                }
+            },
+            "arguments": [
+                exprAst,
+                {
+                    "type": "Literal",
+                    "value": true,
+                    "raw": "true"
+                }
+            ]
+        };
+    }
 
+    var targetAst =  makeRefAst(assignmentGraph.target, library, genericTypeParams);
     // TODO check existence and type of target
     var assignmentAst = {
         "type": "ExpressionStatement",
@@ -87,9 +113,11 @@ function makeAssignment(assignmentGraph, library, genericTypeParams) {
             "type": "AssignmentExpression",
             "operator": "=",
             "left": targetAst,
-            "right": exprAst
+            "right": rightAst
         }
     };
+
+    var dirtyAst =  makeDirtyAst(assignmentGraph.target, library, genericTypeParams);
     if(dirtyAst != null)
     {
         return {
