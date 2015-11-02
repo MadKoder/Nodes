@@ -9,22 +9,31 @@ structs:
 		T sum
 		Vec2<T>&	v
 		
+		init =>
+			v.onChanged += update
+			update(!v)
+
 		v.onChanged =>
 			update(!v)
-			sum = v.x + v.y
 
 		slot update(Vec2<T> v):
 			sum = v.x + v.y
 nodes:
 	var v = Vec2(0, 0)
-	var s = Vec2View(0, v.onChanged => update)
+	var s = Vec2View(0, v; v.onChanged => update)
 actions:
 	tick():
+		v.onChanged += s.update
+		v.onChanged -= s.update
+
 		v.onChanged => s.update
 		v.onChanged =!> s.update
 		v.onChanged =x> s.update
+
 		v.onChanged.connect(s.update)
 		v.onChanged.disconnect(s.update)
+
 		connect v.onChanged to s.update
 		disconnect v.onChanged from s.update
+
 		v.inc(1)

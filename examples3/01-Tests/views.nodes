@@ -1,0 +1,88 @@
+structs:
+	List<T>:
+		list<T>	l
+		slot pushBack(T x):
+			l = pushBack(l, x)
+			onPushBack(x)
+		signal	onPushBack(T x)
+	ListView<T, U>:
+		T->U 		func
+		list<T>&	l
+		list<U>		view = []
+
+		l.onPushBack =>
+			pushBack
+
+		init =>
+			view = [func(x) for x in l]
+			l.onPushBack += pushBack
+
+		slot pushBack(T x):
+			l = pushBack(l, func(x))
+
+	Obj :
+		subs:
+			Group :
+				list<Obj&>	children
+
+				signal onPushBack(Obj& o)
+
+				slot pushBack(Obj& o):
+					children = pushBack(children, o)
+					onPushBack(o)
+			Leaf:
+				Vec2 pos
+
+				signal onPosChanged(Vec2)
+
+				slot pos(Vec2 p):
+					pos = p
+					onPosChanged(pos)
+
+functions:
+	leafToString(Leaf l)
+		str(l.x) + "," + str(l.y)
+	groupToString(Group g)
+		join("," [objToString(child) for child in g.children])
+	objToString(Obj o)
+		type o:
+			Group:
+				groupToString(o)
+			Leaf:
+				leafToString(o)
+gen:
+	ObjView&	objToView(Obj& o)
+		s = objToString(o)
+		ObjView& childView = match o:
+			Group:
+				new GroupView(s, o, [objToView(cc) for cc in o.children])
+			Leaf:
+				new LeafView(s, o)
+		return childView
+
+	ObjView : 
+		string	str
+		subs :
+			GroupView:
+				Group& 			group
+				list<ObjView&>	childrenView
+
+				group.onPushBack =>
+					childrenView = pushBack(childrenView, objToView(o))
+					str += objToString(!o)
+
+			LeafView :
+				Leaf& l
+
+				l.onPosChanged =>
+					str = leafToString(!l)
+
+nodes:
+	var	l = List([0, 1])
+	var v = ListView(lambda int x -> x + 1, l)
+	var v = ListView(fun int x -> x + 1, l)
+	var v = ListView(fun(int x) = x + 1, l)
+	var w = v
+actions:
+	tick():
+		l.pushBack(2)
