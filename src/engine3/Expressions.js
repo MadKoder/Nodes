@@ -15,7 +15,7 @@ function Expr(ast, type)
 	}
 }
 
-function makeArrayxpression(expr, library, genericTypeParams)
+function makeListExpression(expr, library, genericTypeParams)
 {
 	// TODO empty list
 	var elementsType = null;
@@ -153,8 +153,8 @@ function makeExpr(exprGraph, library, genericTypeParams) {
 		);
 	} else if(isId(exprGraph)) {
 		return makeIdExpression(exprGraph, library, genericTypeParams);
-	} else if(exprGraph.type == "ArrayExpression") {
-		return makeArrayxpression(exprGraph, library, genericTypeParams);
+	} else if(exprGraph.type == "ListExpression") {
+		return makeListExpression(exprGraph, library, genericTypeParams);
 	} else if(exprGraph.type == "CallExpression") {
 		return makeCallExpression(exprGraph, library, genericTypeParams);
 	}  else if(exprGraph.type == "MemberExpression") {

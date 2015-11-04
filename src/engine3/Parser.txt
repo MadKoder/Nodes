@@ -79,42 +79,6 @@ ConditionalExpression =
 	}
 	/ Comprehension
 
-Comprehension = 
-	"[" _ val:Expression _ "for " _ it:CompIterators _ when:("when " _ test:Expression {return test})? _ "]" 
-	{
-		var res = {
-			"comp" : val,
-			"it" : it
-		};
-		if(when != null)
-		{
-			res["when"] = when;
-		}
-		return res;
-
-	}
-	/ Expression
-
-CompIterators = 
-	head:CompIterator _ tail:( _ "," _ (i:CompIterator) {return i})* 
-	{
-		return [head].concat(tail);
-	}
-	
-CompIterator = 
-	it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in " _ array:Expression
-	{
-		var res = {
-			"for" : it,
-			"in" : array,
-		}
-		if(index != null)
-		{
-			res["index"] = index;
-		}
-		return res;
-	}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Expressions /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -122,9 +86,34 @@ CompIterator =
 
 Expression =
     AdditiveExpression
-    / ArrayExpression
+    / ListComprehensionExpression
+    / ListExpression
 
-ArrayExpression = 
+ListComprehensionExpression = 
+	"[" _ elt:Expression _ generators:Comprehension+ "]" {
+		return {
+			type : "ListComprehensionExpression",
+			elt : elt,
+			generators : generators
+		}
+	}
+
+Comprehension = 
+	"for" _ target:IdOrDestructId _ "in" _ iter:Expression _ conditions:Condition* _ {
+		return {
+			type : "Generator",
+			target : target,
+			iter : iter,
+			conditions : conditions
+		}
+	}
+
+Condition = 
+	"if" _ condition:Expression {
+		return condition;
+	}
+
+ListExpression = 
 	"[" _ head:Expression tail:( _ "," _ (i:Expression) {return i})* _ "]" {
 		return {
 			type : "ArrayExpression",
