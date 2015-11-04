@@ -15,6 +15,36 @@ function Expr(ast, type)
 	}
 }
 
+function makeArrayxpression(expr, library, genericTypeParams)
+{
+	// TODO empty list
+	var elementsType = null;
+	var elementsAst = _.map(expr.array, function(element) {
+		var elementExp = makeExpr(element, library, genericTypeParams);
+		if(elementsType == null) {
+			elementsType = elementExp.type;
+		} else
+		{
+			// TODO common type
+			if(!isSameType(elementsType, elementExp.type)) {
+				// TODO stringify element
+				error(
+					"List element " + elementExp.ast + " type " + typeToString(elementExp.type) + " different from previous elements type " + typeToString(elementsType)
+				);
+			}
+		}
+		return elementExp.ast;
+	});
+
+	return new Expr(
+		{
+            "type": "ArrayExpression",
+            "elements": elementsAst
+        },
+		makeType("list", [elementsType])
+	);
+}
+
 function makeCallExpression(expr, library, genericTypeParams)
 {
 	var func = expr.func;
@@ -123,6 +153,8 @@ function makeExpr(exprGraph, library, genericTypeParams) {
 		);
 	} else if(isId(exprGraph)) {
 		return makeIdExpression(exprGraph, library, genericTypeParams);
+	} else if(exprGraph.type == "ArrayExpression") {
+		return makeArrayxpression(exprGraph, library, genericTypeParams);
 	} else if(exprGraph.type == "CallExpression") {
 		return makeCallExpression(exprGraph, library, genericTypeParams);
 	}  else if(exprGraph.type == "MemberExpression") {

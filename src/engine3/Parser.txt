@@ -122,6 +122,15 @@ CompIterator =
 
 Expression =
     AdditiveExpression
+    / ArrayExpression
+
+ArrayExpression = 
+	"[" _ head:Expression tail:( _ "," _ (i:Expression) {return i})* _ "]" {
+		return {
+			type : "ArrayExpression",
+			array : [head].concat(tail)
+		};
+	}
 
 AdditiveExpression =
     head:MultiplicativeExpression _ tail:(operator:AdditiveOperator _ operand:MultiplicativeExpression _ {
@@ -583,14 +592,6 @@ DictEntry =
 	id:Id _ ":" _ val:Expression
 	{
 		return [id, val]
-	}
-
-Array = 
-	"[" _ head:Expression tail:( _ "," _ (i:Expression) {return i})* _ "]"
-	{
-		return {
-			array : [head].concat(tail)
-		};
 	}
 
 Range = 

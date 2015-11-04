@@ -1,0 +1,5 @@
+nodes:
+	var x = 10
+	var l = [0, 1, x + 10]
+	def l2 = l
+	def l3 = [x + 1, 100]
