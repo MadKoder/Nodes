@@ -3,3 +3,5 @@ nodes:
 	var l = [0, 1, x + 10]
 	def l2 = l
 	def l3 = [x + 1, 100]
+	var c = [x + 1 for x in [1, 2]]
+	var c2 = [x + y for x in [1, y * 2] for y in [3, 4, 5]]

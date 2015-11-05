@@ -194,8 +194,7 @@ function makeSlot(slotGraph, localLibrary, prog, astType, idAst) {
 }
 
 function makeAction(actionGraph, library, prog) {
-    var localLibrary = _.clone(library);
-    localLibrary.nodes = _.clone(localLibrary.nodes);
+    var localLibrary = makeLocalLibrary(library);
 
     var slotAst = makeSlot(
         actionGraph,

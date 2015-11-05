@@ -16,6 +16,11 @@ var logicalFunctions = _.zipObject(_.map(["and", "or"], function(operand) {
 }));
 _.merge(functions, logicalFunctions);
 
+function makeLocalLibrary(library) {
+    var localLibrary = _.clone(library);
+    localLibrary.nodes = _.clone(localLibrary.nodes);
+    return localLibrary;
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -24,6 +24,10 @@ function makeType(typeStr, args)
 	}
 }
 
+function makeListType(arg){
+	return makeType("list", [arg]);
+}
+
 function typeGraphToCompact(typeGraph) {
 	if(typeGraph.type == "Id") {
 		return makeBaseType(typeGraph.name);

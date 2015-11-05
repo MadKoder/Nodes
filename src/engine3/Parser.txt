@@ -99,10 +99,10 @@ ListComprehensionExpression =
 	}
 
 Comprehension = 
-	"for" _ target:IdOrDestructId _ "in" _ iter:Expression _ conditions:Condition* _ {
+	"for" _ targets:IdList _ "in" _ iter:Expression _ conditions:Condition* _ {
 		return {
 			type : "Generator",
-			target : target,
+			targets : targets,
 			iter : iter,
 			conditions : conditions
 		}
@@ -116,7 +116,7 @@ Condition =
 ListExpression = 
 	"[" _ head:Expression tail:( _ "," _ (i:Expression) {return i})* _ "]" {
 		return {
-			type : "ArrayExpression",
+			type : "ListExpression",
 			array : [head].concat(tail)
 		};
 	}

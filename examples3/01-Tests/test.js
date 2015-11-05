@@ -38,6 +38,8 @@ $.get(fileName, function( text ) {
 		$tmp.append("<div>" + txt + "</div>");
 	}
 
+
+
 	if(fileName == "test.nodes") {
 		tick(10, 5);
 		appendText(x.get());
@@ -52,6 +54,8 @@ $.get(fileName, function( text ) {
 		appendText(l.join(", "));
 		appendText(l2.get().join(", "));
 		appendText(l3.get().join(", "));
+		appendText(c.join(", "));
+		appendText(c2.join(", "));
 	} else if(fileName == "refs.nodes") {
 		tick();
 		appendText([v.x, v.y].join(", "));
