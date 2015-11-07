@@ -1,0 +1,4 @@
+nodes:
+	var t = (0, 1, 2)
+	var t2 = (0, "a")
+	var t3 = (t, t2)

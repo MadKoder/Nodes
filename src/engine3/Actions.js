@@ -75,11 +75,11 @@ function makeDirtyAst(ref, library, genericTypeParams)
     }
 }
 
-function makeAssignment(assignmentGraph, library, genericTypeParams) {
-    var exprAst = makeExpr(assignmentGraph.value, library, genericTypeParams).getAst();
+function makeAssignmentRightAst(rightGraph, library, genericTypeParams) {
+    var exprAst = makeExpr(rightGraph, library, genericTypeParams).getAst();
     var rightAst = exprAst;
     // If the right expression is an id, clone it
-    if(isId(assignmentGraph.value)) {
+    if(isId(rightGraph)) {
         rightAst = {
             "type": "CallExpression",
             "callee": {
@@ -104,6 +104,66 @@ function makeAssignment(assignmentGraph, library, genericTypeParams) {
             ]
         };
     }
+
+    return rightAst;
+}
+
+function makeDestructAssignment(assignmentGraph, library, genericTypeParams) {
+    var rightAst = makeAssignmentRightAst(assignmentGraph.value, library, genericTypeParams);
+
+    var bodyAst = [{
+        "type": "VariableDeclarator",
+        "id": {
+            "type": "Identifier",
+            "name": "__destruct"
+        },
+        "init": rightAst
+    }];
+
+    // TODO check existence and type of target
+    _.each(assignmentGraph.targets, function(target, index) {
+        var targetAst = makeRefAst(target, library, genericTypeParams);
+        bodyAst.push({
+            "type": "ExpressionStatement",
+            "expression": {
+                "type": "AssignmentExpression",
+                "operator": "=",
+                "left": targetAst,
+                "right": {
+                    "type": "MemberExpression",
+                    "computed": true,
+                    "object": {
+                        "type": "Identifier",
+                        "name": "__destruct"
+                    },
+                    "property": {
+                        "type": "Literal",
+                        "value": index
+                    }
+                }
+            }
+        });
+    });
+
+    _.each(assignmentGraph.targets, function(target) {
+        var dirtyAst = makeDirtyAst(target, library, genericTypeParams);
+        if(dirtyAst != null)
+        {
+            bodyAst.push({
+                "type": "ExpressionStatement",
+                "expression": dirtyAst
+            });
+        }
+    });
+    
+    return {
+        "type": "BlockStatement",
+        "body": bodyAst
+    };
+}
+
+function makeAssignment(assignmentGraph, library, genericTypeParams) {
+    var rightAst = makeAssignmentRightAst(assignmentGraph.value, library, genericTypeParams);
 
     var targetAst =  makeRefAst(assignmentGraph.target, library, genericTypeParams);
     // TODO check existence and type of target
@@ -152,11 +212,14 @@ function makeSignal(signalGraph, library, genericTypeParams) {
 
 function makeStatement(statementGraph, library, genericTypeParams) {
 	switch(statementGraph.type) {
-		case "Assignment":
-			return makeAssignment(statementGraph, library, genericTypeParams);
+        case "Assignment":
+            return makeAssignment(statementGraph, library, genericTypeParams);
+		case "DestructAssignment":
+			return makeDestructAssignment(statementGraph, library, genericTypeParams);
 		case "Signal":
 			return makeSignal(statementGraph, library, genericTypeParams);
 	}
+    error("Unrecognized statement type ", statementGraph.type);
 }
 
 function makeSlot(slotGraph, localLibrary, prog, astType, idAst) {        

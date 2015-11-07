@@ -88,6 +88,7 @@ Expression =
     AdditiveExpression
     / ListComprehensionExpression
     / ListExpression
+    / TupleExpression
 
 ListComprehensionExpression = 
 	"[" _ elt:Expression _ generators:Comprehension+ "]" {
@@ -118,6 +119,14 @@ ListExpression =
 		return {
 			type : "ListExpression",
 			array : [head].concat(tail)
+		};
+	}
+
+TupleExpression = 
+	"(" _ head:Expression tail:( _ "," _ (i:Expression) {return i})* _ ")" {
+		return {
+			type : "TupleExpression",
+			tuple : [head].concat(tail)
 		};
 	}
 
@@ -425,6 +434,17 @@ Assignment =
         };
 	}
 
+DestructAssignment = 
+	local:("var")? _ targets:IdList _ "=" _ value:Expression 
+    {
+		return {
+			type : "DestructAssignment",
+            targets : targets,
+            value : value,
+            local : local != null
+        };
+	}
+
 AccessAssignment = 
 	_ slot:Expression _ "[" _ indexOrKey:Expression _ "]" _ "=" _ val:Expression 
     {
@@ -614,6 +634,7 @@ Statements "Statements" =
 
 Statement "Statement" = 
   Assignment 
+  / DestructAssignment 
   / AccessAssignment
   / Foreach
   / ForStatement

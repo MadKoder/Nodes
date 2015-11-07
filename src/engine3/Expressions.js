@@ -308,6 +308,25 @@ function makeListExpression(expr, library, genericTypeParams)
     );
 }
 
+function makeTupleExpression(expr, library, genericTypeParams)
+{
+    // TODO empty tuple (?)
+    var elementsTypes = [];
+    var elementsAst = _.map(expr.tuple, function(element) {
+        var elementExp = makeExpr(element, library, genericTypeParams);
+        elementsTypes.push(elementExp.type);
+        return elementExp.ast;
+    });
+
+    return new Expr(
+        {
+            "type": "ArrayExpression",
+            "elements": elementsAst
+        },
+        makeType("tuple", elementsTypes)
+    );
+}
+
 function makeCallExpression(expr, library, genericTypeParams)
 {
     var func = expr.func;
@@ -410,15 +429,23 @@ function makeExpr(exprGraph, library, genericTypeParams) {
             ast.literal(exprGraph.val),
             makeBaseType("bool")
         );
+    } else if(exprGraph.type == "StringLiteral") {
+        return new Expr(
+            ast.literal(exprGraph.val),
+            makeBaseType("string")
+        );
     } else if(isId(exprGraph)) {
         return makeIdExpression(exprGraph, library, genericTypeParams);
     } else if(exprGraph.type == "ListExpression") {
         return makeListExpression(exprGraph, library, genericTypeParams);
     } else if(exprGraph.type == "ListComprehensionExpression") {
         return makeListComprehensionExpression(exprGraph, library, genericTypeParams);
+    } else if(exprGraph.type == "TupleExpression") {
+        return makeTupleExpression(exprGraph, library, genericTypeParams);
     } else if(exprGraph.type == "CallExpression") {
         return makeCallExpression(exprGraph, library, genericTypeParams);
     }  else if(exprGraph.type == "MemberExpression") {
         return makeMemberExpression(exprGraph, library, genericTypeParams);
-    } 
+    }
+    error("Unrecognized expression type " + exprGraph.type);
 }
