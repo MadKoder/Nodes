@@ -30,7 +30,7 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
     // Iterators are also stacked from last to first, as last
     // will be in the outer iteration
     // TODO needed ?
-    var iteratorsAst = [];
+    var generators = [];
     var generatorIndex = reversedGeneratorsGraph.length - 1;
     _.each(reversedGeneratorsGraph, function(generatorGraph) {
         // TODO : check type == "Generator"
@@ -39,13 +39,27 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
             // TODO better message
             error("Iterable is not a list");
         }
-        iteratorsAst.unshift(iterableExpr.ast);
+        // Generators will be used from first to last, so we reverse the insertion
+        var iteratorNames = [];
+        // TODO destruct
+        var iterableName = "__" + generatorGraph.targets[0].name + "$list";
+        generators.unshift(
+            {
+                iteratorNames : iteratorNames,
+                iterableName : iterableName,
+                ast : iterableExpr.ast
+            }
+        );
+        // generators.unshift(iterableExpr.ast);
         var iteratorType = getTypeArgs(iterableExpr.type)[0];
         var targetsGraph = generatorGraph.targets;
         // TODO destructuring
         if(targetsGraph.length == 1)
         {
             var targetGraph = targetsGraph[0];
+            var name = targetGraph.name;
+            var iteratorName = "__" + name + "$index";
+            iteratorNames.push(iteratorName);
             if(targetGraph.type != "Id")
             {
                 error("Target type is not an id");
@@ -56,14 +70,16 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
                 "computed": true,
                 "object": {
                     "type": "Identifier",
-                    "name": "list" + generatorIndex
+                    "name": iterableName
+                    // "name": "list" + generatorIndex
                 },
                 "property": {
                     "type": "Identifier",
-                    "name": "i" + generatorIndex
+                    "name": iteratorName
+                    // "name": "i" + generatorIndex
                 }
             };
-            localLibrary.nodes[targetGraph.name] = new Node(getterAst, typeGraphToCompact(iteratorType));
+            localLibrary.nodes[name] = new Node(getterAst, typeGraphToCompact(iteratorType));
         } else
         {
             error("destructuring !!!");
@@ -123,8 +139,8 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
     //         }
     //     }
     //     return results;
-    _.each(iteratorsAst, function(iteratorAst, index) {
-        // var list{index} = iteratorAst;
+    _.each(generators, function(generator, index) {
+        // var list{index} = generator.ast;
         //  for (var i{index} = 0; i{index} < list{index}.length; i{index}++) {
         //      bodyAst
         // }
@@ -137,9 +153,9 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
                         "type": "VariableDeclarator",
                         "id": {
                             "type": "Identifier",
-                            "name": "list" + index
+                            "name": generator.iterableName
                         },
-                        "init": iteratorAst
+                        "init": generator.ast
                     }
                 ],
                 "kind": "var"
@@ -153,7 +169,8 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
                             "type": "VariableDeclarator",
                             "id": {
                                 "type": "Identifier",
-                                "name": "i" + index
+                                // TODO destruct
+                                "name": generator.iteratorNames[0]
                             },
                             "init": {
                                 "type": "Literal",
@@ -169,14 +186,14 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
                     "operator": "<",
                     "left": {
                         "type": "Identifier",
-                        "name": "i" + index
+                        "name": generator.iteratorNames[0]
                     },
                     "right": {
                         "type": "MemberExpression",
                         "computed": false,
                         "object": {
                             "type": "Identifier",
-                            "name": "list" + index
+                            "name": generator.iterableName
                         },
                         "property": {
                             "type": "Identifier",
@@ -189,7 +206,7 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
                     "operator": "++",
                     "argument": {
                         "type": "Identifier",
-                        "name": "i" + index
+                        "name": generator.iteratorNames[0]
                     },
                     "prefix": false
                 },
@@ -198,7 +215,7 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
         ];
 
         // Last iteration, adds results declaration and return statement
-        if(index == iteratorsAst.length - 1)
+        if(index == generators.length - 1)
         {
             bodyAst.unshift(
                 {

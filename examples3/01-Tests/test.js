@@ -56,6 +56,7 @@ $.get(fileName, function( text ) {
 		appendText(l3.get().join(", "));
 		appendText(c.join(", "));
 		appendText(c2.join(", "));
+		appendText(c3.get().join(", "));
 	} else if(fileName == "refs.nodes") {
 		tick();
 		appendText([v.x, v.y].join(", "));
