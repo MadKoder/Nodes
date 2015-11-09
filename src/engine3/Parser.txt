@@ -1,7 +1,7 @@
 {
-	function makeCallExpression(func, args) {
+	function makeFunctionCallExpression(func, args) {
 		return {
-            type : "CallExpression",
+            type : "FunctionCallExpression",
             func : {
                 type : "Id",
                 name : func
@@ -11,9 +11,9 @@
 	}
 
     function makeInfixExpression(head, tail) {
-        var result = makeCallExpression(tail[0].operator, [head, tail[0].operand]);
+        var result = makeFunctionCallExpression(tail[0].operator, [head, tail[0].operand]);
         for (var i = 1; i < tail.length; i++) {
-            result = makeCallExpression(tail[i].operator, [result, tail[i].operand]);            
+            result = makeFunctionCallExpression(tail[i].operator, [result, tail[i].operand]);            
         };
         return result;
     }
@@ -123,7 +123,7 @@ ListExpression =
 	}
 
 TupleExpression = 
-	"(" _ head:Expression tail:( _ "," _ (i:Expression) {return i})* _ ")" {
+	"(" _ head:Expression tail:( _ "," _ (i:Expression) {return i})+ _ ")" {
 		return {
 			type : "TupleExpression",
 			tuple : [head].concat(tail)
@@ -282,7 +282,7 @@ RelationalOperator
 
 UnaryExpression
   = operator:UnaryOperator __ expression:UnaryExpression {
-      return makeCallExpression((operator == "-") ? "opposite" : operator, [expression]);
+      return makeFunctionCallExpression((operator == "-") ? "opposite" : operator, [expression]);
     }
     / ChainedExpression
 
@@ -291,7 +291,8 @@ UnaryOperator
 	/  "not"
 
 ChainedExpression =
-    head:Atom _ operations:(ChainedOperation)+ {
+    FunctionCallExpression
+    / head:Atom _ operations:(ChainedOperation)+ {
         var result = operations[0];
         result[
             (result.type === "MemberExpression") ? 
@@ -311,8 +312,23 @@ ChainedExpression =
     }
     / Atom
 
+FunctionCallExpression =
+	func:Atom _ args:FuncArgs {
+		return{
+            type : "FunctionCallExpression",
+            func : func,
+            args : args
+        };
+	}
+
+FuncArgs =
+	head:Atom _ tailExpr:((i:Atom) _ {return i})*
+    {
+        return [head].concat(tailExpr);
+    }
+
 ChainedOperation =
-    CallExpression
+    GeneratorCallExpression
     / MemberExpression
 
 MemberExpression =
@@ -324,25 +340,26 @@ MemberExpression =
         };
     }
 
-CallExpression "CallExpression" = 
+GeneratorCallExpression "GeneratorCallExpression" = 
     "(" _ args:ExpressionList _ ")" _
     {   
         return {
-            type : "CallExpression",
+            type : "GeneratorCallExpression",
             args : args
         };
     }
 
 ExpressionList = 
-    headExpr:Expression tailExpr:( _ "," _ (i:Expression) {return i})*
+    head:Expression tailExpr:( _ "," _ (i:Expression) {return i})*
     {
-        return [headExpr].concat(tailExpr);
+        return [head].concat(tailExpr);
     }
 
 Atom =
 	Literal
 	/ GenericInstance
 	/ Id
+    / TupleExpression
 	/ "(" _ expr:Expression _ ")" _ {return expr;}
 
 GenericInstance = 

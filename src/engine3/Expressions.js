@@ -442,7 +442,7 @@ function makeExpr(exprGraph, library, genericTypeParams) {
         return makeListComprehensionExpression(exprGraph, library, genericTypeParams);
     } else if(exprGraph.type == "TupleExpression") {
         return makeTupleExpression(exprGraph, library, genericTypeParams);
-    } else if(exprGraph.type == "CallExpression") {
+    } else if(exprGraph.type == "FunctionCallExpression") {
         return makeCallExpression(exprGraph, library, genericTypeParams);
     }  else if(exprGraph.type == "MemberExpression") {
         return makeMemberExpression(exprGraph, library, genericTypeParams);

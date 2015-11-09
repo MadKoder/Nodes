@@ -14,7 +14,8 @@ var library =
 };
 
 var fileName = "test.nodes";
-var fileName = "destruct.nodes";
+var fileName = "curried.nodes";
+// var fileName = "destruct.nodes";
 // var fileName = "tuple.nodes";
 // var fileName = "list.nodes";
 // var fileName = "refs.nodes";
@@ -52,6 +53,8 @@ $.get(fileName, function( text ) {
 		appendText([v.get().x, v.get().y].join(", "));
 		appendText([w0.x, w0.y].join(", "));
 		appendText([w.x, w.y].join(", "));
+	} else if(fileName == "curried.nodes") {
+		appendText(x);
 	} else if(fileName == "destruct.nodes") {
 		tick();
 		appendText(x);
