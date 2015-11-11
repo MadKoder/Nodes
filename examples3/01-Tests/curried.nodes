@@ -1,10 +1,12 @@
 functions:
-	add : int -> int -> int
+	# add : int -> int -> int
 	add x y =
 		x + y
-	add (x : int) (y : int) : int =
-		x + y
-	add<T>(T x, T y) =
-		x + y
+	# add (x : int) (y : int) : int =
+	# 	x + y
+	# add<T> (x : T) (y : T) : T =
+	# 	x + y
+	# add<T>(T x, T y) =
+	# 	x + y
 nodes:
-	var x = add 0 1
+	var x = add 0 "a"

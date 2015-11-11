@@ -154,6 +154,8 @@ function compileGraph(graph, library, previousNodes)
 			{
 				if(nodeGraph.type == "var") {
 					var expr = makeExpr(nodeGraph.val, library, {});
+					prog.body = prog.body.concat(expr.instancesAst);
+					
 					var declaratorInit = expr.getAst();
 					if(isId(nodeGraph.val)) {
 						// If initial expression is a reference, clone its value

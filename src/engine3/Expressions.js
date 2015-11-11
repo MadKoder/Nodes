@@ -2,10 +2,11 @@ function isId(exprGraph) {
     return exprGraph.type == "Id";
 }
 
-function Expr(ast, type)
+function Expr(ast, type, instancesAst)
 {
     this.ast = ast;
     this.type = type;
+    this.instancesAst = instancesAst != undefined ? instancesAst : []
     
     this.getAst = function()
     {
@@ -344,15 +345,27 @@ function makeCallExpression(expr, library, genericTypeParams)
         error("Callee type not supported: " + func.type);
     }
     
-    args = _.map(expr.args, function(arg) {
+    // Evaluate args, make a
+    var argsExpr = _.map(expr.args, function(arg) {
         return makeExpr(arg, library, genericTypeParams);
     });
 
-    typeArgs = funcSpec.guessTypeArgs(args);
-    funcInstance = funcSpec.getInstance(typeArgs);
+    var instancesAst = [];
+    // Replace arguments generic types by their instances
+    _.each(argsExpr, function(argExpr) {
+        if(argExpr.type.base in genericTypeParams) {
+            argExpr.type = genericTypeParams[argExpr.type.base];
+        }
+        instancesAst = instancesAst.concat(argExpr.instancesAst);
+    });
+
+
+    var typeArgs = funcSpec.guessTypeArgs(argsExpr);
+    var funcInstance = funcSpec.getInstance(typeArgs);
+    instancesAst = instancesAst.concat(funcInstance.instancesAst);
 
     _.each(
-        _.zip(args, funcInstance.type.inputs),
+        _.zip(argsExpr, funcInstance.type.inputs),
         function(argAndInputType) {
             if(!isSameType(argAndInputType[0].type, argAndInputType[1])) {
                 error(
@@ -364,10 +377,11 @@ function makeCallExpression(expr, library, genericTypeParams)
 
     return new Expr(
         funcInstance.getAst(
-            _.map(args, function(arg) {
+            _.map(argsExpr, function(arg) {
                 return arg.ast;
         })),
-        funcInstance.type.output
+        funcInstance.type.output,
+        instancesAst
     );
 }
 

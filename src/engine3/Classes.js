@@ -96,17 +96,18 @@ function makeStruct(structGraph, library, prog)
         });
 
         var typeParams = _.map(structGraph.typeParams, typeGraphToCompact);
-		buildFunctionOrStruct(
-			structGraph,
-			id,
-			params,
-			makeType(id, typeParams),
-			{
-                "type": "ObjectExpression",
-                "properties": propertiesAst
-            },
-            library,
-            prog
+		prog.addStmnt(
+            buildFunctionOrStruct(
+    			structGraph,
+    			id,
+    			params,
+    			makeType(id, typeParams),
+    			{
+                    "type": "ObjectExpression",
+                    "properties": propertiesAst
+                },
+                library
+            )
         );
 		
 		var typeParamsName = _.map(typeParams, function(typeParam) {
