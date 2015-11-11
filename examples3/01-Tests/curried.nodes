@@ -1,9 +1,15 @@
+structs:
+	Vec2<T>:
+		T x
+		T y
 functions:
 	# add : int -> int -> int
 	inc x =
 		x + 1
 	add x y =
 		(inc x) + y
+	tupleAdd(x, y) =
+		x + y
 	typedAdd (x : int) (y : int) : int =
 		x + y
 	# add (x : int) (y : int) : int =
@@ -13,5 +19,7 @@ functions:
 	# add<T>(T x, T y) =
 	# 	x + y
 nodes:
-	var y = typedAdd 5 6
 	var x = add 0 1
+	var y = typedAdd 5 6
+	var z = tupleAdd(0, 1)
+	def v = Vec2 x y

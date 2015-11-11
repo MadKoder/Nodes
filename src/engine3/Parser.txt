@@ -476,23 +476,43 @@ AccessAssignment =
 	
 FunctionDeclaration =
 	id:Id _ typeParams:("<" _ t:IdList _ ">" _ {return t;})? _
-	   params:ParamDecl+ _ returnType:(":" _ type:Type _ {return type})? _ body:( "=" _ e:Expression {return e;})?
+	   params:ParamsDecl _ returnType:(":" _ type:Type _ {return type})? _ body:( "=" _ e:Expression {return e;})?
 	{
 		return {
 			type : "FunctionDeclaration",
-			id : id, 
-			params : params, 
+			id : id,
+            callType : params.type,
+			params : params.params, 
 			body : body,
 			typeParams : typeParams,
 			returnType : returnType
 		};
 	}
 
-ParamDecl = 
-    TypedParamDecl
-    / UntypedParamDecl
+ParamsDecl =
+    params:CurriedParamsDecl {
+        return {
+            type : "Curried",
+            params : params
+        };
+    }
+    / params:TupleParamsDecl {
+        return {
+            type : "Tuple",
+            params : params
+        };
+    }
+    
+CurriedParamsDecl =
+    params:CurriedParamDecl+ {
+        return params;
+    }
 
-TypedParamDecl =
+CurriedParamDecl = 
+    TypedCurriedParamDecl
+    / UntypedCurriedParamDecl
+
+TypedCurriedParamDecl =
     "(" _ id:Id _ ":" _ type:Type _ ")" _ {
         return {
             type : type,
@@ -500,7 +520,31 @@ TypedParamDecl =
         };
     }
 
-UntypedParamDecl =
+TupleParamsDecl =
+    "(" _ params:TupleParams _ ")" _ {
+        return params;
+    }
+
+TupleParams =
+    head:TupleParam _ tail:( _ "," _ (i:TupleParam) {return i})* {
+        return [head].concat(tail);
+    }
+
+TupleParam = 
+    id:Id _ ":" _ type:Type _ {
+        return {
+            type : type,
+            id : id
+        };
+    }
+    / id:Id _ {
+        return {
+            type : null,
+            id : id
+        };
+    }
+
+UntypedCurriedParamDecl =
     id:Id _ {
         return {
             type : null,
@@ -571,9 +615,6 @@ SignalDef =
 			params : (params != null) ? params : []
 		};
 	}
-
-ParamsDecl =
-	head:ParamDecl _ tail:(p:ParamDecl _ {return p})* {return [head].concat(tail);}
 
 Closure = 
 	params:MaybeTypeAndIds _ "->" _ val:Expression

@@ -244,7 +244,8 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 					return func2(args[0], args[1]);
 				},
 				type : getInAndOutTypes(typeArgs[0]),
-				instancesAst : []
+				instancesAst : [],
+				callType : "Curried"
 			}
 		},
 		getType : function(typeArgs)

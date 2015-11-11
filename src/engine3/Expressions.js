@@ -345,10 +345,28 @@ function makeCallExpression(expr, library, genericTypeParams)
         error("Callee type not supported: " + func.type);
     }
     
-    // Evaluate args, make a
-    var argsExpr = _.map(expr.args, function(arg) {
-        return makeExpr(arg, library, genericTypeParams);
-    });
+    var argsGraph = expr.args;
+    var argsExpr;
+    // If call type of function is tuple, check that there is only parameter of type tuple
+    // the args expression are evaluated from the args of the tuple
+    if(funcSpec.callType == "Tuple") {
+        if(argsGraph.length > 1) {
+            error("Call of tuple params function with more than 1 params. There should be only 1 param of type tuple.")
+        }
+        if(argsGraph[0].type != "TupleExpression") {
+            error("Call of tuple params function with a parameter whose type is not a tuple: " + argsGraph[0].type);
+        }
+        // Evaluate the items of the tuple
+        argsExpr = _.map(argsGraph[0].tuple, function(arg) {
+            return makeExpr(arg, library, genericTypeParams);
+        });
+    }
+    else {    
+        // Evaluate args
+        argsExpr = _.map(argsGraph, function(arg) {
+            return makeExpr(arg, library, genericTypeParams);
+        });
+    }
 
     var instancesAst = [];
     // Replace arguments generic types by their instances
@@ -358,7 +376,6 @@ function makeCallExpression(expr, library, genericTypeParams)
         }
         instancesAst = instancesAst.concat(argExpr.instancesAst);
     });
-
 
     var typeArgs = funcSpec.guessTypeArgs(argsExpr);
     var funcInstance = funcSpec.getInstance(typeArgs);

@@ -37,7 +37,8 @@ function buildFunctionOrStruct(graph, id, params, returnType, returnStmnt, libra
 				instancesAst : []
 			}
 		},
-		type : functionType
+		type : functionType,
+		callType : graph.callType
 	};
 
 	var stmnt = {
@@ -171,7 +172,9 @@ function makeFunction(funcGraph, library, prog)
 						type : instanciateFunctionType(functionType, typeArgs),
 						instancesAst : instancesAst
 					}
-				}
+				},
+				callType : funcGraph.callType
+
 				// ,type : functionType
 			};
 			return;
