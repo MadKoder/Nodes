@@ -475,18 +475,38 @@ AccessAssignment =
 	}
 	
 FunctionDeclaration =
-	typeAndId:MaybeTypeAndId _ typeParams:("<" _ t:IdList _ ">" _ {return t;})? _
-	"(" params:ParamsDecl ")" _ body:( "=" _ e:Expression {return e;})?
+	id:Id _ typeParams:("<" _ t:IdList _ ">" _ {return t;})? _
+	   params:ParamDecl+ _ returnType:(":" _ type:Type _ {return type})? _ body:( "=" _ e:Expression {return e;})?
 	{
 		return {
 			type : "FunctionDeclaration",
-			id : typeAndId.id, 
+			id : id, 
 			params : params, 
 			body : body,
 			typeParams : typeParams,
-			explicitType : typeAndId.type
+			returnType : returnType
 		};
 	}
+
+ParamDecl = 
+    TypedParamDecl
+    / UntypedParamDecl
+
+TypedParamDecl =
+    "(" _ id:Id _ ":" _ type:Type _ ")" _ {
+        return {
+            type : type,
+            id : id
+        };
+    }
+
+UntypedParamDecl =
+    id:Id _ {
+        return {
+            type : null,
+            id : id
+        };
+    }
 
 Structs =  
 	head:Struct tail:( _ "," _ (struct:Struct) {return struct})* 
@@ -553,16 +573,7 @@ SignalDef =
 	}
 
 ParamsDecl =
-	head:ParamDecl tail:( _ "," _ (p:ParamDecl) {return p})* {return [head].concat(tail);}
-	
-ParamDecl = 
-	type:Type _ id:Id 
-	{
-		return {
-			type : type,
-			id : id
-		};
-	}
+	head:ParamDecl _ tail:(p:ParamDecl _ {return p})* {return [head].concat(tail);}
 
 Closure = 
 	params:MaybeTypeAndIds _ "->" _ val:Expression
