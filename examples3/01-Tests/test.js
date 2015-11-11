@@ -55,6 +55,7 @@ $.get(fileName, function( text ) {
 		appendText([w.x, w.y].join(", "));
 	} else if(fileName == "curried.nodes") {
 		appendText(x);
+		appendText(y);
 	} else if(fileName == "destruct.nodes") {
 		tick();
 		appendText(x);

@@ -33,7 +33,8 @@ function buildFunctionOrStruct(graph, id, params, returnType, returnStmnt, libra
 						"arguments": args
 					}
 				},
-				type : instanciateFunctionType(functionType, typeArgs)
+				type : instanciateFunctionType(functionType, typeArgs),
+				instancesAst : []
 			}
 		},
 		type : functionType
@@ -195,7 +196,7 @@ function makeFunction(funcGraph, library, prog)
 					functions : library.functions,
 					nodes : localNodes
 				},
-				funcGraph.typeParams
+				{}
 			);
 			exprType = expr.type;
 		}

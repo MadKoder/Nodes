@@ -216,6 +216,8 @@ function compileGraph(graph, library, previousNodes)
 				else
 				{
 					var expr = makeExpr(nodeGraph.val, library, {});					
+					prog.body = prog.body.concat(expr.instancesAst);
+					
 					// id = _def(function() {return expr.getAst(); });
 					var varDeclaration = ast.varDeclaration(
 						id,
