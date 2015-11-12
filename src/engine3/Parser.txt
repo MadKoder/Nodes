@@ -400,7 +400,7 @@ StringLiteral =
 	}
 
 Id = 
-	name:([a-zA-Z_][a-zA-Z0-9_]*) { 
+	!ReservedWord name:([a-zA-Z_][a-zA-Z0-9_]*) { 
 		return {
 			type : "Id",
 			name : name.length == 1 ?
@@ -419,6 +419,62 @@ IdentifierPart
   = IdentifierStart
   / "\u200C" { return "\u200C"; } // zero-width non-joiner
   / "\u200D" { return "\u200D"; } // zero-width joiner
+
+ReservedWord
+  = Keyword
+  / FutureReservedWord
+  / BooleanLiteral
+
+Keyword
+  = (
+        "break"
+      / "case"
+      / "catch"
+      / "continue"
+      / "debugger"
+      / "default"
+      / "delete"
+      / "do"
+      / "else"
+      / "finally"
+      / "for"
+      / "function"
+      / "if"
+      / "instanceof"
+      / "in"
+      / "new"
+      / "return"
+      / "switch"
+      / "this"
+      / "throw"
+      / "try"
+      / "typeof"
+      / "var"
+      / "void"
+      / "while"
+      / "with"
+    )
+    !IdentifierPart
+
+FutureReservedWord
+  = (
+        "class"
+      / "const"
+      / "enum"
+      / "export"
+      / "extends"
+      / "import"
+      / "super"
+    )
+    !IdentifierPart
+
+BooleanLiteral
+  = TrueToken  { return { type: "BooleanLiteral", value: true  }; }
+  / FalseToken { return { type: "BooleanLiteral", value: false }; }
+
+TrueToken       = "true"             !IdentifierPart
+TryToken        = "try"              !IdentifierPart
+FalseToken      = "false"            !IdentifierPart
 
 // UnicodeEscapeSequence
 //   = "u" digits:$(HexDigit HexDigit HexDigit HexDigit) {

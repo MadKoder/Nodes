@@ -19,7 +19,8 @@ functions:
 	# add<T>(T x, T y) =
 	# 	x + y
 nodes:
-	var x = add 0 1
+	var x = (add 0 1) + (add 1 2)
 	var y = typedAdd 5 6
 	var z = tupleAdd(0, 1)
 	def v = Vec2 x y
+	var l = [x + 1 for x in [1, 2]]

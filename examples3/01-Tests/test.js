@@ -57,6 +57,7 @@ $.get(fileName, function( text ) {
 		appendText(x);
 		appendText(y);
 		appendText(z);
+		appendText(l.join(", "));
 	} else if(fileName == "destruct.nodes") {
 		tick();
 		appendText(x);
