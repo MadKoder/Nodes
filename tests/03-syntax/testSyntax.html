@@ -1,0 +1,47 @@
+<html>
+
+<head>
+    <script src="../../../libs/jquery-2.0.2.js"></script>
+    <script src="../../../libs/lodash.min.js"></script>
+    <script src="../../../libs/Bacon-0.7.2.min.js"> </script>
+    <script src="../../../libs/jquery-ui-1.10.3/ui/jquery.ui.core.js"></script>
+    <script src="../../../libs/jquery-ui-1.10.3/ui/jquery.ui.widget.js"></script>
+    <script src="../../../libs/jquery-ui-1.10.3/ui/jquery.ui.button.js"></script>
+    <script src="../../../libs/CommentParser.js"></script>
+    <script src="../../src/engine3/SyntaxTransform.js"></script>
+    <script src="syntaxTransform.js"></script>
+</head>
+
+<body>
+
+    <textarea id="input" rows="20" cols="100">
+slot tick() do x = y
+slot tick() do
+    x = y
+slot tick() do
+    x = y
+    z = u
+slot tick() do
+    x = if a 
+        then b
+        else if c  # comment
+            then d
+            else e
+    z = u
+slot tick() do {
+    x = y
+    z = u
+}
+slot tick() do {
+}
+slot tick() do {x = y; z = u}
+    </textarea>
+
+    <textarea id="output" rows="20" cols="100">
+        At w3schools.com you will learn how to make a website. We offer free tutorials in all web development technologies.
+    </textarea>
+
+
+</body>
+
+</html>

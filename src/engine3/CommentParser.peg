@@ -1,0 +1,103 @@
+Line = 
+    Comment
+    / codeParts:CodePart* comment:Comment? {
+        return {
+            code : codeParts.join(""),
+            comment : comment != null ? comment : ""
+        };
+    }
+
+Comment =
+    "#" comments:.* {
+        return  "#" + comments.join("");
+    }
+
+CodePart =
+    string:StringLiteral  tail:CodePart* {
+        return string + tail.join("");
+    }
+    / code:CodeChar+ tail:CodePart* {
+        return code.join("") + tail.join("");
+    }
+
+CodeChar =
+    c:[^#"'] {
+        return c;
+    }
+
+StringLiteral "string"
+  = parts:('"' DoubleStringCharacters? '"' / "'" SingleStringCharacters? "'") {
+      return parts.join("");
+    }
+
+DoubleStringCharacters
+  = chars:DoubleStringCharacter+ { return chars.join(""); }
+
+SingleStringCharacters
+  = chars:SingleStringCharacter+ { return chars.join(""); }
+
+DoubleStringCharacter
+  = !('"' / "\\" / LineTerminator) char_:SourceCharacter { return char_;     }
+  / "\\" sequence:EscapeSequence                         { return sequence;  }
+  / LineContinuation
+
+SingleStringCharacter
+  = !("'" / "\\" / LineTerminator) char_:SourceCharacter { return char_;     }
+  / "\\" sequence:EscapeSequence                         { return sequence;  }
+  / LineContinuation
+
+LineContinuation
+  = "\\" sequence:LineTerminatorSequence { return sequence; }
+
+EscapeSequence
+  = CharacterEscapeSequence
+
+CharacterEscapeSequence
+  = SingleEscapeCharacter
+  / NonEscapeCharacter
+
+SingleEscapeCharacter
+  = char_:['"\\bfnrtv] {
+      return char_
+        .replace("b", "\b")
+        .replace("f", "\f")
+        .replace("n", "\n")
+        .replace("r", "\r")
+        .replace("t", "\t")
+        .replace("v", "\x0B") // IE does not recognize "\v".
+    }
+
+NonEscapeCharacter
+  = (!EscapeCharacter / LineTerminator) char_:SourceCharacter { return char_; }
+
+EscapeCharacter
+  = SingleEscapeCharacter
+
+LineTerminatorSequence "end of line"
+  = "\n"
+  / "\r\n"
+  / "\r"
+  / "\u2028" // line separator
+  / "\u2029" // paragraph separator
+
+SourceCharacter
+  = .
+
+SingleLineComment
+  = "#" (!LineTerminator SourceCharacter)*
+
+LineTerminator
+  = [\n\r\u2028\u2029]
+
+_
+  = (WhiteSpace)*
+
+__
+  = (WhiteSpace)*
+
+WhiteSpace "whitespace"
+  = [\t\v\f \u00A0\uFEFF]
+  / Zs
+
+// Separator, Space
+Zs = [\u0020\u00A0\u1680\u180E\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000]
