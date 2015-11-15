@@ -9,6 +9,6 @@ $output.html(syntax.convert(inputText));
 
 $input.keyup(function() {
     var inputText = $input.val();
-    $output.html(convert(inputText));
+    $output.html(syntax.convert(inputText));
 });
 })

@@ -21,7 +21,11 @@
 
 
 start "start" = 
-  "functions " _ func:FunctionDeclaration {return func;}
+    statements:ProgStatement* {
+        return statements;
+    }
+
+/*  "functions " _ func:FunctionDeclaration {return func;}
 / "actions " _ slot:Slot
 	{
 		return slot
@@ -31,15 +35,19 @@ start "start" =
 / "structs " _ struct:Struct
 	{
 		return struct;
-	}
+	}*/
+
+ProgStatement = 
+    Slot
+    / Node
 
 Slot =
-	id:Id _ params:("(" _ params:ParamsDecl? _")" {return params})? _ statements:Statements _ {
+	"slot" _ id:Id _ params:ParamsDecl? _ "do" _ statement:Statement _ {
 		return {
 			type : "Slot",
 			id : id,
 			params : params != null ? params : [],
-			statements : statements
+			statement : statement
 		};
 	}
 
@@ -47,7 +55,7 @@ Node =
 	"def" _ maybeTypeAndId:MaybeTypeAndId _ "=" _ val:Expression _
 	{
 		return {
-			type : "def",
+			type : "Def",
 			id : maybeTypeAndId.id,
 			val : val,
 			explicitType : maybeTypeAndId.type
@@ -56,7 +64,7 @@ Node =
 	/ "var" _ maybeTypeAndId:MaybeTypeAndId _  val:("=" _ val:Expression {return val;})? _
 	{
 		return {
-			type : "var",
+			type : "Var",
 			id : maybeTypeAndId.id,
 			val : val,
 			explicitType : maybeTypeAndId.type
@@ -449,7 +457,12 @@ Keyword
       / "throw"
       / "try"
       / "typeof"
+      / "def"
       / "var"
+      / "slot"
+      / "signal"
+      / "gen"
+      / "slot"
       / "void"
       / "while"
       / "with"
@@ -488,11 +501,11 @@ FalseToken      = "false"            !IdentifierPart
 /*********************************************************************************************/
 	
 Event =
-	condition:Expression _ statements:Statements{
+	condition:Expression _ statement:Statement{
 		return {
 			type : "Event",
 			condition : condition,
-			statements : statements
+			statement : statement
 		};
 	}
 
@@ -752,28 +765,33 @@ IdList =
 		return [head].concat(tail);
 	}
 
-Statements "Statements" = 
-	"(" _ head:Statement tail:( _ "," _ (i:Statement) {return i})* ")" _ {
-		return [head].concat(tail);
-	}
 
 Statement "Statement" = 
-  Assignment 
-  / DestructAssignment 
-  / AccessAssignment
-  / Foreach
-  / ForStatement
-  / MatchStatement
-  / MatchTypeStatement
-  / ChainedSlotCall
-  / Update
-  / IfStatement 
-  / "while" _ param:Expression  _ "do" _ action:Statement _ 
-	{
+    StatementBlock
+    / Assignment 
+    / DestructAssignment 
+    / AccessAssignment
+    / Foreach
+    / ForStatement
+    / MatchStatement
+    / MatchTypeStatement
+    / ChainedSlotCall
+    / Update
+    / IfStatement 
+    / "while" _ param:Expression  _ "do" _ action:Statement _ 
+    {
+        return {
+            while:param, 
+            do:action};
+    } 
+
+StatementBlock "StatementBlock" = 
+	"{" _ head:Statement _ tail:( ";" _ (i:Statement) _ {return i})* "}" _ {
 		return {
-			while:param, 
-			do:action};
-	} 
+            type : "StatementBlock",
+            statements : [head].concat(tail)
+        };
+	}
 
 ForStatement =
 	_ "for" _ it:IdOrDestructId _ index:("," _ i:Id {return i;})? _ "in" _ 
@@ -1186,8 +1204,10 @@ HexDigit
   = [0-9a-fA-F]
 
 _
-  = (WhiteSpace)*
+  = (WhiteSpace / LineTerminatorSequence / Comment)*
 
+Comment =
+    "#" comments:.*
 __
   = (WhiteSpace)*
 

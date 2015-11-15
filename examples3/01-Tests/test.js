@@ -14,7 +14,8 @@ var library =
 };
 
 var fileName = "test.nodes";
-var fileName = "curried.nodes";
+var fileName = "syntax.nodes";
+// var fileName = "curried.nodes";
 // var fileName = "destruct.nodes";
 // var fileName = "tuple.nodes";
 // var fileName = "list.nodes";
@@ -27,7 +28,9 @@ $.get(fileName, function( text ) {
 	// setLodash(_);
 	setEngineLodash(_);
 
-	var codeGraph = codeToGraph(text, library, parser);
+	// var codeGraph = codeToGraph(text, library, parser);
+	var canonicalStr = syntax.convert(text);
+    var codeGraph = parser.parse(canonicalStr);
 	// var src = compileGraph(codeGraph, library);
 	var prog = compileGraph(codeGraph, library);
 	var src = escodegen.generate(prog);
@@ -41,8 +44,6 @@ $.get(fileName, function( text ) {
 		$tmp.append("<div>" + txt + "</div>");
 	}
 
-
-
 	if(fileName == "test.nodes") {
 		tick(10, 5);
 		appendText(x.get());
@@ -53,6 +54,15 @@ $.get(fileName, function( text ) {
 		appendText([v.get().x, v.get().y].join(", "));
 		appendText([w0.x, w0.y].join(", "));
 		appendText([w.x, w.y].join(", "));
+	} else if(fileName == "syntax.nodes") {
+		appendText(x);
+		appendText(y);
+		tick();
+		appendText(x);
+		appendText(y);
+		tack();
+		appendText(x);
+		appendText(y);
 	} else if(fileName == "curried.nodes") {
 		appendText(x);
 		appendText(y);

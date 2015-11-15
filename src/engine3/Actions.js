@@ -195,12 +195,12 @@ function makeAssignment(assignmentGraph, library, genericTypeParams) {
 }
 
 function makeSignal(signalGraph, library, genericTypeParams) {
-	// TODO check existence and type of slot
-	var argsAst = _.map(signalGraph.args, function(arg) {
-		return makeExpr(arg, library, {}).getAst();
-	});
+    // TODO check existence and type of slot
+    var argsAst = _.map(signalGraph.args, function(arg) {
+        return makeExpr(arg, library, {}).getAst();
+    });
     var slotAst = makeRefAst(signalGraph.slot, library, genericTypeParams);
-	return {
+    return {
         "type": "ExpressionStatement",
         "expression": {
             "type": "CallExpression",
@@ -210,53 +210,68 @@ function makeSignal(signalGraph, library, genericTypeParams) {
     };
 }
 
+function makeStatementBlock(blockGraph, library, genericTypeParams) {
+    var statements = _.map(blockGraph.statements, function(statement) {
+        return makeStatement(statement, library, genericTypeParams);
+    });
+
+    return {
+        "type": "BlockStatement",
+        "body": statements     
+    };
+}
+
 function makeStatement(statementGraph, library, genericTypeParams) {
-	switch(statementGraph.type) {
+    switch(statementGraph.type) {
+        case "StatementBlock":
+            return makeStatementBlock(statementGraph, library, genericTypeParams);
         case "Assignment":
             return makeAssignment(statementGraph, library, genericTypeParams);
-		case "DestructAssignment":
-			return makeDestructAssignment(statementGraph, library, genericTypeParams);
-		case "Signal":
-			return makeSignal(statementGraph, library, genericTypeParams);
-	}
+        case "DestructAssignment":
+            return makeDestructAssignment(statementGraph, library, genericTypeParams);
+        case "Signal":
+            return makeSignal(statementGraph, library, genericTypeParams);
+    }
     error("Unrecognized statement type ", statementGraph.type);
 }
 
 function makeSlot(slotGraph, localLibrary, prog, astType, idAst) {        
-	var paramsGraph = slotGraph.params;
-	_.each(paramsGraph, function(param) {
-		var getterAst = {
+    var paramsGraph = slotGraph.params;
+    _.each(paramsGraph, function(param) {
+        var getterAst = {
             "type": "Identifier",
             "name": param.id.name
         };
-		localLibrary.nodes[param.id.name] = new Node(getterAst, typeGraphToCompact(param.type));
-	});	
-	var statements = _.map(slotGraph.statements, function(statement) {
-		return makeStatement(statement, localLibrary, {})
-	});
-	var paramsAst = _.map(paramsGraph, function(param) {
-		return {
+        localLibrary.nodes[param.id.name] = new Node(getterAst, typeGraphToCompact(param.type));
+    });
+    var statementAst = makeStatement(slotGraph.statement, localLibrary, {});
+    // If statement is not already a block, put it into a block
+    if(slotGraph.statement.type != "StatementBlock") {
+        statementAst =  {
+            "type": "BlockStatement",
+            "body": [statementAst]
+        };
+    }
+    var paramsAst = _.map(paramsGraph, function(param) {
+        return {
             "type": "Identifier",
             "name": param.id.name
         }
-	});
-	var slotAst = {
+    });
+    var slotAst = {
         "type": astType,
         "id": idAst,
         "params":paramsAst,
         "defaults": [],
-        "body": {
-            "type": "BlockStatement",
-            "body": statements	                
-        },
+        "body": statementAst,
         "generator": false,
         "expression": false
     };
 
-	return slotAst;
+    return slotAst;
 }
 
-function makeAction(actionGraph, library, prog) {
+function makeGlobalSlot(actionGraph, library, prog) {
     var localLibrary = makeLocalLibrary(library);
 
     var slotAst = makeSlot(

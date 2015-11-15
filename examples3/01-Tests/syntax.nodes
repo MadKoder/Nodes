@@ -1,20 +1,9 @@
-slot tick() do x = y
-slot tick() do
+var x = 0 + 1
+var y = x + 10
+slot tick do 
 	x = y
-slot tick() do
+	y = x * 2
+slot tack do {
 	x = y
-	z = u
-slot tick() do
-	x = if a 
-		then b
-		else if c  # comment
-			then d
-			else e
-	z = u
-slot tick() do {
-	x = y
-	z = u
+	y = x * 2
 }
-slot tick() do {
-}
-slot tick() do {x = y; z = u}

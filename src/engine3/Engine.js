@@ -66,58 +66,41 @@ function compileGraph(graph, library, previousNodes)
 	    }
 	};
 	
-	if("structsAndFuncs" in graph)
-	{
-		var structsAndfuncsGraph = graph.structsAndFuncs;
-		for(var i = 0; i < structsAndfuncsGraph.length; i++)
-		{
-			if("func" in structsAndfuncsGraph[i])
-			{
-				makeFunction(structsAndfuncsGraph[i].func, library, prog);
-			} else //struct
-			{
-				makeStruct(structsAndfuncsGraph[i].struct, library, prog);
-			}
-		}
-	}
+    var sinkToSources = {};
+    var sourceToSinks = {};
 
 	// Builds the sinkToSources dict
 	// For each leaf sink (defs), get its direct sources by examining its expression
 	// Note that sources in this dict may also be defs, i.e. not root sources
 	var graphNodes = graph.nodes;
-    var connectionsGraph = graph.connections;
-    var sinkToSources = {};
-    for(var i = 0; i < graphNodes.length; i++)
-	{
-		var nodeRow = graphNodes[i];
-		for(var j = 0; j < nodeRow.length; j++)
+	for(var statementIndex = 0; statementIndex < graph.length; statementIndex++) {
+		var statementGraph = graph[statementIndex];		
+		if(statementGraph.type == "Var" || statementGraph.type == "Def") {
+		var nodeGraph = statementGraph;
+		var sinkId = nodeGraph.id.name;
+		// If node is a def, it is a leaf sink
+		if(nodeGraph.type == "def")
 		{
-			var nodeGraph = nodeRow[j];
-			var sinkId = nodeGraph.id.name;
-			// If node is a def, it is a leaf sink
-			if(nodeGraph.type == "def")
-			{
-				sinkToSources[sinkId] = {};
+			sinkToSources[sinkId] = {};
 
-				// Recursively gets sources of an expression				
-				makeDependencies(nodeGraph.val, sinkId, sinkToSources);
-			}
+			// Recursively gets sources of an expression				
+			makeDependencies(nodeGraph.val, sinkId, sinkToSources);
+		}
 		}
 	}
 
 	// Adds events sources to the sink to sources dict
-	var eventsGraph = graph.events;
+	/*var eventsGraph = graph.events;
 	for(var i = 0; i < eventsGraph.length; i++) {
 		var eventGraph = eventsGraph[i];
 		var eventId = "__event__" + i;
 		sinkToSources[eventId] = {};
 		makeDependencies(eventGraph.condition, eventId, sinkToSources);
-	}
+	}*/
 
 	// Builds the root sources to leaf sinks dict,
 	// From each sink, goes up to its sources, and recursively sources of sources ...
 	// When a source is not in the sinkToSources dict, it's a root source (a var)
-    var sourceToSinks = {};
 	for(leafSinkId in sinkToSources) {
 		function addRootSourcesOfCurrentLeafSink(sourceId) {
 			// Source is a def, adds its sinks
@@ -145,11 +128,149 @@ function compileGraph(graph, library, previousNodes)
 	}
 
 	var sinksListDeclarations = [];
+
+	for(var statementIndex = 0; statementIndex < graph.length; statementIndex++) {
+		var statementGraph = graph[statementIndex];
+		if(statementGraph.type == "Var") {
+			var nodeGraph = statementGraph;
+			var id = nodeGraph.id.name;		
+			var expr = makeExpr(nodeGraph.val, library, {});
+			prog.body = prog.body.concat(expr.instancesAst);
+			
+			var declaratorInit = expr.getAst();
+			if(isId(nodeGraph.val)) {
+				// If initial expression is a reference, clone its value
+				// so any change to the var won't impact the referenced node
+				// _.clone(expr.getAst(), true)
+				declaratorInit = {
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "MemberExpression",
+                        "computed": false,
+                        "object": {
+                            "type": "Identifier",
+                            "name": "_"
+                        },
+                        "property": {
+                            "type": "Identifier",
+                            "name": "clone"
+                        }
+                    },
+                    "arguments": [
+                        expr.getAst(),
+                        {
+                            "type": "Literal",
+                            "value": true,
+                            "raw": "true"
+                        }
+                    ]
+                };
+			}
+			// if expr is reference : var id = _.clone(expr.getAst(), true);
+			// else var id = expr.getAst();
+			var varDeclaration = ast.varDeclaration(id, declaratorInit);
+			prog.addStmnt(varDeclaration);
+
+			// Setup the sink list of the var
+			var sinkListVarName = "";
+			if(id in sourceToSinks) {
+				sinkListVarName = id + "$sinkList";
+				var sinks = sourceToSinks[id];
+				// It's an array made of the id of the leaf sinks
+				// var id$sinkList = [_.map(sinks, ast.identifier)];
+				var declaratorInit = {
+                    "type": "ArrayExpression",
+                    "elements": _.map(sinks, ast.identifier)
+                };
+				var varDeclaration = ast.varDeclaration(sinkListVarName, declaratorInit);
+				// instantiation of the list is made at the end of the program so that
+				// all references are valid
+				sinksListDeclarations.push(varDeclaration);
+			}
+			// getter == id
+			var getterAst = {
+                "type": "Identifier",
+                "name": id
+            };
+            library.nodes[id] = new Node(getterAst, expr.type, sinkListVarName);
+		}
+		else if(statementGraph.type == "Def")
+		{
+			var nodeGraph = statementGraph;
+			var id = nodeGraph.id.name;		
+			var expr = makeExpr(nodeGraph.val, library, {});					
+			prog.body = prog.body.concat(expr.instancesAst);
+			
+			// id = _def(function() {return expr.getAst(); });
+			var varDeclaration = ast.varDeclaration(
+				id,
+				{
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "Identifier",
+                        "name": "__def"
+                    },
+                    "arguments": [
+                        {
+                            "type": "FunctionExpression",
+                            "params": [],
+                            "body": {
+                                "type": "BlockStatement",
+                                "body": [
+                                    {
+                                        "type": "ReturnStatement",
+                                        "argument": expr.getAst()
+                                    }
+                                ]
+                            },
+                        }
+                    ]
+                });
+			prog.addStmnt(varDeclaration);
+			// getter == id.get()
+			var getterAst = {
+                "type": "CallExpression",
+                "callee": {
+                    "type": "MemberExpression",
+                    "computed": false,
+                    "object": {
+                        "type": "Identifier",
+                        "name": id
+                    },
+                    "property": {
+                        "type": "Identifier",
+                        "name": "get"
+                    }
+                },
+                "arguments": []
+            };
+			library.nodes[id] = new Node(getterAst, expr.type);
+		} else if(statementGraph.type == "Slot") {
+			makeGlobalSlot(statementGraph, library, prog);
+		}
+	}
+	
+	return prog;
+
+	if("structsAndFuncs" in graph)
+	{
+		var structsAndfuncsGraph = graph.structsAndFuncs;
+		for(var i = 0; i < structsAndfuncsGraph.length; i++)
+		{
+			if("func" in structsAndfuncsGraph[i])
+			{
+				makeFunction(structsAndfuncsGraph[i].func, library, prog);
+			} else //struct
+			{
+				makeStruct(structsAndfuncsGraph[i].struct, library, prog);
+			}
+		}
+	}
+
     for(var i = 0; i < graphNodes.length; i++) {
 		var nodeRow = graphNodes[i];
 		for(var j = 0; j < nodeRow.length; j++) {
 			var nodeGraph = nodeRow[j];
-			var id = nodeGraph.id.name;
 			//try
 			{
 				if(nodeGraph.type == "var") {
