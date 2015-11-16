@@ -57,10 +57,10 @@ $.get(fileName, function( text ) {
 	} else if(fileName == "syntax.nodes") {
 		appendText(x);
 		appendText(y);
-		tick();
+		tick(3);
 		appendText(x);
 		appendText(y);
-		tack();
+		tack(4, 6);
 		appendText(x);
 		appendText(y);
 	} else if(fileName == "curried.nodes") {

@@ -1,3 +1,71 @@
+
+fun f x:int (y:int=0) :: int =
+	x + y
+
+fun g x = f x
+
+
+signal text :: string =
+	input
+	=> debounce 300
+	=> map (fun evt => evt.target.value)
+	=> skipDuplicates
+
+type text == () => string
+
+gen testGen x => x + 1
+type testGen == int => int
+
+gen testGen x :: int do return x + 1
+
+gen testGen x :: int do 
+	return x + 1
+
+gen pipeGen x 
+	=> testGen
+	=> testGen
+
+type pipeGen == int => int
+
+gen gen2 x y => x + y
+type gen2 == int => int => int
+
+gen pipeGen2 x
+	=> gen2 10
+
+slot testSlot y do x = y
+
+slot pipeSlot y
+	=> testSlot
+
+slot pipeSlot2 (x, y)
+	==> gen2
+	=> testSlot
+
+gen gen2Bis (x y) => x + y
+type gen2 == int * int => int
+
+slot pipeSlot2Bis (x, y)
+	=> gen2Bis
+	=> testSlot
+
+signal sig :: int
+
+slot slt x : int do
+	y = x
+
+sig => slt
+
+gen movieSearch query:string :: list<string> do
+	if len(query) < 3 then
+		return signalOnce<list<string>>([])
+	return fromPromise(queryMovie(query))
+
+signal suggestions :: list<int> =
+	text
+	=> flatMapLatest movieSearch
+
+
 slot tick() do x = y
 slot tick() do
 	x = y

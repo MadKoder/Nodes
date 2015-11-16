@@ -1,7 +1,7 @@
 {
 	function makeFunctionCallExpression(func, args) {
 		return {
-            type : "FunctionCallExpression",
+            type : "FunctionCall",
             func : {
                 type : "Id",
                 name : func
@@ -46,7 +46,8 @@ Slot =
 		return {
 			type : "Slot",
 			id : id,
-			params : params != null ? params : [],
+			callType : params != null ? params.type : "",
+            params : params != null ? params.params : [],
 			statement : statement
 		};
 	}
@@ -93,6 +94,10 @@ ConditionalExpression =
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 Expression =
+    FunctionCall
+    / NonCallExpression
+
+NonCallExpression =
     AdditiveExpression
     / ListComprehensionExpression
     / ListExpression
@@ -292,15 +297,34 @@ UnaryExpression
   = operator:UnaryOperator __ expression:UnaryExpression {
       return makeFunctionCallExpression((operator == "-") ? "opposite" : operator, [expression]);
     }
-    / ChainedExpression
+    / ChainedMemberExpression
 
 UnaryOperator
 	= "-"
 	/  "not"
 
-ChainedExpression =
-    FunctionCallExpression
-    / head:Atom _ operations:(ChainedOperation)+ {
+FunctionCall =
+    func:Callable _ args:FuncArgs {
+		return{
+            type : "FunctionCall",
+            func : func,
+            args : args
+        };
+	}
+
+Callable =
+    ChainedMemberExpression
+    / Atom
+    / "(" _ exp:Expression _ ")" _ {return exp;}
+
+FuncArgs =
+	head:NonCallExpression _ tailExpr:((i:NonCallExpression) _ {return i})*
+    {
+        return [head].concat(tailExpr);
+    }
+
+ChainedMemberExpression =
+    head:MemberHead _ operations:(MemberExpression)+ {
         var result = operations[0];
         result[
             (result.type === "MemberExpression") ? 
@@ -320,24 +344,9 @@ ChainedExpression =
     }
     / Atom
 
-FunctionCallExpression =
-	func:Atom _ args:FuncArgs {
-		return{
-            type : "FunctionCallExpression",
-            func : func,
-            args : args
-        };
-	}
-
-FuncArgs =
-	head:Atom _ tailExpr:((i:Atom) _ {return i})*
-    {
-        return [head].concat(tailExpr);
-    }
-
-ChainedOperation =
-    GeneratorCallExpression
-    / MemberExpression
+MemberHead = 
+    Atom
+    / "(" _ exp:Expression _ ")" _ {return exp;}
 
 MemberExpression =
     "." _ field:Id _ {
@@ -345,15 +354,6 @@ MemberExpression =
             type: "MemberExpression",
             /*obj: obj,*/
             field: field
-        };
-    }
-
-GeneratorCallExpression "GeneratorCallExpression" = 
-    "(" _ args:ExpressionList _ ")" _
-    {   
-        return {
-            type : "GeneratorCallExpression",
-            args : args
         };
     }
 
@@ -408,7 +408,7 @@ StringLiteral =
 	}
 
 Id = 
-	!ReservedWord name:([a-zA-Z_][a-zA-Z0-9_]*) { 
+	!ReservedWord name:([a-zA-Z_][a-zA-Z0-9_]*) _ { 
 		return {
 			type : "Id",
 			name : name.length == 1 ?
@@ -545,7 +545,7 @@ AccessAssignment =
 	
 FunctionDeclaration =
 	id:Id _ typeParams:("<" _ t:IdList _ ">" _ {return t;})? _
-	   params:ParamsDecl _ returnType:(":" _ type:Type _ {return type})? _ body:( "=" _ e:Expression {return e;})?
+	   params:ParamsDecl _ returnType:("::" _ type:Type _ {return type})? _ body:( "=" _ e:Expression {return e;})?
 	{
 		return {
 			type : "FunctionDeclaration",
@@ -571,7 +571,7 @@ ParamsDecl =
             params : params
         };
     }
-    
+
 CurriedParamsDecl =
     params:CurriedParamDecl+ {
         return params;
@@ -582,9 +582,17 @@ CurriedParamDecl =
     / UntypedCurriedParamDecl
 
 TypedCurriedParamDecl =
-    "(" _ id:Id _ ":" _ type:Type _ ")" _ {
+    id:Id _ ":" _ type:Type _ {
         return {
             type : type,
+            id : id
+        };
+    }
+
+UntypedCurriedParamDecl =
+    id:Id _ {
+        return {
+            type : "",
             id : id
         };
     }
@@ -607,14 +615,6 @@ TupleParam =
         };
     }
     / id:Id _ {
-        return {
-            type : null,
-            id : id
-        };
-    }
-
-UntypedCurriedParamDecl =
-    id:Id _ {
         return {
             type : null,
             id : id
@@ -775,7 +775,7 @@ Statement "Statement" =
     / ForStatement
     / MatchStatement
     / MatchTypeStatement
-    / ChainedSlotCall
+    / SignalSending
     / Update
     / IfStatement 
     / "while" _ param:Expression  _ "do" _ action:Statement _ 
@@ -783,10 +783,11 @@ Statement "Statement" =
         return {
             while:param, 
             do:action};
-    } 
+    }  
+    / "(" _ statement:Statement _ ")" _ {return statement;}
 
 StatementBlock "StatementBlock" = 
-	"{" _ head:Statement _ tail:( ";" _ (i:Statement) _ {return i})* "}" _ {
+	"{" _ head:Statement _ tail:( ";" _ statement:Statement _ {return statement})* "}" _ {
 		return {
             type : "StatementBlock",
             statements : [head].concat(tail)
@@ -917,8 +918,23 @@ Foreach =
 			params : params != null ? params : []
 		};
 	}
-  
-SlotCall = 
+
+SignalSending =
+    slot:Callable _ args:SignalArgs {
+        return{
+            type : "SignalSending",
+            slot : slot,
+            args : args
+        };
+    }
+
+SignalArgs =
+    args:NonCallExpression*
+    {
+        return args;
+    }
+
+/*SlotCall = 
 	id:Id _ path:StructPath _ "(" _ params:ExpressionList? _ ")" _ {
 		var varPath = [id].concat(path.slice(0, path.length - 1));
 		return {
@@ -938,7 +954,7 @@ StructPath =
 	}
 
 ChainedSlotCall =
-    head:Id _ operations:(ChainedReference)* _ "(" _ args:ExpressionList? _ ")" _ {
+    head:Expression _ operations:(ChainedReference)* _ args:ExpressionList? _ {
 		var result = head;
         for (var i = 0; i < operations.length; i++) {
             var operation = operations[i];
@@ -960,10 +976,9 @@ MemberReference =
     "." _ field:Id _ {
         return {
             type: "MemberReference",
-            /*obj: obj,*/
             field: field
         };
-    }
+    }*/
   
 IfStatement =
 	"if" _ param:Expression  _ "then" _ action:Statement _ elseStatement:("else" _ action:Statement {return action;})?
@@ -1207,9 +1222,12 @@ _
   = (WhiteSpace / LineTerminatorSequence / Comment)*
 
 Comment =
-    "#" comments:.*
+    "#" (!LineTerminator SourceCharacter)*
 __
   = (WhiteSpace)*
+
+SourceCharacter
+  = .
 
 WhiteSpace "whitespace"
   = [\t\v\f \u00A0\uFEFF]
@@ -1218,6 +1236,8 @@ WhiteSpace "whitespace"
 // Separator, Space
 Zs = [\u0020\u00A0\u1680\u180E\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000]
 
+LineTerminator
+  = [\n\r\u2028\u2029]
 
 LineTerminatorSequence "end of line"
   = "\n"

@@ -473,7 +473,7 @@ function makeExpr(exprGraph, library, genericTypeParams) {
         return makeListComprehensionExpression(exprGraph, library, genericTypeParams);
     } else if(exprGraph.type == "TupleExpression") {
         return makeTupleExpression(exprGraph, library, genericTypeParams);
-    } else if(exprGraph.type == "FunctionCallExpression") {
+    } else if(exprGraph.type == "FunctionCall") {
         return makeCallExpression(exprGraph, library, genericTypeParams);
     }  else if(exprGraph.type == "MemberExpression") {
         return makeMemberExpression(exprGraph, library, genericTypeParams);

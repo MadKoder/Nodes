@@ -229,7 +229,7 @@ function makeStatement(statementGraph, library, genericTypeParams) {
             return makeAssignment(statementGraph, library, genericTypeParams);
         case "DestructAssignment":
             return makeDestructAssignment(statementGraph, library, genericTypeParams);
-        case "Signal":
+        case "SignalSending":
             return makeSignal(statementGraph, library, genericTypeParams);
     }
     error("Unrecognized statement type ", statementGraph.type);
@@ -238,6 +238,9 @@ function makeStatement(statementGraph, library, genericTypeParams) {
 function makeSlot(slotGraph, localLibrary, prog, astType, idAst) {        
     var paramsGraph = slotGraph.params;
     _.each(paramsGraph, function(param) {
+        if(param.type.length == 0) {
+            error("Slot parameter " + param.id.name + " has no type");
+        }
         var getterAst = {
             "type": "Identifier",
             "name": param.id.name

@@ -1,9 +1,10 @@
 var x = 0 + 1
 var y = x + 10
-slot tick do 
+slot tick z:int do 
 	x = y
-	y = x * 2
-slot tack do {
-	x = y
+	y = x * 2 + z
+	tack (z + 5) y
+slot tack z:int t:int do {
+	x = y + z + t
 	y = x * 2
 }

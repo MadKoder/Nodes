@@ -10,12 +10,12 @@ signal text : string =
 	=> map (fun evt => evt.target.value)
 	=> skipDuplicates
 
-gen movieSearch(query : string) : ()=>list<string> do
+gen movieSearch query:string => list<string> do
 	if len(query) < 3 then
 		return signalOnce<list<string>>([])
 	return fromPromise(queryMovie(query))
 
-signal suggestions : list<int> =
+signal suggestions => list<int> =
 	text
 	=> flatMapLatest movieSearch
 
