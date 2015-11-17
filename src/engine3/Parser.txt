@@ -20,9 +20,9 @@
 }
 
 
-start "start" = 
-    statements:ProgStatement* {
-        return statements;
+start "start" =
+    head:ProgStatement _ tail:(";" _ (s:ProgStatement) {return s})* _ ";"? _ {
+        return [head].concat(tail);
     }
 
 /*  "functions " _ func:FunctionDeclaration {return func;}
@@ -38,13 +38,15 @@ start "start" =
 	}*/
 
 ProgStatement = 
-    Slot
+    SlotDef
+    / SignalDef
+    / ChainedConnection
     / Node
 
-Slot =
-	"slot" _ id:Id _ params:ParamsDecl? _ "do" _ statement:Statement _ {
+SlotDef =
+	SlotToken _ id:Id _ params:ParamsDecl? _ "do" _ statement:Statement{
 		return {
-			type : "Slot",
+			type : "SlotDef",
 			id : id,
 			callType : params != null ? params.type : "",
             params : params != null ? params.params : [],
@@ -52,8 +54,17 @@ Slot =
 		};
 	}
 
+SignalDef = 
+    SignalToken _ id:Id type:(_ "::" _ type:Type {return type;})? {
+        return {
+            type : "SignalDef",
+            id : id,
+            signalType : type
+        };
+    }
+
 Node =
-	"def" _ maybeTypeAndId:MaybeTypeAndId _ "=" _ val:Expression _
+	"def" _ maybeTypeAndId:MaybeTypeAndId _ "=" _ val:Expression
 	{
 		return {
 			type : "Def",
@@ -62,7 +73,7 @@ Node =
 			explicitType : maybeTypeAndId.type
 		};
 	}
-	/ "var" _ maybeTypeAndId:MaybeTypeAndId _  val:("=" _ val:Expression {return val;})? _
+	/ "var" _ maybeTypeAndId:MaybeTypeAndId _  val:("=" _ val:Expression {return val;})?
 	{
 		return {
 			type : "Var",
@@ -71,6 +82,20 @@ Node =
 			explicitType : maybeTypeAndId.type
 		};
 	}
+
+ChainedConnection =
+    signal:Id _ links:Link+ {
+        return {
+            type : "ChainedConnection",
+            signal : signal,
+            links : links
+        }
+    }
+
+Link =
+    "=>" _ link:Id {
+        return link;
+    }
 
 Type = 
 	GenericInstance
@@ -488,6 +513,8 @@ BooleanLiteral
 TrueToken       = "true"             !IdentifierPart
 TryToken        = "try"              !IdentifierPart
 FalseToken      = "false"            !IdentifierPart
+SignalToken     = "signal"           !IdentifierPart
+SlotToken       = "slot"             !IdentifierPart
 
 // UnicodeEscapeSequence
 //   = "u" digits:$(HexDigit HexDigit HexDigit HexDigit) {
@@ -664,7 +691,7 @@ FieldsDef =
 	}
 
 FieldDef = 
-	"slot " slot:Slot {
+	"slot " slot:SlotDef {
 		return slot
 	}
 	/ SignalDef
@@ -676,15 +703,6 @@ FieldDef =
 		};
 	}
 	
-SignalDef = 
-	_ "signal" _ id:Id _ params:("(" params:ParamsDecl? ")" {return params;})? _
-	{
-		return {
-			signal : id,
-			params : (params != null) ? params : []
-		};
-	}
-
 Closure = 
 	params:MaybeTypeAndIds _ "->" _ val:Expression
 	{

@@ -37,7 +37,7 @@ function splitCodeAndComment(line) {
 function convert(input) {
     var inputLines = input.split(/\r\n|\r|\n/);
     var blockStack = [{
-        type : "normal",
+        type : "prog",
         indent : -1
     }];
     var outputLines = [];
@@ -86,21 +86,18 @@ function convert(input) {
                 outputLines.push(endsWithDo(code));
             } else {
                 outputLine += code;
+                // Adds a separator if we are at the same indent than the block,
+                // the line is not empty and it's not the first line of the block
+                if(indent == block.indent && code.trim().length > 0 && !firstLineOfBlock) {
+                    if(block.type == "do" || block.type == "doBrace" || block.type == "prog") {
+                        outputLine = ";" + outputLine;
+                    }
+                }
                 if(endsWithDo(code)) {
                     outputLine += " {";
                     pushBlock(blockStack, "do", -1);
                 } else if(endsWithDoBrace(code)) {
                     pushBlock(blockStack, "doBrace", -1);
-                } else {
-                    // Adds a separator if we are at the same indent than the block,
-                    // the line is not empty and it's not the first line of the block
-                    if(indent == block.indent && code.trim().length > 0 && !firstLineOfBlock) {
-                        if(block.type == "do") {
-                            outputLine = ";" + outputLine;
-                        } else if(block.type == "doBrace") {
-                            outputLine = ";" + outputLine;
-                        }
-                    }
                 }
                 outputLine += comment;
                 outputLines.push(outputLine);

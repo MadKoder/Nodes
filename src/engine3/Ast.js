@@ -38,6 +38,60 @@ ast = {
     	    kind: "var"
     	}
     },
+    arrayIteration : function(indexId, arrayId, bodyAst)
+    {
+        return {
+            "type": "ForStatement",
+            "init": {
+                "type": "VariableDeclaration",
+                "declarations": [
+                    {
+                        "type": "VariableDeclarator",
+                        "id": {
+                            "type": "Identifier",
+                            "name": indexId
+                        },
+                        "init": {
+                            "type": "Literal",
+                            "value": 0,
+                            "raw": "0"
+                        }
+                    }
+                ],
+                "kind": "var"
+            },
+            "test": {
+                "type": "BinaryExpression",
+                "operator": "<",
+                "left": {
+                    "type": "Identifier",
+                    "name": indexId
+                },
+                "right": {
+                    "type": "MemberExpression",
+                    "computed": false,
+                    "object": {
+                        "type": "Identifier",
+                        "name": arrayId
+                    },
+                    "property": {
+                        "type": "Identifier",
+                        "name": "length"
+                    }
+                }
+            },
+            "update": {
+                "type": "UpdateExpression",
+                "operator": "++",
+                "argument": {
+                    "type": "Identifier",
+                    "name": indexId
+                },
+                "prefix": false
+            },
+            "body": bodyAst
+        };
+    },
     typeToAst : function(type)
     {
     	return {

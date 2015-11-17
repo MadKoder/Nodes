@@ -14,7 +14,8 @@ var library =
 };
 
 var fileName = "test.nodes";
-var fileName = "syntax.nodes";
+var fileName = "signalSlots.nodes";
+// var fileName = "syntax.nodes";
 // var fileName = "curried.nodes";
 // var fileName = "destruct.nodes";
 // var fileName = "tuple.nodes";
@@ -54,6 +55,12 @@ $.get(fileName, function( text ) {
 		appendText([v.get().x, v.get().y].join(", "));
 		appendText([w0.x, w0.y].join(", "));
 		appendText([w.x, w.y].join(", "));
+	} else if(fileName == "signalSlots.nodes") {
+		appendText(x);
+		sig(10);
+		appendText(x);
+		sigUnit();
+		appendText(x);
 	} else if(fileName == "syntax.nodes") {
 		appendText(x);
 		appendText(y);

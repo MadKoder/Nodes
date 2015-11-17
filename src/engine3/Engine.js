@@ -197,7 +197,7 @@ function compileGraph(graph, library, previousNodes)
 		else if(statementGraph.type == "Def")
 		{
 			var nodeGraph = statementGraph;
-			var id = nodeGraph.id.name;		
+			var id = nodeGraph.id.name;
 			var expr = makeExpr(nodeGraph.val, library, {});					
 			prog.body = prog.body.concat(expr.instancesAst);
 			
@@ -245,8 +245,12 @@ function compileGraph(graph, library, previousNodes)
                 "arguments": []
             };
 			library.nodes[id] = new Node(getterAst, expr.type);
-		} else if(statementGraph.type == "Slot") {
+		} else if(statementGraph.type == "SlotDef") {
 			makeGlobalSlot(statementGraph, library, prog);
+		} else if(statementGraph.type == "SignalDef") {
+			makeSignalDef(statementGraph, library, prog);
+		} else if(statementGraph.type == "ChainedConnection") {
+			makeChainedConnection(statementGraph, library, prog);
 		}
 	}
 	

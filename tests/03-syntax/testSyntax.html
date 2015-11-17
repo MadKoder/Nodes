@@ -15,26 +15,13 @@
 <body>
 
     <textarea id="input" rows="20" cols="100">
-slot tick() do x = y
-slot tick() do
-    x = y
-slot tick() do
-    x = y
-    z = u
-slot tick() do
-    x = if a 
-        then b
-        else if c  # comment
-            then d
-            else e
-    z = u
-slot tick() do {
-    x = y
-    z = u
-}
-slot tick() do {
-}
-slot tick() do {x = y; z = u}
+var x = 0
+
+signal sig :: int
+
+slot tick y:int do x = y
+
+sig => slt
     </textarea>
 
     <textarea id="output" rows="20" cols="100">

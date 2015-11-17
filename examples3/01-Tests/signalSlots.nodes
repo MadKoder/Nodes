@@ -1,38 +1,16 @@
-signal<T> : ()=>T
-slot<T> : T=>()
-gen<T,U> : T=>U
+var x = 0
 
-var input : string = ""
+signal sig :: int
 
-signal text : string =
-	input
-	=> debounce 300
-	=> map (fun evt => evt.target.value)
-	=> skipDuplicates
+slot tick y:int do
+	x = y
 
-gen movieSearch query:string => list<string> do
-	if len(query) < 3 then
-		return signalOnce<list<string>>([])
-	return fromPromise(queryMovie(query))
+sig => tick
 
-signal suggestions => list<int> =
-	text
-	=> flatMapLatest movieSearch
+signal sigUnit
 
-gen awaiting<T>(awaiter : signal<T>, awaited : signal<T>) do
-	return new prop {
-		var val : bool = true
-		on awaiter do
-			val = true
-		on awaited do
-			val = false
-	}
+slot tickUnit do
+	x = 100
 
-prop awaitSuggestions : bool = awaiting text suggestions
-
-on awaitSuggestions became true do
-	$(results).html("searching...")
-
-on suggestions do
-	$(results).html(map showMovie results)	
+sigUnit => tickUnit
 
