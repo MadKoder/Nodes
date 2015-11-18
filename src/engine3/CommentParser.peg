@@ -1,6 +1,5 @@
 Line = 
-    Comment
-    / codeParts:CodePart* comment:Comment? {
+    codeParts:CodePart* comment:Comment? {
         return {
             code : codeParts.join(""),
             comment : comment != null ? comment : ""

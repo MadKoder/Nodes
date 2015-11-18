@@ -1,16 +1,28 @@
+var y = 0
+
+gen gen0 p:int :: int do
+	y = y + 1
+	return p + y
+
 var x = 0
+var z = 0
 
 signal sig :: int
 
-slot tick y:int do
-	x = y
+slot tick0 p:int do
+	x = p
 
-sig => tick
+sig ~> tick0
+
+slot tick1 p:int do
+	z = p
+
+sig ~> gen0 ~> tick1
 
 signal sigUnit
 
 slot tickUnit do
 	x = 100
 
-sigUnit => tickUnit
+sigUnit ~> tickUnit
 

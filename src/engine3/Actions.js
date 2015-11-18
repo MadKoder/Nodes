@@ -210,6 +210,15 @@ function makeSignal(signalGraph, library, genericTypeParams) {
     };
 }
 
+function makeReturnStatement(returnGraph, library, genericTypeParams) {
+    // TODO check existence and type of slot
+    var argAst = makeExpr(returnGraph.val, library, genericTypeParams).ast;
+    return {
+        "type": "ReturnStatement",
+        "argument": argAst
+    };
+}
+
 function makeStatementBlock(blockGraph, library, genericTypeParams) {
     var statements = _.map(blockGraph.statements, function(statement) {
         return makeStatement(statement, library, genericTypeParams);
@@ -231,12 +240,13 @@ function makeStatement(statementGraph, library, genericTypeParams) {
             return makeDestructAssignment(statementGraph, library, genericTypeParams);
         case "SignalSending":
             return makeSignal(statementGraph, library, genericTypeParams);
+        case "ReturnStatement":
+            return makeReturnStatement(statementGraph, library, genericTypeParams);
     }
     error("Unrecognized statement type ", statementGraph.type);
 }
 
-function makeSlot(slotGraph, localLibrary, prog, astType, idAst) {        
-    var paramsGraph = slotGraph.params;
+function fillLocalLibraryWithParams(localLibrary, paramsGraph) {
     _.each(paramsGraph, function(param) {
         if(param.type.length == 0) {
             error("Slot parameter " + param.id.name + " has no type");
@@ -247,6 +257,11 @@ function makeSlot(slotGraph, localLibrary, prog, astType, idAst) {
         };
         localLibrary.nodes[param.id.name] = new Node(getterAst, typeGraphToCompact(param.type));
     });
+}
+
+function makeSlot(slotGraph, localLibrary, prog, astType, idAst) {
+    var paramsGraph = slotGraph.params;
+    fillLocalLibraryWithParams(localLibrary, paramsGraph);
     var statementAst = makeStatement(slotGraph.statement, localLibrary, {});
     // If statement is not already a block, put it into a block
     if(slotGraph.statement.type != "StatementBlock") {

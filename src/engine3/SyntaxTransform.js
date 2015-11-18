@@ -66,6 +66,7 @@ function convert(input) {
                 outputLine += "}";
             }
             blockStack.pop();
+            block = blockStack[blockStack.length - 1];
         }
         // Split between code and comment
         var codeAndComment = null;
@@ -85,14 +86,14 @@ function convert(input) {
                 outputLines.push(indent);
                 outputLines.push(endsWithDo(code));
             } else {
-                outputLine += code;
                 // Adds a separator if we are at the same indent than the block,
                 // the line is not empty and it's not the first line of the block
                 if(indent == block.indent && code.trim().length > 0 && !firstLineOfBlock) {
                     if(block.type == "do" || block.type == "doBrace" || block.type == "prog") {
-                        outputLine = ";" + outputLine;
+                        outputLine = outputLine + ";";
                     }
                 }
+                outputLine += code;
                 if(endsWithDo(code)) {
                     outputLine += " {";
                     pushBlock(blockStack, "do", -1);

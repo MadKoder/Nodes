@@ -249,6 +249,8 @@ function compileGraph(graph, library, previousNodes)
 			makeGlobalSlot(statementGraph, library, prog);
 		} else if(statementGraph.type == "SignalDef") {
 			makeSignalDef(statementGraph, library, prog);
+		} else if(statementGraph.type == "GenDef") {
+			makeGenDef(statementGraph, library, prog);
 		} else if(statementGraph.type == "ChainedConnection") {
 			makeChainedConnection(statementGraph, library, prog);
 		}

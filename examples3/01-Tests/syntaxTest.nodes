@@ -24,6 +24,9 @@ gen testGen x :: int do return x + 1
 gen testGen x :: int do 
 	return x + 1
 
+gen testGen2 x :: int do 
+	return testGen x
+
 gen pipeGen x 
 	=> testGen
 	=> testGen

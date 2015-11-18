@@ -29,6 +29,8 @@ $.get(fileName, function( text ) {
 	// setLodash(_);
 	setEngineLodash(_);
 
+	var array = [];
+	array.push(function(x) {return x;});
 	// var codeGraph = codeToGraph(text, library, parser);
 	var canonicalStr = syntax.convert(text);
     var codeGraph = parser.parse(canonicalStr);
@@ -58,7 +60,9 @@ $.get(fileName, function( text ) {
 	} else if(fileName == "signalSlots.nodes") {
 		appendText(x);
 		sig(10);
+		sig(10);
 		appendText(x);
+		appendText(z);
 		sigUnit();
 		appendText(x);
 	} else if(fileName == "syntax.nodes") {

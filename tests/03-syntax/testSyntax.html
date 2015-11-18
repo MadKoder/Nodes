@@ -15,13 +15,24 @@
 <body>
 
     <textarea id="input" rows="20" cols="100">
+gen gen0 x:int :: int do
+    return x + 1
+
 var x = 0
 
 signal sig :: int
 
-slot tick y:int do x = y
+slot tick y:int do
+    x = y
 
-sig => slt
+sig ~> tick
+
+signal sigUnit
+
+slot tickUnit do
+    x = 100
+
+sigUnit ~> tickUnit
     </textarea>
 
     <textarea id="output" rows="20" cols="100">

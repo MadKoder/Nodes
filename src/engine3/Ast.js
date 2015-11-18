@@ -38,6 +38,51 @@ ast = {
     	    kind: "var"
     	}
     },
+    callExpression : function(funcId, argsAst) {
+        return {
+            "type": "CallExpression",
+            "callee": {
+                "type": "Identifier",
+                "name": funcId
+            },
+            "arguments": argsAst
+        };
+    },
+    funcDeclOrExpr : function(type, funcId, paramsId, bodyBlockAst) {
+        return {
+            "type": type,
+            "id": funcId === null ? 
+                null : {
+                    "type": "Identifier",
+                    "name": funcId
+                },
+            "params": _.map(paramsId, function(paramId) {
+                return {
+                    "type": "Identifier",
+                    "name": paramId
+                };
+            }),
+            "defaults": [],
+            "body": {
+                "type": "BlockStatement",
+                "body": bodyBlockAst
+            },
+            "generator": false,
+            "expression": false
+        }
+    },
+    functionDeclaration : function(funcId, paramsId, bodyAst) {
+        return this.funcDeclOrExpr("FunctionDeclaration", funcId, paramsId, bodyAst);
+    },
+    functionExpression : function(funcId, paramsId, bodyAst) {
+        return this.funcDeclOrExpr("FunctionExpression", funcId, paramsId, bodyAst);
+    },
+    blockStatement : function(statements) {
+        return {
+            "type": "BlockStatement",
+            "body": statements
+        };
+    },
     arrayIteration : function(indexId, arrayId, bodyAst)
     {
         return {

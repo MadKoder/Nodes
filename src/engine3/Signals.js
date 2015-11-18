@@ -6,7 +6,32 @@ function getSignalConnectionsId(signalId) {
 function makeChainedConnection(connectionGraph, library, prog) {
     // TODO check links existence and type
     var signalConnectionsId = getSignalConnectionsId(connectionGraph.signal.name);
-    var slotId = connectionGraph.links[0].name;
+    var links = connectionGraph.links;
+    var argumentAst;
+    // Only one link : it's a slot, adds directly to connections its id
+    if(links.length == 1) {
+        argumentAst = {
+            "type": "Identifier",
+            "name": links[0].name
+        };
+    } else {
+        // Makes chain call : function(x) {slot(genN(genN-1(... gen0(x))));}
+        // link[0](x)
+        var callAst = ast.callExpression(links[0].name, [ast.identifier("x")]);
+        var src = escodegen.generate(callAst);
+        for(var i = 1; i < links.length; i++) {
+            // links[i](links[i-1](...))
+            callAst = ast.callExpression(links[i].name, [callAst]);
+            var src = escodegen.generate(callAst);
+        }
+        // To use an expression as a statement, it must be wrapped in an expression statement;
+        var exprStatement = {
+            "type": "ExpressionStatement",
+            "expression": callAst
+        };
+        argumentAst = ast.functionExpression(null, ["x"], [exprStatement]);
+    }
+    var src = escodegen.generate(argumentAst);
     var connectionAst = {
         "type": "ExpressionStatement",
         "expression": {
@@ -23,12 +48,7 @@ function makeChainedConnection(connectionGraph, library, prog) {
                     "name": "push"
                 }
             },
-            "arguments": [
-                {
-                    "type": "Identifier",
-                    "name": slotId
-                }
-            ]
+            "arguments": [argumentAst]
         }
     }
     prog.addStmnt(connectionAst);    
