@@ -26,3 +26,8 @@ slot tickUnit do
 
 sigUnit ~> tickUnit
 
+# geni geni0 = gen0
+
+# geni geni1 = gen0 ~> gen0
+
+# signal sig1 = sig ~> gen0

@@ -10,13 +10,13 @@ gen<T,U> : T=>U
 
 signal text :: string =
 	input
-	=> debounce 300
-	=> map (fun evt => evt.target.value)
-	=> skipDuplicates
+	~> debounce 300
+	~> map (fun evt ~> evt.target.value)
+	~> skipDuplicates
 
 type text == () => string
 
-gen testGen x => x + 1
+gen testGen x ~> x + 1
 type testGen == int => int
 
 gen testGen x :: int do return x + 1
@@ -28,48 +28,48 @@ gen testGen2 x :: int do
 	return testGen x
 
 gen pipeGen x 
-	=> testGen
-	=> testGen
+	~> testGen
+	~> testGen
 
 type pipeGen == int => int
 
-gen gen2 x y => x + y
+gen gen2 x y ~> x + y
 type gen2 == int => int => int
 
 gen pipeGen2 x
-	=> gen2 10
+	~> gen2 10
 
 slot testSlot y do x = y
 
 slot pipeSlot y
-	=> testSlot
+	~> testSlot
 
 slot pipeSlot2 (x, y)
-	==> gen2
-	=> testSlot
+	~~> gen2
+	~> testSlot
 
-gen gen2Bis (x y) => x + y
+gen gen2Bis (x y) ~> x + y
 type gen2 == int * int => int
 
 slot pipeSlot2Bis (x, y)
-	=> gen2Bis
-	=> testSlot
+	~> gen2Bis
+	~> testSlot
 
 signal sig :: int
 
 slot slt x : int do
 	y = x
 
-sig => slt
+sig ~> slt
 
-gen movieSearch query:string :: list<string> do
+gen movieSearch query:string :: stream<string> do
 	if len(query) < 3 then
 		return signalOnce<list<string>>([])
 	return fromPromise(queryMovie(query))
 
 signal suggestions :: list<int> =
 	text
-	=> flatMapLatest movieSearch
+	~> flatMapLatest movieSearch
 
 gen awaiting<T> awaiter:signal<T> awaited:signal<T> :: ref<T> do
 	return new prop {
@@ -89,23 +89,41 @@ on awaitSuggestions became true do
 on suggestions do
 	$(results).html(map showMovie results)	
 
-slot tick() do x = y
-slot tick() do
-	x = y
-slot tick() do
-	x = y
-	z = u
-slot tick() do
-	x = if a 
-		then b
-		else if c  # comment
-			then d
-			else e
-	z = u
-slot tick() do {
-	x = y
-	z = u
-}
-slot tick() do {
-}
-slot tick() do {x = y; z = u}
+gen flatMapLatest<U, V> f:T=>(()=>U) :: T=>U do 
+gen flatMapLatest<U, V> f:T=>signal<U> :: T=>U do 
+	return new {
+		var private s : signal<U> = new NullStream
+		signal out : U
+		slot in e:T do
+			s -= out
+			s = f(e)
+			s += out			
+	}
+
+gen scan<T> value:T :: unit=>T do
+	return new {
+		signal out :: T
+		slot in : unit do
+			out value
+	}
+
+gen timerOnce delay:float :: ()=>unit do
+	return new {
+		signal out :: unit
+		var private timer = new TimerOnce delay
+		init do 
+			timer += out
+			timer.start
+	}
+
+gen later<T> delay:float value:T :: signal<T> do
+	t = timerOnce delay
+	return t ~> scan value
+
+signal l :: int =
+	later 10 0
+
+gen sequentially<T> interval:float values:list<T> :: signal<T>
+
+signal l :: int =
+	sequentially 10 [0, 1, 2]
