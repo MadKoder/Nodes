@@ -21,7 +21,7 @@
 
 
 start "start" =
-    head:ProgStatement _ tail:(";" _ (s:ProgStatement) {return s})* _ ";"? _ {
+    ___ head:ProgStatement _ tail:(LineSeparator (s:ProgStatement) {return s})* ___ {
         return [head].concat(tail);
     }
 
@@ -356,9 +356,11 @@ Callable =
     / "(" _ exp:Expression _ ")" _ {return exp;}
 
 FuncArgs =
-	head:NonCallExpression _ tailExpr:((i:NonCallExpression) _ {return i})*
-    {
-        return [head].concat(tailExpr);
+    LineSeparator IndentToken _ head:NonCallExpression tail:(LineSeparator e:NonCallExpression {return e})* ___ DedentToken {
+        return [head].concat(tail);
+    }
+    / head:NonCallExpression _ tail:((i:NonCallExpression) _ {return i})* {
+        return [head].concat(tail);
     }
 
 ChainedMemberExpression =
@@ -513,6 +515,8 @@ Keyword
       / "void"
       / "while"
       / "with"
+      / "$>"
+      / "$<"
     )
     !IdentifierPart
 
@@ -541,6 +545,8 @@ ReturnToken     = "return"           !IdentifierPart
 GenToken        = "gen"              !IdentifierPart
 DefToken        = "def"              !IdentifierPart
 VarToken        = "var"              !IdentifierPart
+IndentToken        = "$>"              
+DedentToken        = "$<"              
 
 // UnicodeEscapeSequence
 //   = "u" digits:$(HexDigit HexDigit HexDigit HexDigit) {
@@ -832,7 +838,7 @@ Statement "Statement" =
     / "(" _ statement:Statement _ ")" _ {return statement;}
 
 StatementBlock "StatementBlock" = 
-	"{" _ head:Statement _ tail:( ";" _ statement:Statement _ {return statement})* "}" _ {
+	LineSeparator IndentToken _ head:Statement _ tail:(LineSeparator statement:Statement _ {return statement})* ___ DedentToken {
 		return {
             type : "StatementBlock",
             statements : [head].concat(tail)
@@ -1272,7 +1278,11 @@ HexDigit
   = [0-9a-fA-F]
 
 _
-  = (WhiteSpace / LineTerminatorSequence / Comment)*
+ = (WhiteSpace / LineTerminatorSequence / Comment)*
+  // = (WhiteSpace / Comment)*
+
+___
+   = (WhiteSpace / LineTerminatorSequence / ";" / Comment)*
 
 Comment =
     "#" (!LineTerminator SourceCharacter)*
@@ -1307,3 +1317,7 @@ LineTerminatorSequence "end of line"
   / "\r"
   / "\u2028" // line separator
   / "\u2029" // paragraph separator
+
+LineSeparator = 
+    ( _ ";" _ )+
+    // ( _ LineTerminatorSequence _ )+

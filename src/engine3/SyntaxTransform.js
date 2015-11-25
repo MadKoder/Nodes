@@ -9,9 +9,9 @@ function pushBlock(blockStack, type, indent) {
 
 function getIndent(line)
 {
-    var match = /^\s*/.exec(line);
+    var match = /^(\s*)\S+/.exec(line);
     if(match != null)
-        return match[0].length;
+        return match[1].length;
     return 0;
 }
 
@@ -35,6 +35,59 @@ function splitCodeAndComment(line) {
 }
 
 function convert(input) {
+    var inputLines = input.split(/\r\n|\r|\n/);
+    var blockStack = [0];
+    var outputLines = [];
+    for(var i = 0; i < inputLines.length; i++) {
+        var inputLine = inputLines[i];
+        var block = blockStack[blockStack.length - 1];
+        var blockIndent = block;
+        var codeAndComment = null;
+        try {
+            var codeAndComment = commentParser.parse(inputLine);
+            var code = codeAndComment.code;
+            var comment = codeAndComment.comment;
+        } catch(e) {
+            outputLines.push("NOT PARSED");
+        }
+        indent = getIndent(code);
+        var firstLineOfBlock = false;
+        var outputLine = "";
+        if(indent > blockIndent) {
+            blockStack.push(indent);
+            outputLine += ";$>   ";
+        } else if(indent < blockIndent) {
+            var nbDedent = 0;
+            var dedentArray = [];
+            while(indent < blockIndent){
+                blockStack.pop();
+                block = blockStack[blockStack.length - 1];
+                blockIndent = block;
+                nbDedent++;
+                dedentArray.push("");
+            }
+            if(nbDedent == 1) {
+                outputLine += "$<;  ";
+            } else if(nbDedent == 2) {
+                outputLine += "$<$<;";
+            } else {
+                outputLine += dedentArray.join("$<");
+                outputLine += ";";
+            }
+            if(indent > blockIndent)
+            {
+                throw "Error, indent not correct";
+            }
+        } else {
+            outputLine += ";    ";
+        }
+        outputLine += inputLine;
+        outputLines.push(outputLine);
+    }
+    return outputLines.join("\n");
+}
+
+function convert2(input) {
     var inputLines = input.split(/\r\n|\r|\n/);
     var blockStack = [{
         type : "prog",
