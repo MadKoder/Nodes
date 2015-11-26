@@ -1,0 +1,9 @@
+var x = 10
+var y = 100
+
+node n = new {
+	def x = x + 10
+	def y = self.x + 100
+}
+
+def z = n.x

@@ -253,9 +253,36 @@ function compileGraph(graph, library, previousNodes)
 			makeGenDef(statementGraph, library, prog);
 		} else if(statementGraph.type == "ChainedConnection") {
 			makeChainedConnection(statementGraph, library, prog);
+		} else if(statementGraph.type == "NodeDef") {
+			makeNodeDef(statementGraph, library, prog);
 		}
 	}
+
+	var statementGraph = {
+		type : "NodeDef",
+		id : {
+			type: "Id",
+			name: "n"
+		},
+        fields: [
+	        {
+	        	type: "Def",
+	        	id: {
+	        		"type": "Id",
+	        		"name": "x"
+	        	},
+	        	val: {
+	        		"type": "Id",
+	        		"name": "x"
+	        	},
+	        	explicitType: null
+	        }
+	    ],
+      	explicitType: null
+	};
 	
+	// makeNodeDef(statementGraph, library, prog);
+
 	return prog;
 
 	if("structsAndFuncs" in graph)

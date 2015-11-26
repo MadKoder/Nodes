@@ -77,15 +77,7 @@ GenDef =
     }
 
 Node =
-	DefToken _ maybeTypeAndId:MaybeTypeAndId _ "=" _ val:Expression
-	{
-		return {
-			type : "Def",
-			id : maybeTypeAndId.id,
-			val : val,
-			explicitType : maybeTypeAndId.type
-		};
-	}
+    DefDecl
 	/ VarToken _ maybeTypeAndId:MaybeTypeAndId _  val:("=" _ val:Expression {return val;})?
 	{
 		return {
@@ -95,6 +87,35 @@ Node =
 			explicitType : maybeTypeAndId.type
 		};
 	}
+    / NodeDef
+
+DefDecl =
+    DefToken _ maybeTypeAndId:MaybeTypeAndId _ "=" _ val:Expression
+    {
+        return {
+            type : "Def",
+            id : maybeTypeAndId.id,
+            val : val,
+            explicitType : maybeTypeAndId.type
+        };
+    }
+
+NodeDef = 
+    NodeDefToken _ maybeTypeAndId:MaybeTypeAndId _  "=" _ NewToken _ "{" 
+        LineSeparator IndentToken _ head:NodeField _
+        tail:(LineSeparator field:NodeField _ {return field})* ___ DedentToken ___ "}" _ {
+            return {
+                type : "NodeDef",
+                id : maybeTypeAndId.id,
+                fields : [head].concat(tail)
+            };
+        }
+
+NodeField =
+    NodeMemberDef
+    
+NodeMemberDef =
+    DefDecl
 
 ChainedConnection =
     signal:Id _ links:Link+ {
@@ -508,6 +529,7 @@ Keyword
       / "typeof"
       / "def"
       / "var"
+      / "node"
       / "slot"
       / "signal"
       / "gen"
@@ -544,6 +566,8 @@ SlotToken       = "slot"             !IdentifierPart
 ReturnToken     = "return"           !IdentifierPart
 GenToken        = "gen"              !IdentifierPart
 DefToken        = "def"              !IdentifierPart
+NodeDefToken        = "node"              !IdentifierPart
+NewToken        = "new"              !IdentifierPart
 VarToken        = "var"              !IdentifierPart
 IndentToken        = "$>"              
 DedentToken        = "$<"              

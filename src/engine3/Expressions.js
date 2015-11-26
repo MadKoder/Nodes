@@ -412,17 +412,46 @@ function makeMemberExpression(exprGraph, library, genericTypeParams)
     // Instanciate class type
     var classType = library.classes[expr.type.base](expr.type.args);
     // And get the member type
-    var fieldType = classType.varsType[exprGraph.field.name];
+    var fieldType = classType.varsType[fieldName];
+    // Base case : a struct
+
+    // TODO adds fields getter to structs
+    var fieldGetter = {
+        "type": "Identifier",
+        "name": fieldName
+    };
+
+    var exprAst = {
+        "type": "MemberExpression",
+        "computed": false,
+        "object": expr.getAst(),
+        "property": {
+            "type": "Identifier",
+            "name": fieldName
+        }
+    };
+
+    if("fieldsHasGetter" in classType) {
+        hasGetter = classType.fieldsHasGetter[fieldName];
+        if(hasGetter) {
+            exprAst = {
+                "type": "CallExpression",
+                "callee": {
+                    "type": "MemberExpression",
+                    "computed": false,
+                    "object": exprAst,
+                    "property": {
+                        "type": "Identifier",
+                        "name": "get"
+                    }
+                },
+                "arguments": []
+            };
+        }
+    }
+
     return new Expr(
-        {
-            "type": "MemberExpression",
-            "computed": false,
-            "object": expr.getAst(),
-            "property": {
-                "type": "Identifier",
-                "name": fieldName
-            }
-        },
+        exprAst,
         fieldType
     );
 }
