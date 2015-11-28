@@ -46,7 +46,7 @@ function makeDependencies(exprGraph, sinkId, sinkToSources)
 	if(exprGraph.type == "Id") {
 		var sourceId = exprGraph.name;
 		sinkToSources[sinkId][sourceId] = {};
-	} else if(exprGraph.type == "CallExpression") {
+	} else if(exprGraph.type == "FunctionCall") {
 		_.each(exprGraph.args, function(arg) {
 			makeDependencies(arg, sinkId, sinkToSources);
 		});
@@ -76,16 +76,28 @@ function compileGraph(graph, library, previousNodes)
 	for(var statementIndex = 0; statementIndex < graph.length; statementIndex++) {
 		var statementGraph = graph[statementIndex];		
 		if(statementGraph.type == "Var" || statementGraph.type == "Def") {
-		var nodeGraph = statementGraph;
-		var sinkId = nodeGraph.id.name;
-		// If node is a def, it is a leaf sink
-		if(nodeGraph.type == "def")
-		{
-			sinkToSources[sinkId] = {};
+			var nodeGraph = statementGraph;
+			var sinkId = nodeGraph.id.name;
+			// If node is a def, it is a leaf sink
+			if(nodeGraph.type == "Def") {
+				sinkToSources[sinkId] = {};
 
-			// Recursively gets sources of an expression				
-			makeDependencies(nodeGraph.val, sinkId, sinkToSources);
-		}
+				// Recursively gets sources of an expression				
+				makeDependencies(nodeGraph.val, sinkId, sinkToSources);
+			}
+		} else if(statementGraph.type == "NodeDef") {
+			var nodeGraph = statementGraph;
+			var nodeId = nodeGraph.id.name;
+			_.each(nodeGraph.fields, function(fieldGraph) {
+				var sinkId = nodeId + "." + fieldGraph.id.name;
+				
+				if(fieldGraph.type == "Def") {
+					sinkToSources[sinkId] = {};
+
+					// Recursively gets sources of an expression				
+					makeDependencies(fieldGraph.val, sinkId, sinkToSources);
+				}
+		    });
 		}
 	}
 
@@ -132,119 +144,10 @@ function compileGraph(graph, library, previousNodes)
 	for(var statementIndex = 0; statementIndex < graph.length; statementIndex++) {
 		var statementGraph = graph[statementIndex];
 		if(statementGraph.type == "Var") {
-			var nodeGraph = statementGraph;
-			var id = nodeGraph.id.name;		
-			var expr = makeExpr(nodeGraph.val, library, {});
-			prog.body = prog.body.concat(expr.instancesAst);
-			
-			var declaratorInit = expr.getAst();
-			if(isId(nodeGraph.val)) {
-				// If initial expression is a reference, clone its value
-				// so any change to the var won't impact the referenced node
-				// _.clone(expr.getAst(), true)
-				declaratorInit = {
-                    "type": "CallExpression",
-                    "callee": {
-                        "type": "MemberExpression",
-                        "computed": false,
-                        "object": {
-                            "type": "Identifier",
-                            "name": "_"
-                        },
-                        "property": {
-                            "type": "Identifier",
-                            "name": "clone"
-                        }
-                    },
-                    "arguments": [
-                        expr.getAst(),
-                        {
-                            "type": "Literal",
-                            "value": true,
-                            "raw": "true"
-                        }
-                    ]
-                };
-			}
-			// if expr is reference : var id = _.clone(expr.getAst(), true);
-			// else var id = expr.getAst();
-			var varDeclaration = ast.varDeclaration(id, declaratorInit);
-			prog.addStmnt(varDeclaration);
-
-			// Setup the sink list of the var
-			var sinkListVarName = "";
-			if(id in sourceToSinks) {
-				sinkListVarName = id + "$sinkList";
-				var sinks = sourceToSinks[id];
-				// It's an array made of the id of the leaf sinks
-				// var id$sinkList = [_.map(sinks, ast.identifier)];
-				var declaratorInit = {
-                    "type": "ArrayExpression",
-                    "elements": _.map(sinks, ast.identifier)
-                };
-				var varDeclaration = ast.varDeclaration(sinkListVarName, declaratorInit);
-				// instantiation of the list is made at the end of the program so that
-				// all references are valid
-				sinksListDeclarations.push(varDeclaration);
-			}
-			// getter == id
-			var getterAst = {
-                "type": "Identifier",
-                "name": id
-            };
-            library.nodes[id] = new Node(getterAst, expr.type, sinkListVarName);
+			makeVar(statementGraph, library, prog, sourceToSinks, sinksListDeclarations);
 		}
-		else if(statementGraph.type == "Def")
-		{
-			var nodeGraph = statementGraph;
-			var id = nodeGraph.id.name;
-			var expr = makeExpr(nodeGraph.val, library, {});					
-			prog.body = prog.body.concat(expr.instancesAst);
-			
-			// id = _def(function() {return expr.getAst(); });
-			var varDeclaration = ast.varDeclaration(
-				id,
-				{
-                    "type": "CallExpression",
-                    "callee": {
-                        "type": "Identifier",
-                        "name": "__def"
-                    },
-                    "arguments": [
-                        {
-                            "type": "FunctionExpression",
-                            "params": [],
-                            "body": {
-                                "type": "BlockStatement",
-                                "body": [
-                                    {
-                                        "type": "ReturnStatement",
-                                        "argument": expr.getAst()
-                                    }
-                                ]
-                            },
-                        }
-                    ]
-                });
-			prog.addStmnt(varDeclaration);
-			// getter == id.get()
-			var getterAst = {
-                "type": "CallExpression",
-                "callee": {
-                    "type": "MemberExpression",
-                    "computed": false,
-                    "object": {
-                        "type": "Identifier",
-                        "name": id
-                    },
-                    "property": {
-                        "type": "Identifier",
-                        "name": "get"
-                    }
-                },
-                "arguments": []
-            };
-			library.nodes[id] = new Node(getterAst, expr.type);
+		else if(statementGraph.type == "Def") {
+			makeDef(statementGraph, library, prog);
 		} else if(statementGraph.type == "SlotDef") {
 			makeGlobalSlot(statementGraph, library, prog);
 		} else if(statementGraph.type == "SignalDef") {
@@ -258,30 +161,16 @@ function compileGraph(graph, library, previousNodes)
 		}
 	}
 
-	var statementGraph = {
-		type : "NodeDef",
-		id : {
-			type: "Id",
-			name: "n"
-		},
-        fields: [
-	        {
-	        	type: "Def",
-	        	id: {
-	        		"type": "Id",
-	        		"name": "x"
-	        	},
-	        	val: {
-	        		"type": "Id",
-	        		"name": "x"
-	        	},
-	        	explicitType: null
-	        }
-	    ],
-      	explicitType: null
-	};
-	
-	// makeNodeDef(statementGraph, library, prog);
+    // Adds events sources to the sink to sources dict
+	// for(var i in eventsGraph) {
+	// 	var eventGraph = eventsGraph[i];
+	// 	var eventId = "__event__" + i;
+	// 	makeEvent(eventGraph, eventId, library, prog);
+	// }
+
+    for(var i in sinksListDeclarations) {
+		prog.addStmnt(sinksListDeclarations[i]);
+    }
 
 	return prog;
 
@@ -300,148 +189,10 @@ function compileGraph(graph, library, previousNodes)
 		}
 	}
 
-    for(var i = 0; i < graphNodes.length; i++) {
-		var nodeRow = graphNodes[i];
-		for(var j = 0; j < nodeRow.length; j++) {
-			var nodeGraph = nodeRow[j];
-			//try
-			{
-				if(nodeGraph.type == "var") {
-					var expr = makeExpr(nodeGraph.val, library, {});
-					prog.body = prog.body.concat(expr.instancesAst);
-					
-					var declaratorInit = expr.getAst();
-					if(isId(nodeGraph.val)) {
-						// If initial expression is a reference, clone its value
-						// so any change to the var won't impact the referenced node
-						// _.clone(expr.getAst(), true)
-						declaratorInit = {
-	                        "type": "CallExpression",
-	                        "callee": {
-	                            "type": "MemberExpression",
-	                            "computed": false,
-	                            "object": {
-	                                "type": "Identifier",
-	                                "name": "_"
-	                            },
-	                            "property": {
-	                                "type": "Identifier",
-	                                "name": "clone"
-	                            }
-	                        },
-	                        "arguments": [
-	                            expr.getAst(),
-	                            {
-	                                "type": "Literal",
-	                                "value": true,
-	                                "raw": "true"
-	                            }
-	                        ]
-	                    };
-					}
-					// if expr is reference : var id = _.clone(expr.getAst(), true);
-					// else var id = expr.getAst();
-					var varDeclaration = ast.varDeclaration(id, declaratorInit);
-					prog.addStmnt(varDeclaration);
-
-					// Setup the sink list of the var
-					var sinkListVarName = "";
-					if(id in sourceToSinks) {
-						sinkListVarName = id + "$sinkList";
-						var sinks = sourceToSinks[id];
-						// It's an array made of the id of the leaf sinks
-						// var id$sinkList = [_.map(sinks, ast.identifier)];
-						var declaratorInit = {
-	                        "type": "ArrayExpression",
-	                        "elements": _.map(sinks, ast.identifier)
-	                    };
-						var varDeclaration = ast.varDeclaration(sinkListVarName, declaratorInit);
-						// instantiation of the list is made at the end of the program so that
-						// all references are valid
-						sinksListDeclarations.push(varDeclaration);
-					}
-					// getter == id
-					var getterAst = {
-                        "type": "Identifier",
-                        "name": id
-                    };
-                    library.nodes[id] = new Node(getterAst, expr.type, sinkListVarName);
-				}
-				else
-				{
-					var expr = makeExpr(nodeGraph.val, library, {});					
-					prog.body = prog.body.concat(expr.instancesAst);
-					
-					// id = _def(function() {return expr.getAst(); });
-					var varDeclaration = ast.varDeclaration(
-						id,
-						{
-	                        "type": "CallExpression",
-	                        "callee": {
-	                            "type": "Identifier",
-	                            "name": "__def"
-	                        },
-	                        "arguments": [
-	                            {
-	                                "type": "FunctionExpression",
-	                                "params": [],
-	                                "body": {
-	                                    "type": "BlockStatement",
-	                                    "body": [
-	                                        {
-	                                            "type": "ReturnStatement",
-	                                            "argument": expr.getAst()
-	                                        }
-	                                    ]
-	                                },
-	                            }
-	                        ]
-	                    });
-					prog.addStmnt(varDeclaration);
-					// getter == id.get()
-					var getterAst = {
-                        "type": "CallExpression",
-                        "callee": {
-                            "type": "MemberExpression",
-                            "computed": false,
-                            "object": {
-                                "type": "Identifier",
-                                "name": id
-                            },
-                            "property": {
-                                "type": "Identifier",
-                                "name": "get"
-                            }
-                        },
-                        "arguments": []
-                    };
-					library.nodes[id] = new Node(getterAst, expr.type);
-				}
-			}
-			// catch(err) // For release version only
-			// {
-				// console.log(err);
-				// error("Cannot build node " + id);
-			// }
-		}
-    }
-
-	
 	var actionsGraph = graph.actions;
 	for(var i = 0; i < actionsGraph.length; i++)
 	{
 		makeAction(actionsGraph[i], library, prog);
-    }
-
-    // Adds events sources to the sink to sources dict
-	for(var i in eventsGraph) {
-		var eventGraph = eventsGraph[i];
-		var eventId = "__event__" + i;
-		makeEvent(eventGraph, eventId, library, prog);
-	}
-
-    for(var i in sinksListDeclarations) {
-		prog.addStmnt(sinksListDeclarations[i]);
     }
 
     return prog;

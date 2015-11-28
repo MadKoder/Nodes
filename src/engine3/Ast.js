@@ -7,7 +7,7 @@ ast = {
     	    value: value
     	}
     },
-    identifier : function(name)
+    id : function(name)
     {
     	return {
     	    type: "Identifier",
@@ -26,7 +26,7 @@ ast = {
     {
     	return {
     		type : "VariableDeclarator",
-    		id : this.identifier(id),
+    		id : ast.id(id),
     		init : init
     	}
     },
@@ -34,7 +34,7 @@ ast = {
     {
     	return {
     		type: "VariableDeclaration",
-    	    declarations: [this.varDeclarator(id, init)],
+    	    declarations: [ast.varDeclarator(id, init)],
     	    kind: "var"
     	}
     },
@@ -72,10 +72,10 @@ ast = {
         }
     },
     functionDeclaration : function(funcId, paramsId, bodyAst) {
-        return this.funcDeclOrExpr("FunctionDeclaration", funcId, paramsId, bodyAst);
+        return ast.funcDeclOrExpr("FunctionDeclaration", funcId, paramsId, bodyAst);
     },
     functionExpression : function(funcId, paramsId, bodyAst) {
-        return this.funcDeclOrExpr("FunctionExpression", funcId, paramsId, bodyAst);
+        return ast.funcDeclOrExpr("FunctionExpression", funcId, paramsId, bodyAst);
     },
     blockStatement : function(statements) {
         return {

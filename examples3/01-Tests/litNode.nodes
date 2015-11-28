@@ -1,5 +1,6 @@
 var x = 10
 var y = 100
+def c = x + 10
 
 node n = new {
 	def x = x + 10
@@ -7,3 +8,6 @@ node n = new {
 }
 
 def z = n.x
+
+slot tick do
+	x = 1000

@@ -88,7 +88,11 @@ $.get(fileName, function( text ) {
 		appendText(n.x.get());
 		appendText(n.y.get());
 		appendText(z.get());
+		appendText(c.get());
 		// appendText(n.z);
+		tick();
+		appendText(n.x.get());
+		appendText(c.get());
 	} else if(fileName == "signalSlots.nodes") {
 		appendText(x);
 		sig(10);
