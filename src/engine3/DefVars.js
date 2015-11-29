@@ -1,4 +1,4 @@
-function makeVar(nodeGraph, library, prog, sourceToSinks, sinksListDeclarations) {
+function makeVar(nodeGraph, library, prog, sourceToSinks) {
     var id = nodeGraph.id.name;     
     var expr = makeExpr(nodeGraph.val, library, {});
     prog.body = prog.body.concat(expr.instancesAst);
@@ -41,21 +41,32 @@ function makeVar(nodeGraph, library, prog, sourceToSinks, sinksListDeclarations)
     var sinkListVarName = "";
     if(id in sourceToSinks) {
         sinkListVarName = id + "$sinkList";
-        var sinks = sourceToSinks[id];
-        // It's an array made of the id of the leaf sinks
-        // var id$sinkList = [_.map(sinks, ast.id)];
-        var declaratorInit = {
-            "type": "ArrayExpression",
-            "elements": _.map(sinks, ast.id)
-        };
-        var varDeclaration = ast.varDeclaration(sinkListVarName, declaratorInit);
-        // instantiation of the list is made at the end of the program so that
-        // all references are valid
-        sinksListDeclarations.push(varDeclaration);
     }
+    
     // getter == id
     var getterAst = ast.id(id);
     library.nodes[id] = new Node(getterAst, expr.type, sinkListVarName);
+}
+
+function getDefInitAst(expr) {
+    return ast.callExpression(
+        "__def",
+        [
+            {
+                "type": "FunctionExpression",
+                "params": [],
+                "body": {
+                    "type": "BlockStatement",
+                    "body": [
+                        {
+                            "type": "ReturnStatement",
+                            "argument": expr.ast
+                        }
+                    ]
+                },
+            }
+        ]
+    )
 }
 
 function makeDef(nodeGraph, library, prog) {
@@ -66,28 +77,8 @@ function makeDef(nodeGraph, library, prog) {
     // id = _def(function() {return expr.getAst(); });
     var varDeclaration = ast.varDeclaration(
         id,
-        {
-            "type": "CallExpression",
-            "callee": {
-                "type": "Identifier",
-                "name": "__def"
-            },
-            "arguments": [
-                {
-                    "type": "FunctionExpression",
-                    "params": [],
-                    "body": {
-                        "type": "BlockStatement",
-                        "body": [
-                            {
-                                "type": "ReturnStatement",
-                                "argument": expr.getAst()
-                            }
-                        ]
-                    },
-                }
-            ]
-        });
+        getDefInitAst(expr)
+    );
     prog.addStmnt(varDeclaration);
     // getter == id.get()
     var getterAst = {

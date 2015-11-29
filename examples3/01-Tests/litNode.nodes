@@ -5,9 +5,27 @@ def c = x + 10
 node n = new {
 	def x = x + 10
 	def y = self.x + 100
+	var z = x + 50
 }
 
 def z = n.x
 
+def zz = n.z
+
+# node n2 = new {
+# 	def x = x + 100
+# 	slot st x:int y:int do
+# 		self.x = x + y
+# }
+
 slot tick do
 	x = 1000
+
+# gen nodeGen :: @{x:int, st:int=>int=>(), sg:()=>int} do
+# 	return new {
+# 		def x = x + 100
+# 		slot st x:int y:int do
+# 			self.x = x + y
+# 			sg x * 10
+# 		signal sg :: int
+# 	}

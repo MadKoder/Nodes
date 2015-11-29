@@ -1,29 +1,5 @@
-function makeDefInNode(defGraph, library){
-    var id = defGraph.id.name;
-
-    var expr = makeExpr(defGraph.val, library, {});
-    
-    // id = __def(function() {return expr.getAst(); });
-    var defValAst = ast.callExpression(
-        "__def",
-        [
-            {
-                "type": "FunctionExpression",
-                "params": [],
-                "body": {
-                    "type": "BlockStatement",
-                    "body": [
-                        {
-                            "type": "ReturnStatement",
-                            "argument": expr.ast
-                        }
-                    ]
-                },
-            }
-        ]
-    );
-    
-    var defDeclarationAst = {
+function makeThisDeclaration(id, defValAst) {
+    return {
         "type": "ExpressionStatement",
         "expression": {
             "type": "AssignmentExpression",
@@ -42,12 +18,68 @@ function makeDefInNode(defGraph, library){
             "right": defValAst
         }
     };
+}
 
-    library 
+function makeDefInNode(defGraph, library){
+    var id = defGraph.id.name;
+
+    var expr = makeExpr(defGraph.val, library, {});
+    
+    // id = __def(function() {return expr.getAst(); });
+    var defValAst = getDefInitAst(expr);
+    
+    var defDeclarationAst = makeThisDeclaration(id, defValAst);
+
     return {
         ast : defDeclarationAst,
         type : expr.type,
         hasGetter : true
+    };
+}
+
+function makeVarInNode(varGraph, library, prog, sourceToSinks, sinksListDeclarations) {
+    var id = varGraph.id.name;     
+    var expr = makeExpr(varGraph.val, library, {});
+    // TODO
+    // prog.body = prog.body.concat(expr.instancesAst);
+    
+    var declaratorInit = expr.getAst();
+    if(isId(varGraph.val)) {
+        // If initial expression is a reference, clone its value
+        // so any change to the var won't impact the referenced node
+        // _.clone(expr.getAst(), true)
+        declaratorInit = {
+            "type": "CallExpression",
+            "callee": {
+                "type": "MemberExpression",
+                "computed": false,
+                "object": {
+                    "type": "Identifier",
+                    "name": "_"
+                },
+                "property": {
+                    "type": "Identifier",
+                    "name": "clone"
+                }
+            },
+            "arguments": [
+                expr.getAst(),
+                {
+                    "type": "Literal",
+                    "value": true,
+                    "raw": "true"
+                }
+            ]
+        };
+    }
+    // if expr is reference : var id = _.clone(expr.getAst(), true);
+    // else var id = expr.getAst();
+    var varDeclarationAst = makeThisDeclaration(id, declaratorInit);
+
+    return {
+        ast : varDeclarationAst,
+        type : expr.type,
+        hasGetter : false
     };
 }
 
@@ -95,14 +127,25 @@ function makeNodeDef(nodeGraph, library, prog) {
     var fieldsType = {};
     var fieldsHasGetter = {};
     _.each(nodeGraph.fields, function(fieldGraph) {
-        var defDeclaration = makeDefInNode(fieldGraph, localLibrary);
-        bodyAst.push(defDeclaration.ast);
-        var fieldName = fieldGraph.id.name;
-        fieldsType[fieldName] = defDeclaration.type;
-        fieldsHasGetter[fieldName] = defDeclaration.hasGetter;
+        if(fieldGraph.type == "Def") {
+            var defDeclaration = makeDefInNode(fieldGraph, localLibrary);
+            bodyAst.push(defDeclaration.ast);
+            var fieldName = fieldGraph.id.name;
+            fieldsType[fieldName] = defDeclaration.type;
+            fieldsHasGetter[fieldName] = defDeclaration.hasGetter;
 
-        localVarsType[fieldName] = defDeclaration.type;
-        localFieldsHasGetter[fieldName] = defDeclaration.hasGetter;
+            localVarsType[fieldName] = defDeclaration.type;
+            localFieldsHasGetter[fieldName] = defDeclaration.hasGetter;
+        } else if(fieldGraph.type == "Var") {
+            var varDeclaration = makeVarInNode(fieldGraph, localLibrary);
+            bodyAst.push(varDeclaration.ast);
+            var fieldName = fieldGraph.id.name;
+            fieldsType[fieldName] = varDeclaration.type;
+            fieldsHasGetter[fieldName] = varDeclaration.hasGetter;
+
+            localVarsType[fieldName] = varDeclaration.type;
+            localFieldsHasGetter[fieldName] = varDeclaration.hasGetter;
+        }
     });
 
     var nodeDefAst = {

@@ -78,15 +78,7 @@ GenDef =
 
 Node =
     DefDecl
-	/ VarToken _ maybeTypeAndId:MaybeTypeAndId _  val:("=" _ val:Expression {return val;})?
-	{
-		return {
-			type : "Var",
-			id : maybeTypeAndId.id,
-			val : val,
-			explicitType : maybeTypeAndId.type
-		};
-	}
+	/ VarDecl
     / NodeDef
 
 DefDecl =
@@ -100,6 +92,17 @@ DefDecl =
         };
     }
 
+VarDecl = 
+    VarToken _ maybeTypeAndId:MaybeTypeAndId _  val:("=" _ val:Expression {return val;})?
+    {
+        return {
+            type : "Var",
+            id : maybeTypeAndId.id,
+            val : val,
+            explicitType : maybeTypeAndId.type
+        };
+    }
+    
 NodeDef = 
     NodeDefToken _ maybeTypeAndId:MaybeTypeAndId _  "=" _ NewToken _ "{" 
         LineSeparator IndentToken _ head:NodeField _
@@ -116,6 +119,7 @@ NodeField =
     
 NodeMemberDef =
     DefDecl
+    / VarDecl
 
 ChainedConnection =
     signal:Id _ links:Link+ {

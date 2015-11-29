@@ -15,9 +15,18 @@
 <body>
 
     <textarea id="input" rows="40" cols="100">
+var x = 10
+var y = 100
+def c = x + 10
+
 node n = new {
-    def x = x
+    def x = x + 10
+    def y = self.x + 100
+    var z = x + 50
 }
+
+def z = n.x
+
     </textarea>
 
     <textarea id="output" rows="40" cols="100">

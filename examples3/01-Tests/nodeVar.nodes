@@ -1,0 +1,5 @@
+node n = new {
+	var x = 10
+}
+
+def y = n.x

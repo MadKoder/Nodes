@@ -39,8 +39,8 @@ function __def(getter)
 	};
 }
 
-// Recursively gets sources of an expression				
-function makeDependencies(exprGraph, sinkId, sinkToSources)
+// Recursively gets sources of an expression
+function makeDependencies(exprGraph, sinkId, sinkToSources, nodeRefs)
 {
 	// If the expression is an id, it is a source (maybe not root)
 	if(exprGraph.type == "Id") {
@@ -48,10 +48,16 @@ function makeDependencies(exprGraph, sinkId, sinkToSources)
 		sinkToSources[sinkId][sourceId] = {};
 	} else if(exprGraph.type == "FunctionCall") {
 		_.each(exprGraph.args, function(arg) {
-			makeDependencies(arg, sinkId, sinkToSources);
+			makeDependencies(arg, sinkId, sinkToSources, nodeRefs);
 		});
 	}  else if(exprGraph.type == "MemberExpression") {
-		makeDependencies(exprGraph.obj, sinkId, sinkToSources);
+		// The dependency is a node refs, dependendy must be made to the field
+		if(exprGraph.obj.name in nodeRefs) {
+			var sourceId = exprGraph.obj.name + "$" + exprGraph.field.name;
+			sinkToSources[sinkId][sourceId] = {};
+		} else {
+			makeDependencies(exprGraph.obj, sinkId, sinkToSources, nodeRefs);
+		}
 	}
 }
 
@@ -68,6 +74,13 @@ function compileGraph(graph, library, previousNodes)
 	
     var sinkToSources = {};
     var sourceToSinks = {};
+    var nodeRefs = {};
+    for(var statementIndex = 0; statementIndex < graph.length; statementIndex++) {
+		var statementGraph = graph[statementIndex];
+		if(statementGraph.type == "NodeDef") {
+			nodeRefs[statementGraph.id.name] = {};
+		}
+	};
 
 	// Builds the sinkToSources dict
 	// For each leaf sink (defs), get its direct sources by examining its expression
@@ -83,7 +96,7 @@ function compileGraph(graph, library, previousNodes)
 				sinkToSources[sinkId] = {};
 
 				// Recursively gets sources of an expression				
-				makeDependencies(nodeGraph.val, sinkId, sinkToSources);
+				makeDependencies(nodeGraph.val, sinkId, sinkToSources, nodeRefs);
 			}
 		} else if(statementGraph.type == "NodeDef") {
 			var nodeGraph = statementGraph;
@@ -95,7 +108,7 @@ function compileGraph(graph, library, previousNodes)
 					sinkToSources[sinkId] = {};
 
 					// Recursively gets sources of an expression				
-					makeDependencies(fieldGraph.val, sinkId, sinkToSources);
+					makeDependencies(fieldGraph.val, sinkId, sinkToSources, nodeRefs);
 				}
 		    });
 		}
@@ -107,7 +120,7 @@ function compileGraph(graph, library, previousNodes)
 		var eventGraph = eventsGraph[i];
 		var eventId = "__event__" + i;
 		sinkToSources[eventId] = {};
-		makeDependencies(eventGraph.condition, eventId, sinkToSources);
+		makeDependencies(eventGraph.condition, eventId, sinkToSources, nodeRefs);
 	}*/
 
 	// Builds the root sources to leaf sinks dict,
@@ -139,12 +152,10 @@ function compileGraph(graph, library, previousNodes)
 		addRootSourcesOfCurrentLeafSink(leafSinkId);
 	}
 
-	var sinksListDeclarations = [];
-
 	for(var statementIndex = 0; statementIndex < graph.length; statementIndex++) {
 		var statementGraph = graph[statementIndex];
 		if(statementGraph.type == "Var") {
-			makeVar(statementGraph, library, prog, sourceToSinks, sinksListDeclarations);
+			makeVar(statementGraph, library, prog, sourceToSinks);
 		}
 		else if(statementGraph.type == "Def") {
 			makeDef(statementGraph, library, prog);
@@ -161,16 +172,25 @@ function compileGraph(graph, library, previousNodes)
 		}
 	}
 
+	for(var id in sourceToSinks) {
+        sinkListVarName = id + "$sinkList";
+        var sinks = sourceToSinks[id];
+        // It's an array made of the id of the leaf sinks
+        // var id$sinkList = [_.map(sinks, ast.id)];
+        var declaratorInit = {
+            "type": "ArrayExpression",
+            "elements": _.map(sinks, ast.id)
+        };
+        var varDeclaration = ast.varDeclaration(sinkListVarName, declaratorInit);
+        prog.addStmnt(varDeclaration);
+    }
+
     // Adds events sources to the sink to sources dict
 	// for(var i in eventsGraph) {
 	// 	var eventGraph = eventsGraph[i];
 	// 	var eventId = "__event__" + i;
 	// 	makeEvent(eventGraph, eventId, library, prog);
 	// }
-
-    for(var i in sinksListDeclarations) {
-		prog.addStmnt(sinksListDeclarations[i]);
-    }
 
 	return prog;
 

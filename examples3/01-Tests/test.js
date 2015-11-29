@@ -14,6 +14,7 @@ var library =
 };
 
 var fileName = "test.nodes";
+// var fileName = "nodeVar.nodes";
 var fileName = "litNode.nodes";
 // var fileName = "signalSlots.nodes";
 // var fileName = "syntax.nodes";
@@ -43,6 +44,16 @@ $.get(fileName, function( text ) {
 	var $test = $("#test");
 
 	$.globalEval(src)
+
+	// var n2 = new function () {
+ //        var that = this;
+ //        this.x = __def(function () {
+ //            return x + 100;
+ //        });
+ //        this.st = function (x, y) {
+ //            that.x.get() + 100;
+ //        });
+ //    }();
 
 	// var nSrc = escodegen.generate(nProg);
 	// $.globalEval(nSrc);
@@ -83,16 +94,21 @@ $.get(fileName, function( text ) {
 		appendText([v.get().x, v.get().y].join(", "));
 		appendText([w0.x, w0.y].join(", "));
 		appendText([w.x, w.y].join(", "));
+	} else if(fileName == "nodeVar.nodes") {
+		appendText(n.x);
+		appendText(y.get());
 	} else if(fileName == "litNode.nodes") {
 		appendText(x);
 		appendText(n.x.get());
 		appendText(n.y.get());
+		appendText(n.z);
 		appendText(z.get());
 		appendText(c.get());
 		// appendText(n.z);
 		tick();
 		appendText(n.x.get());
 		appendText(c.get());
+		appendText(zz.get());
 	} else if(fileName == "signalSlots.nodes") {
 		appendText(x);
 		sig(10);

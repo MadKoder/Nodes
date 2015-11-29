@@ -36,6 +36,7 @@ function makeStruct(structGraph, library, prog)
             };
         });
 
+        // TODO remove slots from structs (?)
         // Extract slots from the list of fields
 		var slots = _.filter(structGraph.fields, function(field) {
 			return field.type === "Slot";

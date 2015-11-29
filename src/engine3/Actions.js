@@ -1,80 +1,3 @@
-
-function makeRefAst(ref, library, genericTypeParams)
-{
-    // TODO check existence, type ...
-    if(ref.type == "Id")
-    {
-        // If the reference is an attribute of current object (if we are in an object),
-        // The reference must be a this expression
-        var id = ref.name;
-        if(id in library.attribs)
-        {
-            return {
-                "type": "MemberExpression",
-                "computed": false,
-                "object": {
-                    "type": "ThisExpression"
-                },
-                "property": {
-                    "type": "Identifier",
-                    "name": id
-                }
-            }
-        }
-        return {
-            "type": "Identifier",
-            "name": id
-        }
-    } else if(ref.type == "MemberReference")
-    {
-        var objAst = makeRefAst(ref.obj, library, genericTypeParams);
-        return {
-            "type": "MemberExpression",
-            "computed": false,
-            "object": objAst,
-            "property": {
-                "type": "Identifier",
-                "name": ref.field.name
-            }
-        }
-    }
-}
-
-function makeDirtyAst(ref, library, genericTypeParams)
-{
-    // TODO check existence, type ...
-    if(ref.type == "Id")
-    {
-        var id = ref.name;
-        if(id in library.attribs)
-        {
-            //?
-        } else {
-            var node = library.nodes[id];
-            if(node.sinkListVarName.length > 0)
-            {
-                return {
-                    "type": "CallExpression",
-                    "callee": {
-                        "type": "Identifier",
-                        "name": "__dirtySinks"
-                    },
-                    "arguments": [
-                        {
-                            "type": "Identifier",
-                            "name": node.sinkListVarName
-                        }
-                    ]
-                }
-            }
-        }
-        return null;
-    } else if(ref.type == "MemberReference")
-    {
-        return makeDirtyAst(ref.obj, library, genericTypeParams);
-    }
-}
-
 function makeAssignmentRightAst(rightGraph, library, genericTypeParams) {
     var exprAst = makeExpr(rightGraph, library, genericTypeParams).getAst();
     var rightAst = exprAst;
@@ -162,23 +85,91 @@ function makeDestructAssignment(assignmentGraph, library, genericTypeParams) {
     };
 }
 
-function makeAssignment(assignmentGraph, library, genericTypeParams) {
-    var rightAst = makeAssignmentRightAst(assignmentGraph.value, library, genericTypeParams);
+function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
+    // TODO check existence, type ...
+    if(targetGraph.type == "Id")
+    {
+        // If the reference is an attribute of current object (if we are in an object),
+        // The reference must be a this expression
+        // TODO change for object syntax
+        var id = targetGraph.name;
+        if(id in library.attribs)
+        {
+            return {
+                target : {
+                    "type": "MemberExpression",
+                    "computed": false,
+                    "object": {
+                        "type": "ThisExpression"
+                    },
+                    "property": {
+                        "type": "Identifier",
+                        "name": id
+                    }
+                },
+                dirty : null
+            };
+        } else {
+            var node = library.nodes[id];
+            var dirtyAst = null;
+            if(node.sinkListVarName.length > 0)
+            {
+                dirtyAst = {
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "Identifier",
+                        "name": "__dirtySinks"
+                    },
+                    "arguments": [
+                        {
+                            "type": "Identifier",
+                            "name": node.sinkListVarName
+                        }
+                    ]
+                }
+            }
 
-    var targetAst =  makeRefAst(assignmentGraph.target, library, genericTypeParams);
+            return {
+                target : {
+                    "type": "Identifier",
+                    "name": id
+                },
+                dirty : dirtyAst
+            }
+        }
+    } else if(targetGraph.type == "MemberReference")
+    {
+        var targetandDirtyAst = makeTargetAndDiryAst(targetGraph.obj, library, genericTypeParams);
+        return {
+            target : {
+                "type": "MemberExpression",
+                "computed": false,
+                "object": targetandDirtyAst.target,
+                "property": {
+                    "type": "Identifier",
+                    "name": targetGraph.field.name
+                }
+            },
+            dirty : targetandDirtyAst.dirty
+        };
+    }
+}
+
+function getSetterAst(targetGraph, library, genericTypeParams, valueAst) {
+    var targetandDirtyAst = makeTargetAndDiryAst(targetGraph, library, genericTypeParams);
+    
     // TODO check existence and type of target
     var assignmentAst = {
         "type": "ExpressionStatement",
         "expression": {
             "type": "AssignmentExpression",
             "operator": "=",
-            "left": targetAst,
-            "right": rightAst
+            "left": targetandDirtyAst.target,
+            "right": valueAst
         }
     };
 
-    var dirtyAst =  makeDirtyAst(assignmentGraph.target, library, genericTypeParams);
-    if(dirtyAst != null)
+    if(targetandDirtyAst.dirty != null)
     {
         return {
             "type": "BlockStatement",
@@ -186,11 +177,19 @@ function makeAssignment(assignmentGraph, library, genericTypeParams) {
                 assignmentAst,
                 {
                     "type": "ExpressionStatement",
-                    "expression": dirtyAst
+                    "expression": targetandDirtyAst.dirty
                 }
             ]
         };
     }
+
+    return assignmentAst;
+}
+function makeAssignment(assignmentGraph, library, genericTypeParams) {
+    var rightAst = makeAssignmentRightAst(assignmentGraph.value, library, genericTypeParams);
+
+    var assignmentAst =  getSetterAst(assignmentGraph.target, library, genericTypeParams, rightAst);
+    
     return assignmentAst;
 }
 
