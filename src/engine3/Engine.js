@@ -41,7 +41,7 @@ function __def(getter)
 }
 
 // Recursively gets sources of an expression
-function makeDependencies(exprGraph, sinkId, sinkToSources, nodeRefs)
+function makeDependencies(exprGraph, sinkId, sinkToSources, nodeRefs, parentNodeId)
 {
 	// If the expression is an id, it is a source (maybe not root)
 	if(exprGraph.type == "Id") {
@@ -49,15 +49,20 @@ function makeDependencies(exprGraph, sinkId, sinkToSources, nodeRefs)
 		sinkToSources[sinkId][sourceId] = {};
 	} else if(exprGraph.type == "FunctionCall") {
 		_.each(exprGraph.args, function(arg) {
-			makeDependencies(arg, sinkId, sinkToSources, nodeRefs);
+			makeDependencies(arg, sinkId, sinkToSources, nodeRefs, parentNodeId);
 		});
 	}  else if(exprGraph.type == "MemberExpression") {
+		var objId = exprGraph.obj.name;
+		// If the object name is "self", change it to parent id
+		if(objId == "self") {
+			objId = parentNodeId;
+		}
 		// The dependency is a node refs, dependendy must be made to the field
-		if(exprGraph.obj.name in nodeRefs) {
-			var sourceId = exprGraph.obj.name + "$" + exprGraph.field.name;
+		if(objId in nodeRefs) {
+			var sourceId = objId + "." + exprGraph.field.name;
 			sinkToSources[sinkId][sourceId] = {};
 		} else {
-			makeDependencies(exprGraph.obj, sinkId, sinkToSources, nodeRefs);
+			makeDependencies(exprGraph.obj, sinkId, sinkToSources, nodeRefs, parentNodeId);
 		}
 	}
 }
@@ -97,7 +102,7 @@ function compileGraph(graph, library, previousNodes)
 				sinkToSources[sinkId] = {};
 
 				// Recursively gets sources of an expression				
-				makeDependencies(nodeGraph.val, sinkId, sinkToSources, nodeRefs);
+				makeDependencies(nodeGraph.val, sinkId, sinkToSources, nodeRefs, "");
 			}
 		} else if(statementGraph.type == "NodeDef") {
 			var nodeGraph = statementGraph;
@@ -109,7 +114,7 @@ function compileGraph(graph, library, previousNodes)
 					sinkToSources[sinkId] = {};
 
 					// Recursively gets sources of an expression				
-					makeDependencies(fieldGraph.val, sinkId, sinkToSources, nodeRefs);
+					makeDependencies(fieldGraph.val, sinkId, sinkToSources, nodeRefs, nodeId);
 				}
 		    });
 		}
@@ -173,8 +178,11 @@ function compileGraph(graph, library, previousNodes)
 		}
 	}
 
+
 	for(var id in sourceToSinks) {
-        sinkListVarName = id + "$sinkList";
+		// The members path in sourceToSinks are in the form n.x
+		// we transform them in the form n$x to be able to make valid variable names
+        sinkListVarName = memberPathToId(id) + "$sinkList";
         var sinks = sourceToSinks[id];
         // It's an array made of the id of the leaf sinks
         // var id$sinkList = [_.map(sinks, ast.id)];

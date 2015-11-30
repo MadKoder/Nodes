@@ -14,8 +14,9 @@ var library =
 };
 
 var fileName = "test.nodes";
+var fileName = "nodeDef.nodes";
 var fileName = "nodeVar.nodes";
-// var fileName = "litNode.nodes";
+var fileName = "litNode.nodes";
 // var fileName = "signalSlots.nodes";
 // var fileName = "syntax.nodes";
 // var fileName = "curried.nodes";
@@ -94,6 +95,18 @@ $.get(fileName, function( text ) {
 		appendText([v.get().x, v.get().y].join(", "));
 		appendText([w0.x, w0.y].join(", "));
 		appendText([w.x, w.y].join(", "));
+	} else if(fileName == "nodeDef.nodes") {
+		appendText(x);
+		appendText(n.x.get());
+		appendText(n.y.get());
+		appendText(z.get());
+		appendText(zz.get());
+		tick();
+		appendText(x);
+		appendText(n.x.get());
+		appendText(n.y.get());
+		appendText(z.get());
+		appendText(zz.get());
 	} else if(fileName == "nodeVar.nodes") {
 		appendText(n.x);
 		appendText(y.get());
@@ -107,11 +120,11 @@ $.get(fileName, function( text ) {
 		appendText(n.z);
 		appendText(z.get());
 		appendText(c.get());
-		// appendText(n.z);
+		appendText(n.z);
 		tick();
+		appendText(x);
 		appendText(n.x.get());
-		appendText(c.get());
-		appendText(zz.get());
+		appendText(z.get());
 	} else if(fileName == "signalSlots.nodes") {
 		appendText(x);
 		sig(10);

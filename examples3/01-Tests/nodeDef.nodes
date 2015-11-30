@@ -1,0 +1,12 @@
+var x = 10
+
+node n = new {
+    def x = x + 10
+    def y = self.x * 10
+}
+
+def z = n.x
+def zz = n.y
+
+slot tick do
+	x = 20

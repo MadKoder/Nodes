@@ -83,6 +83,11 @@ function makeVarInNode(varGraph, library, prog, sourceToSinks, sinksListDeclarat
     };
 }
 
+// Transform path of the form n.x to n$x
+function memberPathToId(p) {
+    return p.split(".").join("$");
+}
+
 function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
     var id = nodeGraph.id.name;
 
@@ -147,11 +152,17 @@ function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
             localVarsType[fieldName] = varDeclaration.type;
             localFieldsHasGetter[fieldName] = varDeclaration.hasGetter;
 
+            // Builds sink list var name for this field
+            // should be parent$field$sinkList
             var sinkListVarName = "";
-            var compoundId = id + "$" + fieldName;
-            if(compoundId in sourceToSinks) {
-                sinkListVarName = compoundId + "$sinkList";
+            // The member path is in the form n.x, this is what is stored in sourceToSinks
+            var memberPath = id + "." + fieldName;
+            // BUT the variable that store its sinks is in the for n$x$sinkList
+            var memberPathId = memberPathToId(memberPath);
+            if(memberPath in sourceToSinks) {
+                sinkListVarName = memberPathId + "$sinkList";
             }
+
             var getterAst = ast.id(id);
             fieldsNodes[fieldName] = new Node(getterAst, varDeclaration.type, sinkListVarName);
         }

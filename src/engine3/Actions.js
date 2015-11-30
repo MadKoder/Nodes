@@ -148,6 +148,7 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
         if(dirtyAst == null) {
             var parentId = targetGraph.obj.name;
             var parentNode = library.nodes[parentId];
+            // Search in parent for this field
             if(fieldName in parentNode.fields) {
                 var fieldNode = parentNode.fields[fieldName];
                 if(fieldNode.sinkListVarName.length > 0)
