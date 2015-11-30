@@ -15,19 +15,14 @@
 <body>
 
     <textarea id="input" rows="40" cols="100">
-var x = 10
-var y = 100
-def c = x + 10
-
 node n = new {
-    def x = x + 10
-    def y = self.x + 100
-    var z = x + 50
+    var x = 10
 }
 
-def z = n.x
+def y = n.x
 
-    </textarea>
+slot tick do
+    n.x = 100</textarea>
 
     <textarea id="output" rows="40" cols="100">
         At w3schools.com you will learn how to make a website. We offer free tutorials in all web development technologies.

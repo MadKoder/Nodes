@@ -8,11 +8,12 @@ function setLibrary(lib)
 	library = lib;
 }
 
-function Node(getterAst, type, sinkListVarName)
+function Node(getterAst, type, sinkListVarName, fields)
 {
 	this.type = type;
 	this.getterAst = getterAst;
 	this.sinkListVarName = sinkListVarName != undefined ? sinkListVarName : "";
+	this.fields = fields != undefined ? fields : {};
 }
 
 function __dirtySinks(sinks){
@@ -168,7 +169,7 @@ function compileGraph(graph, library, previousNodes)
 		} else if(statementGraph.type == "ChainedConnection") {
 			makeChainedConnection(statementGraph, library, prog);
 		} else if(statementGraph.type == "NodeDef") {
-			makeNodeDef(statementGraph, library, prog);
+			makeNodeDef(statementGraph, library, prog, sourceToSinks);
 		}
 	}
 

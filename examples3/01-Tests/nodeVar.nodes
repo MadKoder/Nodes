@@ -3,3 +3,6 @@ node n = new {
 }
 
 def y = n.x
+
+slot tick do
+	n.x = 100

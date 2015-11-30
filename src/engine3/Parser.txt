@@ -597,7 +597,7 @@ Event =
 	}
 
 Assignment = 
-	local:("var")? _ target:Id _ "=" _ value:Expression 
+	local:("var")? _ target:AssignmentTarget _ "=" _ value:Expression 
     {
 		return {
 			type : "Assignment",
@@ -606,6 +606,10 @@ Assignment =
             local : local != null
         };
 	}
+
+AssignmentTarget =
+    ChainedMemberExpression
+    / Id
 
 DestructAssignment = 
 	local:("var")? _ targets:IdList _ "=" _ value:Expression 

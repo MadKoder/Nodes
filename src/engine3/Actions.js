@@ -127,6 +127,8 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
                         }
                     ]
                 }
+            } else {
+
             }
 
             return {
@@ -137,9 +139,35 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
                 dirty : dirtyAst
             }
         }
-    } else if(targetGraph.type == "MemberReference")
+    } else if(targetGraph.type == "MemberExpression")
     {
         var targetandDirtyAst = makeTargetAndDiryAst(targetGraph.obj, library, genericTypeParams);
+        var dirtyAst = targetandDirtyAst.dirty;
+        var fieldName = targetGraph.field.name;
+        // If there was no dirty in parent structure, maybe the field has one
+        if(dirtyAst == null) {
+            var parentId = targetGraph.obj.name;
+            var parentNode = library.nodes[parentId];
+            if(fieldName in parentNode.fields) {
+                var fieldNode = parentNode.fields[fieldName];
+                if(fieldNode.sinkListVarName.length > 0)
+                {
+                    dirtyAst = {
+                        "type": "CallExpression",
+                        "callee": {
+                            "type": "Identifier",
+                            "name": "__dirtySinks"
+                        },
+                        "arguments": [
+                            {
+                                "type": "Identifier",
+                                "name": fieldNode.sinkListVarName
+                            }
+                        ]
+                    }
+                }
+            }
+        }
         return {
             target : {
                 "type": "MemberExpression",
@@ -147,10 +175,10 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
                 "object": targetandDirtyAst.target,
                 "property": {
                     "type": "Identifier",
-                    "name": targetGraph.field.name
+                    "name": fieldName
                 }
             },
-            dirty : targetandDirtyAst.dirty
+            dirty : dirtyAst
         };
     }
 }
@@ -185,6 +213,7 @@ function getSetterAst(targetGraph, library, genericTypeParams, valueAst) {
 
     return assignmentAst;
 }
+
 function makeAssignment(assignmentGraph, library, genericTypeParams) {
     var rightAst = makeAssignmentRightAst(assignmentGraph.value, library, genericTypeParams);
 

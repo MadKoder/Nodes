@@ -83,7 +83,7 @@ function makeVarInNode(varGraph, library, prog, sourceToSinks, sinksListDeclarat
     };
 }
 
-function makeNodeDef(nodeGraph, library, prog) {
+function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
     var id = nodeGraph.id.name;
 
     var thatAst = {
@@ -126,6 +126,7 @@ function makeNodeDef(nodeGraph, library, prog) {
 
     var fieldsType = {};
     var fieldsHasGetter = {};
+    var fieldsNodes = {};
     _.each(nodeGraph.fields, function(fieldGraph) {
         if(fieldGraph.type == "Def") {
             var defDeclaration = makeDefInNode(fieldGraph, localLibrary);
@@ -145,6 +146,14 @@ function makeNodeDef(nodeGraph, library, prog) {
 
             localVarsType[fieldName] = varDeclaration.type;
             localFieldsHasGetter[fieldName] = varDeclaration.hasGetter;
+
+            var sinkListVarName = "";
+            var compoundId = id + "$" + fieldName;
+            if(compoundId in sourceToSinks) {
+                sinkListVarName = compoundId + "$sinkList";
+            }
+            var getterAst = ast.id(id);
+            fieldsNodes[fieldName] = new Node(getterAst, varDeclaration.type, sinkListVarName);
         }
     });
 
@@ -184,7 +193,7 @@ function makeNodeDef(nodeGraph, library, prog) {
             "type": "Identifier",
             "name": id
     };
-    library.nodes[id] = new Node(getterAst, makeBaseType(typeId));
+    library.nodes[id] = new Node(getterAst, makeBaseType(typeId), "", fieldsNodes);
 
     library.classes[typeId] = function(typeArgs) {
         return {

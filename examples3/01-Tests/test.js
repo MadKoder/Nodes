@@ -14,8 +14,8 @@ var library =
 };
 
 var fileName = "test.nodes";
-// var fileName = "nodeVar.nodes";
-var fileName = "litNode.nodes";
+var fileName = "nodeVar.nodes";
+// var fileName = "litNode.nodes";
 // var fileName = "signalSlots.nodes";
 // var fileName = "syntax.nodes";
 // var fileName = "curried.nodes";
@@ -95,6 +95,9 @@ $.get(fileName, function( text ) {
 		appendText([w0.x, w0.y].join(", "));
 		appendText([w.x, w.y].join(", "));
 	} else if(fileName == "nodeVar.nodes") {
+		appendText(n.x);
+		appendText(y.get());
+		tick();
 		appendText(n.x);
 		appendText(y.get());
 	} else if(fileName == "litNode.nodes") {
