@@ -1,0 +1,8 @@
+# 2
+var litVar = 2
+# 3
+def litDef = 3
+# 5
+var exprVar = litVar + litDef
+# 15
+def exprDef = litVar + litDef + 10

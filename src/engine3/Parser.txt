@@ -597,7 +597,7 @@ Event =
 	}
 
 Assignment = 
-	local:("var")? _ target:AssignmentTarget _ "=" _ value:Expression 
+	local:(VarToken)? _ target:AssignmentTarget _ "=" _ value:Expression 
     {
 		return {
 			type : "Assignment",

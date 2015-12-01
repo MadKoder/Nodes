@@ -1,0 +1,10 @@
+var varSource = 0
+
+# After tick : 11 
+def varSink = varSource + 10
+
+# After tick : 21 
+def defSink = varSink + 10
+
+slot tick do
+	varSource = 1

@@ -1,0 +1,15 @@
+body { 
+  font-family: sans-serif 
+}
+
+.failed {
+	color : red;
+}
+
+.succeeded {
+	color : green;
+}
+
+.group {
+	font-weight: bold;
+}
