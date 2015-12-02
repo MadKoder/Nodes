@@ -1,0 +1,36 @@
+
+var listOfList = [new List, new List]
+def comprehension = [l.list for l in listOfList] # Nope !!!
+var comprehension = [l.list for l in listOfList] # OK !!!
+
+gen f() :: int do
+    send rand
+
+def comp = [f() for _ in range 10] # Nope !!!
+var comp = [f() for _ in range 10] # OK !!!
+
+slot tick do:
+    # Generator expression
+    var comp = [l.list for l in listOfList] # OK 
+
+var l = new List<int>()
+def view : list<int> = l.list # Nope 
+var view : list<int> = l.list # OK
+
+slot tick do
+    l = new List<int>()
+
+var model = new List [0, 1]
+var view = new ListView model (fun x -> x + 1)
+
+var x : int
+fun f param:int :: int->int # depends on var x
+    return (fun y:int -> y + param + x)
+
+# g z = z + x + 1
+def g : int->int = f 1 # depends on var x
+
+def comp = [g i for i in range 10] # OK, but depends on var x
+
+def comp = [(f 1) i for i in range 10] # OK, but depends on var x
+

@@ -1,0 +1,158 @@
+class List<T> {
+    var readonly list : list<T>
+    signal onPushFront :: T
+    slot pushFront x:T do
+        self.list = pushFront x self.list
+        self.onPushFront x
+    new list:list<T> do
+        self.list = list
+}
+
+class ListView<T, U> {
+    var readonly model : List<T>
+    var readonly view : List<U>
+    var readonly viewFunc : T->U
+    slot pushFront x:T do
+        self.view.pushFront (viewFunc x)
+
+    new model:List<T> viewFunc:T->U do
+        self.model = model
+        self.viewFunc = viewFunc
+        self.view = new List (map viewFunc self.model.list)
+        self.model.onPushFront += self.pushFront
+}
+
+# Bad, ListView is NOT a List, we shouldn't be able to push elements from outside
+# slot pushFront MUST be private
+class ListView<T, U> extends List<U> {
+    var readonly model : List<T>
+    var readonly viewFunc : T->U
+
+    new model:List<T> viewFunc:T->U do
+        super.new (map viewFunc model.list)
+        self.model = model
+        self.viewFunc = viewFunc
+        self.model.onPushFront += self.pushFront
+}
+
+# Bad, ListView is NOT a List, we shouldn't be able to push elements from outside
+# slot pushFront MUST be private
+class ListView<T, U> extends List<U> {
+    var readonly model : List<T>
+    var readonly viewFunc : T->U
+
+    new model:List<T> viewFunc:T->U do
+        super.new (map viewFunc model.list)
+        self.model = model
+        self.viewFunc = viewFunc
+
+    on self.model.onPushFront x do
+        self.pushFront x
+}
+
+# Mutable, public set and get
+var x
+# Mutable, public get
+var get x
+var readonly x
+# Mutable, no public set nor get
+var private x
+# Immutable, public get
+val x
+# Immutable, no public get
+val private x
+
+# Def, public get
+def x = a + b
+# Def, no public get
+def private x = a + b
+
+# Properties
+class K (
+    var x:int
+) {
+    slot x : int do
+        self.x = x + 1
+    def x : int = self.x - 1
+}
+
+########################################################
+trait Collection<T> {
+    def l:list<T>
+}
+
+class List<T> (
+    var readonly list : list<T> = []
+) {
+    signal onPushFront :: T
+    slot pushFront x:T do
+        self.list = pushFront x self.list
+        self.onPushFront x
+}
+
+class ListView<T, U> (
+    var readonly model : List<T>
+    var readonly viewFunc : T->U
+) {
+    var readonly view : List<U> = new List (map viewFunc self.model.list)
+    private slot pushFront x:T do
+        self.view.pushFront (viewFunc x)
+
+    new () do
+        self.model.onPushFront += self.pushFront
+}
+
+# Bad, ListView is NOT a List, we shouldn't be able to push elements from outside
+# slot pushFront MUST be private
+class ListView<T, U> (
+    var readonly model : List<T>
+    var readonly viewFunc : T->U
+) extends List<U> (
+    map viewFunc model.list
+) {
+    new () do
+        self.model.onPushFront += self.pushFront
+}
+
+##############################
+
+trait Collection<T> {
+    def l:list<T>
+    signal onPushFront :: T
+}
+
+class List<T> (
+    var readonly _l : list<T> = []
+) extends Collection<T> {
+    def l = self._l
+    slot pushFront x:T do
+        self.list = pushFront x self.list
+        self.onPushFront x
+}
+
+# Bad
+class ListView<T, U> (
+    var readonly model : List<T>
+    var readonly viewFunc : T->U
+) extends Collection<T> {
+    var readonly view : List<U> = new List (map viewFunc self.model.list)
+    def l = self.view.l # Nope
+    ...
+}
+
+# Better
+class ListView<T, U> (
+    var readonly model : List<T>
+    var readonly viewFunc : T->U
+) extends Collection<T> {
+    def l = self.view
+    var readonly view : list<U> = map viewFunc self.model.list
+
+    private slot pushFront x:T do
+        var y = self.viewFunc x
+        self.view = pushFront y self.view
+        self.onPushFront y
+
+    new () do
+        self.model.onPushFront += self.pushFront
+}

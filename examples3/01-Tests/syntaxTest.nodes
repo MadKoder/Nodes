@@ -44,6 +44,9 @@ slot testSlot y do x = y
 slot pipeSlot y
 	~> testSlot
 
+slot pipeSlot y do
+	testSlot y
+
 slot pipeSlot2 (x, y)
 	~~> gen2
 	~> testSlot

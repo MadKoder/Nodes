@@ -1,0 +1,9 @@
+node n = new {
+	var x = 0
+}
+
+slot tick do
+    var x = n.x
+	n = new {
+        var x = 10
+    }
