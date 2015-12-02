@@ -15,14 +15,19 @@
 <body>
 
     <textarea id="input" rows="40" cols="100">
-node n = new {
-    var x = 10
+var x = 0
+
+node litObj = new {
+    # 10, after tick : 110
+    def objDef = x + 10
+    # 20, after tick : 120
+    def objDefFromSelf = self.x + 10
+    # 20, after tick : 20
+    var objVar = x + 20
+    # 30, after tick : 30
+    var objVarFromSelf = self.x + 20
 }
-
-def y = n.x
-
-slot tick do
-    n.x = 100</textarea>
+</textarea>
 
     <textarea id="output" rows="40" cols="100">
         At w3schools.com you will learn how to make a website. We offer free tutorials in all web development technologies.

@@ -409,9 +409,14 @@ function makeMemberExpression(exprGraph, library, genericTypeParams)
     // TODO check types
 
     var fieldName = exprGraph.field.name;
-    // Instanciate class type
+    // Instanciate class type    
     var classType = library.classes[expr.type.base](expr.type.args);
     // And get the member type
+    if(!(fieldName in classType.varsType))
+    {
+        error("Field " + fieldName + " is not in object/struct of type " + typeToString(expr.type)
+            + ". Object/struct name: " + obj.name);
+    }
     var fieldType = classType.varsType[fieldName];
     // Base case : a struct
 

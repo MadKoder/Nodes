@@ -1,0 +1,31 @@
+var x = 0
+
+node litObj = new {
+	# 10, after tick : 110
+	def objDef = x + 10
+	# 20, after tick : 120
+	def objDefFromSelf = self.objDef + 10
+	# 20, after tick : 100
+	var objVar = x + 20
+	# 40, after tick : 40
+	var objVarFromSelf = self.objVar + 20
+}
+
+# 20, after tick : 120
+def defFromObjDef = litObj.objDef + 10
+
+# 20, after tick : 120
+def defFromObjDefFromSelf = litObj.objDefFromSelf
+
+# 20, after tick : 100
+def defFromObjVar = litObj.objVar
+
+# 10, after tick : 10
+var varFromObjDef = litObj.objDef
+
+# 30, after tick : 30
+var varFromObjVar = litObj.objVar + 10
+
+slot tick do
+	x = 100
+	litObj.objVar = 100

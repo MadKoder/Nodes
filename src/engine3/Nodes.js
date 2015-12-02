@@ -132,6 +132,12 @@ function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
     var fieldsType = {};
     var fieldsHasGetter = {};
     var fieldsNodes = {};
+    library.classes[typeId] = function(typeArgs) {
+        return {
+            varsType : fieldsType,
+            fieldsHasGetter : fieldsHasGetter
+        };
+    };
     _.each(nodeGraph.fields, function(fieldGraph) {
         if(fieldGraph.type == "Def") {
             var defDeclaration = makeDefInNode(fieldGraph, localLibrary);
@@ -206,10 +212,5 @@ function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
     };
     library.nodes[id] = new Node(getterAst, makeBaseType(typeId), "", fieldsNodes);
 
-    library.classes[typeId] = function(typeArgs) {
-        return {
-            varsType : fieldsType,
-            fieldsHasGetter : fieldsHasGetter
-        };
-    };
+
 }

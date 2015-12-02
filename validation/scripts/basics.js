@@ -1,11 +1,3 @@
-function makeJsSrc(nodeSrc) {
-    var canonicalStr = syntax.convert(nodeSrc);
-    var codeGraph = parser.parse(canonicalStr);
-    var prog = compileGraph(codeGraph, library);
-    var src = escodegen.generate(prog);
-    return src;
-}
-
 function basics(nodeSrc)
 {
     eval(makeJsSrc(nodeSrc));

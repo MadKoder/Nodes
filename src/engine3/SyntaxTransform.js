@@ -12,7 +12,7 @@ function getIndent(line)
     var match = /^(\s*)\S+/.exec(line);
     if(match != null)
         return match[1].length;
-    return 0;
+    return -1;
 }
 
 function splitCodeAndComment(line) {
@@ -43,6 +43,9 @@ function convert(input) {
         }
 
         indent = getIndent(code);
+        if(indent < 0) {
+            indent = blockIndent;
+        }
         var firstLineOfBlock = false;
         var outputLine = "";
         if(indent > blockIndent) {

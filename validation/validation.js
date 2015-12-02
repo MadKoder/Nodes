@@ -4,6 +4,7 @@ $(document).ready(function ()
 var baseFileNames = [
 	"basics"
 	,"dependencies"
+	,"objects"
 ];
 
 fileNames = _.map(_.clone(baseFileNames), function(fileName) {
@@ -15,13 +16,19 @@ var textArray = [];
 
 
 var validArray = [
-	basics,
-	dependencies
+	basics
+	,dependencies
+	,objects
 ]
 
+var startGroupIndex = 0;
 function validate() {
 
 	for(var i in textArray) {
+		// Jump test groups before start index
+		if(i < startGroupIndex) {
+			continue;
+		}
 		var nodeSrc = textArray[i];
 		// appendText(nodeSrc);
 
