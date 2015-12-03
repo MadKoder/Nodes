@@ -37,7 +37,7 @@ function makeDefInNode(defGraph, library){
     };
 }
 
-function makeVarInNode(varGraph, library, prog, sourceToSinks, sinksListDeclarations) {
+function makeVarInNode(varGraph, library) {
     var id = varGraph.id.name;     
     var expr = makeExpr(varGraph.val, library, {});
     // TODO
@@ -90,24 +90,6 @@ function memberPathToId(p) {
 
 function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
     var id = nodeGraph.id.name;
-
-    var thatAst = {
-        "type": "VariableDeclaration",
-        "declarations": [
-            {
-                "type": "VariableDeclarator",
-                "id": {
-                    "type": "Identifier",
-                    "name": "that"
-                },
-                "init": {
-                    "type": "ThisExpression"
-                }
-            }
-        ],
-        "kind": "var"
-    };
-    
 
     var bodyAst = [thatAst];
     

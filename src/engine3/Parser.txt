@@ -62,15 +62,18 @@ GenericParams =
     }
 
 ConstructorParams =
-    params:( "(" ___ IndentToken
+    params:( 
+        "(" ___ IndentToken
         head:ConstructorParam 
         tail:(
             LineSeparator
-            param:ConstructorParam
-            {return param;}
+            param:ConstructorParam {
+                return param;
+            }
         )* 
-        ___ DedentToken ___ ")" _
-        {return [head].concat(tail);}
+        ___ DedentToken ___ ")" _ {
+            return [head].concat(tail);
+        }
     )? {
         return params != null ? params : [];
     }

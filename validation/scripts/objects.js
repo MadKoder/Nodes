@@ -1,6 +1,7 @@
 function objects(nodeSrc)
 {
-    eval(makeJsSrc(nodeSrc));
+    var jsSrc = makeJsSrc(nodeSrc);
+    eval(jsSrc);
 
     assertEqual(litObj.objDef.get(), 10, "Object def");
     assertEqual(litObj.objDefFromSelf.get(), 20, "Object def from self");

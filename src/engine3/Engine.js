@@ -175,6 +175,8 @@ function compileGraph(graph, library, previousNodes)
 			makeChainedConnection(statementGraph, library, prog);
 		} else if(statementGraph.type == "NodeDef") {
 			makeNodeDef(statementGraph, library, prog, sourceToSinks);
+		} else if(statementGraph.type == "ClassDef") {
+			makeClass(statementGraph, library, prog);
 		}
 	}
 
