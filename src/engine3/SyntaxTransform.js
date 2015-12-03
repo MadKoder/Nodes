@@ -51,7 +51,8 @@ function convert(input) {
         if(indent > blockIndent) {
             // An indent, push a new block and add indent tag
             blockStack.push(indent);
-            outputLine += ";$>   ";
+            outputLine += "$>   ";
+            // outputLine += ";$>   ";
         } else if(indent < blockIndent) {
             // A dedent, find to which block in the stack it corresponds
             var nbDedent = 0;
@@ -71,16 +72,18 @@ function convert(input) {
             }
 
             if(nbDedent == 1) {
-                outputLine += "$<;  ";
+                outputLine += "$<  ";
+                // outputLine += "$<;  ";
             } else if(nbDedent == 2) {
-                outputLine += "$<$<;";
+                outputLine += "$<$<";
+                // outputLine += "$<$<;";
             } else {
                 outputLine += dedentArray.join("$<");
-                outputLine += ";";
+                // outputLine += ";";
             }
         } else {
             // Same indent, just adds a line separator
-            outputLine += ";    ";
+            // outputLine += ";    ";
         }
         outputLine += inputLine;
         outputLines.push(outputLine);
@@ -93,7 +96,7 @@ function convert(input) {
         for(var i = 0; i < blockStack.length - 1; i++) {
             outputLine += "$<"
         }
-        outputLine += ";";
+        // outputLine += ";";
         outputLines.push(outputLine);
     }
 

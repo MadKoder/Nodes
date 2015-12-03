@@ -15,18 +15,37 @@
 <body>
 
     <textarea id="input" rows="40" cols="100">
-var x = 0
+var x = 10
+var y = 100
+def c = x + 10
 
-node litObj = new {
-    # 10, after tick : 110
-    def objDef = x + 10
-    # 20, after tick : 120
-    def objDefFromSelf = self.x + 10
-    # 20, after tick : 20
-    var objVar = x + 20
-    # 30, after tick : 30
-    var objVarFromSelf = self.x + 20
+node n = new {
+    def x = x + 10
+    def y = self.x + 100
+    var z = x + 50
 }
+
+def z = n.x
+
+def zz = n.z
+
+# node n2 = new {
+#   def x = x + 100
+#   slot st x:int y:int do
+#       self.x = x + y
+# }
+
+slot tick do
+    x = 1000
+
+# gen nodeGen :: @{x:int, st:int=>int=>(), sg:()=>int} do
+#   return new {
+#       def x = x + 100
+#       slot st x:int y:int do
+#           self.x = x + y
+#           sg x * 10
+#       signal sg :: int
+#   }
 </textarea>
 
     <textarea id="output" rows="40" cols="100">

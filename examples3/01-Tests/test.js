@@ -14,9 +14,10 @@ var library =
 };
 
 var fileName = "test.nodes";
-var fileName = "nodeDef.nodes";
-var fileName = "nodeVar.nodes";
-var fileName = "litNode.nodes";
+var fileName = "classes.nodes";
+// var fileName = "nodeDef.nodes";
+// var fileName = "nodeVar.nodes";
+// var fileName = "litNode.nodes";
 // var fileName = "signalSlots.nodes";
 // var fileName = "syntax.nodes";
 // var fileName = "curried.nodes";
@@ -46,44 +47,15 @@ $.get(fileName, function( text ) {
 
 	$.globalEval(src)
 
-	// var n2 = new function () {
- //        var that = this;
- //        this.x = __def(function () {
- //            return x + 100;
- //        });
- //        this.st = function (x, y) {
- //            that.x.get() + 100;
- //        });
- //    }();
-
-	// var nSrc = escodegen.generate(nProg);
-	// $.globalEval(nSrc);
-
-	// var n = new (function () {
-	// 	var that = this;
-	// 	this.x = __def(function() {
-	// 			return x + 10;
-	// 	});
-	// })();
-
-	// var n = new (function () {
-	// 	var that = this;
-	// 	this.x = {
-	// 		get : function() {
-	// 			return x + 10;
-	// 		}
-	// 	};
-	// 	this.y = {
-	// 		get : function() {
-	// 			return that.x.get() + 100;
-	// 		}
-	// 	};
-	// 	this.z = that.x.get() + 10;
-	// })();
-
 	function appendText(txt) {
 		$tmp.append("<div>" + txt + "</div>");
 	}
+
+	function K(x) {
+		var that = this;
+		this.x = x;
+	}
+	o = new K(1);
 
 	if(fileName == "test.nodes") {
 		tick(10, 5);
@@ -95,6 +67,9 @@ $.get(fileName, function( text ) {
 		appendText([v.get().x, v.get().y].join(", "));
 		appendText([w0.x, w0.y].join(", "));
 		appendText([w.x, w.y].join(", "));
+	} else if(fileName == "classes.nodes") {
+		appendText(x);
+		appendText(o.x);
 	} else if(fileName == "nodeDef.nodes") {
 		appendText(x);
 		appendText(n.x.get());

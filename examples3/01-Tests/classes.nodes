@@ -1,0 +1,8 @@
+class Klass (
+    var x : int
+) {
+}
+
+# var o = new Klass(1)
+
+var x = 0
