@@ -402,6 +402,52 @@ function makeCallExpression(expr, library, genericTypeParams)
     );
 }
 
+function makeNewExpression(exprGraph, library, genericTypeParams)
+{
+    var newGraph = exprGraph;
+
+    var classId = newGraph["class"].name;
+    if(!(classId in library.classes))
+    {
+        error("Class " + classId + " not found in classes library");
+    }
+    var classSpec = library.classes[classId];
+    
+    var argsGraph = newGraph.args;
+
+    // Evaluate the args
+    argsExpr = _.map(argsGraph, function(arg) {
+        return makeExpr(arg, library, genericTypeParams);
+    });
+
+    // TODO generic classes
+    // var instancesAst = [];
+    // // Replace arguments generic types by their instances
+    // _.each(argsExpr, function(argExpr) {
+    //     if(argExpr.type.base in genericTypeParams) {
+    //         argExpr.type = genericTypeParams[argExpr.type.base];
+    //     }
+    //     instancesAst = instancesAst.concat(argExpr.instancesAst);
+    // });
+    // var typeArgs = funcSpec.guessTypeArgs(argsExpr);
+    // var funcInstance = funcSpec.getInstance(typeArgs);
+    // instancesAst = instancesAst.concat(funcInstance.instancesAst);
+
+    // TODO check types
+    var exprAst = {
+        "type": "NewExpression",
+        "callee": ast.id(classId),
+        "arguments": _.map(argsExpr, function(arg) {
+            return arg.ast;
+        })
+    }
+
+    return new Expr(
+        exprAst,
+        typeGraphToEngine(classId) // TODO generic classes
+    );
+}
+
 function makeMemberExpression(exprGraph, library, genericTypeParams)
 {
     var objGraph = exprGraph.obj;
@@ -476,6 +522,8 @@ function makeExpr(exprGraph, library, genericTypeParams) {
         return makeCallExpression(exprGraph, library, genericTypeParams);
     }  else if(exprGraph.type == "MemberExpression") {
         return makeMemberExpression(exprGraph, library, genericTypeParams);
+    }  else if(exprGraph.type == "NewExpression") {
+        return makeNewExpression(exprGraph, library, genericTypeParams);
     }
     error("Unrecognized expression type " + exprGraph.type);
 }

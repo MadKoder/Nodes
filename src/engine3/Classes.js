@@ -97,6 +97,7 @@ function makeClass(classGraph, library, prog)
     /////////////////////
     var fieldsNodes = {};
     var paramsId = [];
+    var classParams = [];
     _.each(classGraph.constructorParams, function(fieldGraph) {
         if(fieldGraph.type == "Def") {
             var defDeclaration = makeDefInNode(fieldGraph, localLibrary);
@@ -135,6 +136,11 @@ function makeClass(classGraph, library, prog)
 
             // Adds attribute id to function params
             paramsId.push(fieldName);
+
+            classParams.push({
+                id : fieldName,
+                type : varDeclaration.type
+            })
         }
     });
 
@@ -144,4 +150,8 @@ function makeClass(classGraph, library, prog)
         bodyAst
     );
     prog.addStmnt(classAst);
+
+    library.classes[id] = {
+        params : classParams
+    };
 }

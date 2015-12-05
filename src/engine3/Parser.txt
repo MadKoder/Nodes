@@ -261,7 +261,10 @@ ListExpression =
     }
 
 TupleExpression = 
-    "(" _ head:Expression tail:( _ "," _ (i:Expression) {return i})+ _ ")" {
+    "(" _ 
+    head:Expression
+    tail:("," _ (i:Expression) {return i})+ 
+    ")" _ {
         return {
             type : "TupleExpression",
             tuple : [head].concat(tail)
@@ -469,7 +472,29 @@ ChainedMemberExpression =
         }
         return result 
     }
+    / NewExpression
+
+NewExpression =
+    NewToken klass:Id args:TupleArgs
+    {
+        return {
+            type : "NewExpression",
+            "class" : klass,
+            args : args
+        };
+    }
     / Atom
+
+TupleArgs =
+    "(" _ 
+    args:(
+        head:Expression
+        tail:("," _ (e:Expression) {return e})*
+        {return [head].concat(tail);}
+    )?
+    ")" {
+        return args != null ? args : [];
+    }
 
 MemberHead = 
     Atom
@@ -752,12 +777,13 @@ UntypedCurriedParamDecl =
     }
 
 TupleParamsDecl =
-    "(" _ params:TupleParams _ ")" _ {
-        return params;
+    "(" _ params:(TupleParams)? _ ")" _ {
+        return params != null ? params : [];
     }
 
 TupleParams =
-    head:TupleParam _ tail:( _ "," _ (i:TupleParam) {return i})* {
+    head:TupleParam
+    tail:("," _ (p:TupleParam) {return p})* {
         return [head].concat(tail);
     }
 
