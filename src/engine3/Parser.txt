@@ -122,7 +122,8 @@ ClassFields =
 
 ClassFieldDef =
     DefDecl
-
+    / SlotDef
+    
 IdType = 
     id:Id ":" _ type:Type {
         return {

@@ -76,8 +76,9 @@ function makeClassDef(defGraph, library){
 
     var expr = makeExpr(defGraph.val, library, {});
     
-    // id = __def(function() {return expr.getAst(); });
-    var defValAst = getDefInitAst(expr);
+    // TODO sinkList only for public defs
+    // id = __def(function() {return expr.getAst(); }, id$sinkList);
+    var defValAst = getDefInitAst(expr, id + "$sinkList");
     
     var defDeclarationAst = makeThisDeclaration(id, defValAst);
 
@@ -101,6 +102,20 @@ function makeClassDef(defGraph, library){
             };
         }
     };
+}
+
+
+function makeClassSlot(slotGraph, library){
+    var slotValAst = makeSlot(
+        slotGraph,
+        library,
+        "FunctionExpression", 
+        null
+    );
+
+    var slotAst = makeThisDeclaration(slotGraph.id.name, slotValAst);
+
+    return slotAst;
 }
 
 function makeClass(classGraph, library, prog)
@@ -181,14 +196,29 @@ function makeClass(classGraph, library, prog)
 
     _.each(classGraph.fields, function(fieldGraph) {
         if(fieldGraph.type == "Def") {
+            var fieldName = fieldGraph.id.name;
+
+            // TODO only for public defs
+            // Allways create the sinkList, so that dirty on this field knows it at class creation
+            // and external dependencies can be updated
+            var sinkListVarName = fieldName + "$sinkList";            
+            var sinksAst = {
+                "type": "ArrayExpression",
+                "elements": []
+            };
+            var sinkListAst = makeThisDeclaration(sinkListVarName, sinksAst);
+            bodyAst.push(sinkListAst);
+
             var defDeclaration = makeClassDef(fieldGraph, localLibrary);
             bodyAst.push(defDeclaration.ast);
-            var fieldName = fieldGraph.id.name;
             attribs[fieldName] = {
                 type : defDeclaration.type,
                 getGetterAst : defDeclaration.getGetterAst,
-                sinkListVarName : ""                
+                sinkListVarName : sinkListVarName                
             };
+        } else if(fieldGraph.type == "SlotDef") {
+            var slotAst = makeClassSlot(fieldGraph, localLibrary);
+            bodyAst.push(slotAst);
         }
     });
 
@@ -208,17 +238,9 @@ function makeClass(classGraph, library, prog)
         
         sinkListVarName = objMember[1] + "$sinkList";
 
-        // obj.member$sinkList = sinks;
-        var assignmentAst = {
-            "type": "ExpressionStatement",
-            "expression": {
-                "type": "AssignmentExpression",
-                "operator": "=",
-                "left": ast.memberExpression(ast.thisExpression, sinkListVarName),
-                "right": sinksAst
-            }
-        }
-        bodyAst.push(assignmentAst);
+        // this.member$sinkList = sinks;
+        var sinkListAst = makeThisDeclaration(sinkListVarName, sinksAst);
+        bodyAst.push(sinkListAst);
     }
 
     var classAst = ast.functionDeclaration(

@@ -2,6 +2,8 @@ class Klass (
     var x : int
 ) {
     def y = self.x + 10
+    slot inc x : int do
+        self.x = self.x + x
 }
 var o = new Klass(1)
 

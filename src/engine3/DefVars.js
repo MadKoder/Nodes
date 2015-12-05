@@ -48,24 +48,39 @@ function makeVar(nodeGraph, library, prog, sourceToSinks) {
     library.nodes[id] = new Node(getterAst, expr.type, sinkListVarName);
 }
 
-function getDefInitAst(expr) {
+function getDefInitAst(expr, sinkListVarName) {
+    var functionName = "__def";
+    var argsAst = [
+        {
+            "type": "FunctionExpression",
+            "params": [],
+            "body": {
+                "type": "BlockStatement",
+                "body": [
+                    {
+                        "type": "ReturnStatement",
+                        "argument": expr.ast
+                    }
+                ]
+            },
+        }
+    ]
+    
+    if(sinkListVarName.length > 0) {
+        // If it's a class def, it has a sinkList, so use __defWithDependencies instead
+        functionName = "__defWithDependencies";
+
+        // And adds sinkListVarName to arguments
+        argsAst.push(ast.id("that"));
+        argsAst.push({
+            "type": "Literal",
+            "value": sinkListVarName
+        });
+    }
+
     return ast.callExpression(
-        "__def",
-        [
-            {
-                "type": "FunctionExpression",
-                "params": [],
-                "body": {
-                    "type": "BlockStatement",
-                    "body": [
-                        {
-                            "type": "ReturnStatement",
-                            "argument": expr.ast
-                        }
-                    ]
-                },
-            }
-        ]
+        functionName,
+        argsAst
     )
 }
 
@@ -77,7 +92,7 @@ function makeDef(nodeGraph, library, prog) {
     // id = _def(function() {return expr.getAst(); });
     var varDeclaration = ast.varDeclaration(
         id,
-        getDefInitAst(expr)
+        getDefInitAst(expr, "")
     );
     prog.addStmnt(varDeclaration);
     // getter == id.get()

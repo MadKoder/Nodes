@@ -68,7 +68,6 @@ function makeStruct(structGraph, library, prog)
 			var slotAst = makeSlot(
 		        slotGraph,
 		        localLibrary,
-		        prog,
 		        "FunctionExpression",
 		        null
 		    );

@@ -118,10 +118,12 @@ function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
                 }];
             }
 
+            // If target is self, replace by that
+            var targetId = id === "self" ? "that" : id
             return {
                 target : {
                     "type": "Identifier",
-                    "name": id
+                    "name": targetId
                 },
                 dirtyAstList : dirtyAstList
             };
@@ -132,51 +134,44 @@ function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
         var dirtyAstList = targetandDirtyAst.dirtyAstList;
         var fieldName = targetGraph.field.name;
         // If there was no dirty in parent structure, maybe the field has one
-        // if(dirtyAst == null) {
-            var parentId = targetGraph.obj.name;
-            var parentNode = library.nodes[parentId];
-            // Search in parent for this field
-            // If it's an object literal
-            if(fieldName in parentNode.fields) {
-                var fieldNode = parentNode.fields[fieldName];
-                if(fieldNode.sinkListVarName.length > 0)
+        var parentId = targetGraph.obj.name;
+        var parentNode = library.nodes[parentId];
+        // Search in parent for this field
+        // If it's an object literal
+        if(fieldName in parentNode.fields) {
+            var fieldNode = parentNode.fields[fieldName];
+            if(fieldNode.sinkListVarName.length > 0)
+            {
+                var fieldDirtyAst = ast.callExpression(
+                    "__dirtySinks",
+                    [
+                        ast.memberExpression(ast.id(parentId), fieldNode.sinkListVarName)
+                    ]
+                );
+                dirtyAstList.push(fieldDirtyAst);
+            }
+        } else {
+            // If obj is a class instance
+            var objType = parentNode.type;
+            if(objType.base in library.classes) {
+                var classSpec = library.classes[objType.base](objType.args);
+                var attribDef = classSpec.attribs[fieldName];
+                
+                // If target is self, replace by that
+                var objectId = parentId === "self" ? "that" : parentId;
+                if(attribDef.sinkListVarName.length > 0)
                 {
-                    var fieldDirtyAst = {
-                        "type": "CallExpression",
-                        "callee": {
-                            "type": "Identifier",
-                            "name": "__dirtySinks"
-                        },
-                        "arguments": [
-                            ast.memberExpression(ast.id(parentId), fieldNode.sinkListVarName)
+                    var fieldDirtyAst = ast.callExpression(
+                        "__dirtySinks", 
+                        [
+                            ast.memberExpression(ast.id(objectId), attribDef.sinkListVarName)
                         ]
-                    }
-                    dirtyAstList.push(fieldDirtyAst);
-                }
-            } else {
-                // If obj is a class instance
-                var objType = parentNode.type;
-                if(objType.base in library.classes) {
-                    var classSpec = library.classes[objType.base](objType.args);
-                    var attribDef = classSpec.attribs[fieldName];
-                    if(attribDef.sinkListVarName.length > 0)
-                    {
-                        var fieldDirtyAst = {
-                            "type": "CallExpression",
-                            "callee": {
-                                "type": "Identifier",
-                                "name": "__dirtySinks"
-                            },
-                            "arguments": [
-                                ast.memberExpression(ast.id(parentId), attribDef.sinkListVarName)
-                            ]
-                        }
-                        dirtyAstList.push(fieldDirtyAst);                        
-                    }
-                    var x = 1;
+                    );
+                    dirtyAstList.push(fieldDirtyAst);                        
                 }
             }
-        // }
+        }
+
         return {
             target : {
                 "type": "MemberExpression",
@@ -295,7 +290,7 @@ function fillLocalLibraryWithParams(localLibrary, paramsGraph) {
     });
 }
 
-function makeSlot(slotGraph, localLibrary, prog, astType, idAst) {
+function makeSlot(slotGraph, localLibrary, typeAst, idAst) {
     var paramsGraph = slotGraph.params;
     fillLocalLibraryWithParams(localLibrary, paramsGraph);
     var statementAst = makeStatement(slotGraph.statement, localLibrary, {});
@@ -313,7 +308,7 @@ function makeSlot(slotGraph, localLibrary, prog, astType, idAst) {
         }
     });
     var slotAst = {
-        "type": astType,
+        "type": typeAst,
         "id": idAst,
         "params":paramsAst,
         "defaults": [],
@@ -331,7 +326,6 @@ function makeGlobalSlot(actionGraph, library, prog) {
     var slotAst = makeSlot(
         actionGraph,
         localLibrary,
-        prog,
         "FunctionDeclaration", 
         {
             "type": "Identifier",

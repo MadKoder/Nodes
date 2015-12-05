@@ -1,0 +1,25 @@
+class Klass (
+    var varAttr : int
+) {
+    def defAttr = self.varAttr + 10
+}
+
+# instance.varAttr = 1, instance.defAttr = 11
+# after setVarAttr : instance.varAttr = 2, instance.defAttr = 12
+# after setInstance : instance.varAttr = 3, instance.defAttr = 13
+var instance = new Klass(1)
+
+# 1, after setVarAttr : 1, after setInstance : 1
+var varFromInstanceVar = instance.varAttr
+
+# 1, after setVarAttr : 2, after setInstance : 3
+def defFromInstanceVar = instance.varAttr
+
+# 11, after setVarAttr : 12, after setInstance : 13
+def defFromInstanceDef = instance.defAttr
+
+slot setVarAttr do
+    instance.varAttr = 2
+
+slot setInstance do
+    instance = new Klass(3)

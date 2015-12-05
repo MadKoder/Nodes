@@ -40,6 +40,25 @@ function __def(getter)
 	};
 }
 
+function __defWithDependencies(getter, object, sinkListName)
+{
+	return {
+		get : function() {
+			if(this.isDirty) {
+				this.val = getter();
+				this.isDirty = false;
+			}
+			return this.val;
+		},
+		isDirty : true,
+		dirty : function() {
+			this.isDirty = true;
+			__dirtySinks(object[sinkListName]);
+		},
+		val : null
+	};
+}
+
 function compileGraph(graph, library, previousNodes) 
 {
 	prog = {
@@ -102,6 +121,27 @@ function compileGraph(graph, library, previousNodes)
 	                "operator": "=",
 	                "left": ast.memberExpression(ast.id(objMember[0]), sinkListVarName),
 	                "right": sinksAst
+	            }
+	        }
+	        // This function will make the array if it does not exist (a class var without internal dependencies)
+	        // or concat to it otherwise
+	        // __createOrConcat(obj.member$sinkList, sinks);
+	        var createOrConcatAst = ast.callExpression(
+	        	"__createOrConcat",
+	        	[
+	        		ast.memberExpression(ast.id(objMember[0]), sinkListVarName),
+	        		sinksAst
+        		]
+    		);
+
+	        // obj.member$sinkList = __createOrConcat(obj.member$sinkList, sinks);
+            var assignmentAst = {
+	            "type": "ExpressionStatement",
+	            "expression": {
+	                "type": "AssignmentExpression",
+	                "operator": "=",
+	                "left": ast.memberExpression(ast.id(objMember[0]), sinkListVarName),
+	                "right": createOrConcatAst
 	            }
 	        }
 	        prog.addStmnt(assignmentAst);
