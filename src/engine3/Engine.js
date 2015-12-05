@@ -182,18 +182,45 @@ function compileGraph(graph, library, previousNodes)
 
 
 	for(var id in sourceToSinks) {
-		// The members path in sourceToSinks are in the form n.x
-		// we transform them in the form n$x to be able to make valid variable names
-        sinkListVarName = memberPathToId(id) + "$sinkList";
-        var sinks = sourceToSinks[id];
-        // It's an array made of the id of the leaf sinks
-        // var id$sinkList = [_.map(sinks, ast.id)];
-        var declaratorInit = {
-            "type": "ArrayExpression",
-            "elements": _.map(sinks, ast.id)
-        };
-        var varDeclaration = ast.varDeclaration(sinkListVarName, declaratorInit);
-        prog.addStmnt(varDeclaration);
+		var objMember = id.split(".");
+		// If source is a member of an object
+		if(objMember.length > 1) {
+			// TODO member depth > 1
+	        var sinks = sourceToSinks[id];
+	        // It's an array made of the id of the leaf sinks
+	        // var id$sinkList = [_.map(sinks, ast.id)];
+	        var sinksAst = {
+	            "type": "ArrayExpression",
+	            "elements": _.map(sinks, ast.id)
+	        };
+	        
+	        sinkListVarName = objMember[1] + "$sinkList";
+
+	        // obj.member$sinkList = sinks;
+            var assignmentAst = {
+	            "type": "ExpressionStatement",
+	            "expression": {
+	                "type": "AssignmentExpression",
+	                "operator": "=",
+	                "left": ast.memberExpression(ast.id(objMember[0]), sinkListVarName),
+	                "right": sinksAst
+	            }
+	        }
+	        prog.addStmnt(assignmentAst);
+		} else {
+			// The members path in sourceToSinks are in the form n.x
+			// we transform them in the form n$x to be able to make valid variable names
+	        sinkListVarName = id + "$sinkList";
+	        var sinks = sourceToSinks[id];
+	        // It's an array made of the id of the leaf sinks
+	        // var id$sinkList = [_.map(sinks, ast.id)];
+	        var declaratorInit = {
+	            "type": "ArrayExpression",
+	            "elements": _.map(sinks, ast.id)
+	        };
+	        var varDeclaration = ast.varDeclaration(sinkListVarName, declaratorInit);
+	        prog.addStmnt(varDeclaration);
+		}
     }
 
     // Adds events sources to the sink to sources dict

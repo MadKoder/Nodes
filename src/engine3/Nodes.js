@@ -101,11 +101,6 @@ function makeVarInNode(varGraph, library) {
     };
 }
 
-// Transform path of the form n.x to n$x
-function memberPathToId(p) {
-    return p.split(".").join("$");
-}
-
 function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
     var id = nodeGraph.id.name;
 
@@ -123,12 +118,15 @@ function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
     var localLibrary = makeLocalLibrary(library);
 
     // Adds self node getter in local node library
+    // self.getter = that
     var selfGetterAst = {
             "type": "Identifier",
             "name": "that"
     };
     localLibrary.nodes["self"] = new Node(selfGetterAst, makeBaseType(typeId));
 
+    // Iterate on fields
+    /////////////////////
     var fieldsNodes = {};
     _.each(nodeGraph.fields, function(fieldGraph) {
         if(fieldGraph.type == "Def") {
@@ -149,18 +147,24 @@ function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
             };
 
             // Builds sink list var name for this field
-            // should be parent$field$sinkList
-            var sinkListVarName = "";
             // The member path is in the form n.x, this is what is stored in sourceToSinks
             var memberPath = id + "." + fieldName;
-            // BUT the variable that store its sinks is in the for n$x$sinkList
-            var memberPathId = memberPathToId(memberPath);
             if(memberPath in sourceToSinks) {
-                sinkListVarName = memberPathId + "$sinkList";
+                // should be field$sinkList
+                var sinkListVarName = fieldName + "$sinkList";
+                // that.id
+                var getterAst = ast.memberExpression(
+                    ast.id("that"),
+                    id
+                );
+                fieldsNodes[fieldName] = new Node(getterAst, varDeclaration.type, sinkListVarName);
+                var sinks = sourceToSinks[memberPath];
+                var declaratorInit = {
+                    "type": "ArrayExpression",
+                    "elements": []//_.map(sinks, ast.id)
+                };
+                bodyAst.push(makeThisDeclaration(sinkListVarName, declaratorInit));
             }
-
-            var getterAst = ast.id(id);
-            fieldsNodes[fieldName] = new Node(getterAst, varDeclaration.type, sinkListVarName);
         }
     });
 
