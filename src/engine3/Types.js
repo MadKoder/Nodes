@@ -28,13 +28,13 @@ function makeListType(arg){
     return makeType("list", [arg]);
 }
 
-function typeGraphToCompact(typeGraph) {
+function typeGraphToEngine(typeGraph) {
     if(typeGraph.type == "Id") {
         return makeBaseType(typeGraph.name);
     } else {
         return makeType(
             typeGraph.base,
-            _.map(typeGraph.args, typeGraphToCompact)
+            _.map(typeGraph.args, typeGraphToEngine)
         );
     }
 }
@@ -207,7 +207,7 @@ function getTypeParamsToParamsPaths(typeParams, paramsType)
 
 function getParamsType(params) {
     return _.map(params, function(param) {
-        return typeGraphToCompact(param.type)}
+        return typeGraphToEngine(param.type)}
     );
 }
 

@@ -14,6 +14,11 @@ ast = {
     	    name: name
     	}
     },
+    trueLit : {
+        "type": "Literal",
+        "value": true,
+        "raw": "true"
+    },
     newExpression : function(callee, arguments)
     {
     	return {

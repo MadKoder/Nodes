@@ -160,10 +160,7 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
                             "name": "__dirtySinks"
                         },
                         "arguments": [
-                            {
-                                "type": "Identifier",
-                                "name": fieldNode.sinkListVarName
-                            }
+                            ast.memberExpression(ast.id(parentId), fieldNode.sinkListVarName)
                         ]
                     }
                 }
@@ -284,7 +281,7 @@ function fillLocalLibraryWithParams(localLibrary, paramsGraph) {
             "type": "Identifier",
             "name": param.id.name
         };
-        localLibrary.nodes[param.id.name] = new Node(getterAst, typeGraphToCompact(param.type));
+        localLibrary.nodes[param.id.name] = new Node(getterAst, typeGraphToEngine(param.type));
     });
 }
 

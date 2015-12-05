@@ -55,7 +55,7 @@ $.get(fileName, function( text ) {
 		var that = this;
 		this.x = x;
 	}
-	o = new K(1);
+	o = new Klass(1);
 
 	if(fileName == "test.nodes") {
 		tick(10, 5);

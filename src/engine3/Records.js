@@ -60,7 +60,7 @@ function makeStruct(structGraph, library, prog)
                         "name": varGraph.id.name
                     }
                 };
-                localLibrary.nodes[varGraph.id.name] = new Node(getterAst, typeGraphToCompact(varGraph.varType));
+                localLibrary.nodes[varGraph.id.name] = new Node(getterAst, typeGraphToEngine(varGraph.varType));
                 localLibrary.attribs[varGraph.id.name] = {};
 			});	
 
@@ -96,7 +96,7 @@ function makeStruct(structGraph, library, prog)
             };
         });
 
-        var typeParams = _.map(structGraph.typeParams, typeGraphToCompact);
+        var typeParams = _.map(structGraph.typeParams, typeGraphToEngine);
 		prog.addStmnt(
             buildFunctionOrStruct(
     			structGraph,
@@ -123,7 +123,7 @@ function makeStruct(structGraph, library, prog)
 	        			return [
 	        				variable.id.name,
 	        				instanciateType(
-	        					typeGraphToCompact(variable.type),
+	        					typeGraphToEngine(variable.type),
 	        					// Converts positionnal typeArgs to genericToInstanceDict
 	        					// First param is name of type params
 	        					// Seccond param is list of their args

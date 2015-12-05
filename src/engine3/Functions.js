@@ -131,7 +131,7 @@ function makeFunction(funcGraph, library, prog)
 								"type": "Identifier",
 								"name": param.id.name
 							},
-							typeGraphToCompact(param.type)
+							typeGraphToEngine(param.type)
 						);
 					});
 
@@ -189,7 +189,7 @@ function makeFunction(funcGraph, library, prog)
 						"type": "Identifier",
 						"name": param.id.name
 					},
-					typeGraphToCompact(param.type)
+					typeGraphToEngine(param.type)
 				);
 			});
 

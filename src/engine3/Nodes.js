@@ -1,25 +1,3 @@
-function makeThisDeclaration(id, defValAst) {
-    return {
-        "type": "ExpressionStatement",
-        "expression": {
-            "type": "AssignmentExpression",
-            "operator": "=",
-            "left": {
-                "type": "MemberExpression",
-                "computed": false,
-                "object": {
-                    "type": "ThisExpression"
-                },
-                "property": {
-                    "type": "Identifier",
-                    "name": id
-                }
-            },
-            "right": defValAst
-        }
-    };
-}
-
 function makeDefInNode(defGraph, library){
     var id = defGraph.id.name;
 
@@ -158,10 +136,9 @@ function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
                     id
                 );
                 fieldsNodes[fieldName] = new Node(getterAst, varDeclaration.type, sinkListVarName);
-                var sinks = sourceToSinks[memberPath];
                 var declaratorInit = {
                     "type": "ArrayExpression",
-                    "elements": []//_.map(sinks, ast.id)
+                    "elements": []
                 };
                 bodyAst.push(makeThisDeclaration(sinkListVarName, declaratorInit));
             }
