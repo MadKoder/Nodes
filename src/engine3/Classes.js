@@ -23,11 +23,20 @@ var thatAst = {
 function makeClass(classGraph, library, prog)
 {
 	var id = classGraph.id.name;
+    var bodyAst = [thatAst];
+    var localLibrary = makeLocalLibrary(library);
+
+    // self.getter = that
+    var selfGetterAst = {
+            "type": "Identifier",
+            "name": "that"
+    };
+    localLibrary.nodes["self"] = new Node(selfGetterAst, makeBaseType(id));
 
     var classAst = ast.functionDeclaration(
         id,
         [],
-        [thatAst]
+        bodyAst
     );
     prog.addStmnt(classAst);
 }

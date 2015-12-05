@@ -118,7 +118,7 @@ function makeStruct(structGraph, library, prog)
         library.classes[id] = function(typeArgs) {
         	return {
         		// Dict from attribs name to its type
-	        	varsType : _.zipObject(
+	        	fieldsType : _.zipObject(
         			_.map(params, function(variable) {
 	        			return [
 	        				variable.id.name,

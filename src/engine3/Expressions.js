@@ -404,60 +404,25 @@ function makeCallExpression(expr, library, genericTypeParams)
 
 function makeMemberExpression(exprGraph, library, genericTypeParams)
 {
-    var obj = exprGraph.obj;
-    var expr = makeExpr(obj, library, genericTypeParams);
+    var objGraph = exprGraph.obj;
+    var objExpr = makeExpr(objGraph, library, genericTypeParams);
     // TODO check types
 
-    var fieldName = exprGraph.field.name;
+    var attribName = exprGraph.field.name;
     // Instanciate class type    
-    var classType = library.classes[expr.type.base](expr.type.args);
-    // And get the member type
-    if(!(fieldName in classType.varsType))
+    var classType = library.classes[objExpr.type.base](objExpr.type.args);
+    // And get the attribute infos
+    if(!(attribName in classType.attribs))
     {
-        error("Field " + fieldName + " is not in object/struct of type " + typeToString(expr.type)
-            + ". Object/struct name: " + obj.name);
+        error("Field " + attribName + " is not in object/struct of type " + typeToString(objExpr.type)
+            + ". Object/struct name: " + objGraph.name);
     }
-    var fieldType = classType.varsType[fieldName];
-    // Base case : a struct
-
-    // TODO adds fields getter to structs
-    var fieldGetter = {
-        "type": "Identifier",
-        "name": fieldName
-    };
-
-    var exprAst = {
-        "type": "MemberExpression",
-        "computed": false,
-        "object": expr.getAst(),
-        "property": {
-            "type": "Identifier",
-            "name": fieldName
-        }
-    };
-
-    if("fieldsHasGetter" in classType) {
-        hasGetter = classType.fieldsHasGetter[fieldName];
-        if(hasGetter) {
-            exprAst = {
-                "type": "CallExpression",
-                "callee": {
-                    "type": "MemberExpression",
-                    "computed": false,
-                    "object": exprAst,
-                    "property": {
-                        "type": "Identifier",
-                        "name": "get"
-                    }
-                },
-                "arguments": []
-            };
-        }
-    }
-
+    var attrib = classType.attribs[attribName];
+    var attribType = attrib.type;
+    var exprAst = attrib.getGetterAst(objExpr.getAst());
     return new Expr(
         exprAst,
-        fieldType
+        attribType
     );
 }
 

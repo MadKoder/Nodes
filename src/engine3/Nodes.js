@@ -33,7 +33,22 @@ function makeDefInNode(defGraph, library){
     return {
         ast : defDeclarationAst,
         type : expr.type,
-        hasGetter : true
+        getGetterAst : function(objectAst) {
+            // objectAst.id.get()
+            return {
+                "type": "CallExpression",
+                "callee": {
+                    "type": "MemberExpression",
+                    "computed": false,
+                    "object": ast.memberExpression(objectAst, id),
+                    "property": {
+                        "type": "Identifier",
+                        "name": "get"
+                    }
+                },
+                "arguments": []
+            };
+        }
     };
 }
 
@@ -79,7 +94,10 @@ function makeVarInNode(varGraph, library) {
     return {
         ast : varDeclarationAst,
         type : expr.type,
-        hasGetter : false
+        getGetterAst : function(objectAst) {
+            // objectAst.id
+            return ast.memberExpression(objectAst, id);
+        }
     };
 }
 
@@ -93,52 +111,42 @@ function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
 
     var bodyAst = [thatAst];
     
+    // Adds class definition
+    var attribs = {};
+    var typeId = "__" + id + "$Type";
+    library.classes[typeId] = function(typeArgs) {
+        return {
+            attribs : attribs
+        };
+    };
+
     var localLibrary = makeLocalLibrary(library);
 
-    var getterAst = {
+    // Adds self node getter in local node library
+    var selfGetterAst = {
             "type": "Identifier",
             "name": "that"
     };
-    var typeId = "__" + id + "$Type";
-    localLibrary.nodes["self"] = new Node(getterAst, makeBaseType(typeId));
+    localLibrary.nodes["self"] = new Node(selfGetterAst, makeBaseType(typeId));
 
-    var localVarsType = {};
-    var localFieldsHasGetter = {};
-    localLibrary.classes[typeId] = function(typeArgs) {
-        return {
-            varsType : localVarsType,
-            fieldsHasGetter : localFieldsHasGetter
-        };
-    };
-
-    var fieldsType = {};
-    var fieldsHasGetter = {};
     var fieldsNodes = {};
-    library.classes[typeId] = function(typeArgs) {
-        return {
-            varsType : fieldsType,
-            fieldsHasGetter : fieldsHasGetter
-        };
-    };
     _.each(nodeGraph.fields, function(fieldGraph) {
         if(fieldGraph.type == "Def") {
             var defDeclaration = makeDefInNode(fieldGraph, localLibrary);
             bodyAst.push(defDeclaration.ast);
             var fieldName = fieldGraph.id.name;
-            fieldsType[fieldName] = defDeclaration.type;
-            fieldsHasGetter[fieldName] = defDeclaration.hasGetter;
-
-            localVarsType[fieldName] = defDeclaration.type;
-            localFieldsHasGetter[fieldName] = defDeclaration.hasGetter;
+            attribs[fieldName] = {
+                type : defDeclaration.type,
+                getGetterAst : defDeclaration.getGetterAst
+            };
         } else if(fieldGraph.type == "Var") {
             var varDeclaration = makeVarInNode(fieldGraph, localLibrary);
             bodyAst.push(varDeclaration.ast);
             var fieldName = fieldGraph.id.name;
-            fieldsType[fieldName] = varDeclaration.type;
-            fieldsHasGetter[fieldName] = varDeclaration.hasGetter;
-
-            localVarsType[fieldName] = varDeclaration.type;
-            localFieldsHasGetter[fieldName] = varDeclaration.hasGetter;
+            attribs[fieldName] = {
+                type : varDeclaration.type,
+                getGetterAst : varDeclaration.getGetterAst
+            };
 
             // Builds sink list var name for this field
             // should be parent$field$sinkList
@@ -193,6 +201,4 @@ function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
             "name": id
     };
     library.nodes[id] = new Node(getterAst, makeBaseType(typeId), "", fieldsNodes);
-
-
 }

@@ -76,6 +76,17 @@ ast = {
     },
     functionExpression : function(funcId, paramsId, bodyAst) {
         return ast.funcDeclOrExpr("FunctionExpression", funcId, paramsId, bodyAst);
+    },    
+    memberExpression : function(objectAst, attribName) {
+        return {
+            "type": "MemberExpression",
+            "computed": false,
+            "object": objectAst,
+            "property": {
+                "type": "Identifier",
+                "name": attribName
+            }
+        };
     },
     blockStatement : function(statements) {
         return {

@@ -71,7 +71,10 @@ ConstructorParams =
                 return param;
             }
         )* 
-        ___ DedentToken ___ ")" _ {
+        (
+            ___ DedentToken ___ ")"
+            / ")" ___ DedentToken
+        ) _ {
             return [head].concat(tail);
         }
     )? {
