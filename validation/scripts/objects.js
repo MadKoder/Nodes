@@ -7,7 +7,8 @@ function objects(nodeSrc)
     assertEqual(litObj.objDefFromSelf.get(), 20, "Object def from self");
     assertEqual(litObj.objVar, 20, "Object var");
     assertEqual(litObj.objVarFromSelf, 40, "Object var from self");
-    
+    assertEqual(litObj.objDefFromSelfVar.get(), 40, "Object def from self var");
+
     assertEqual(defFromObjDef.get(), 20, "Def from object def");
     assertEqual(defFromObjDefFromSelf.get(), 20, "Def from object def from self");
     assertEqual(defFromObjVar.get(), 20, "Def from object var");
@@ -20,6 +21,7 @@ function objects(nodeSrc)
     assertEqual(litObj.objDefFromSelf.get(), 120, "Object def from self after tick");
     assertEqual(litObj.objVar, 100, "Object var after tick");
     assertEqual(litObj.objVarFromSelf, 40, "Object var from self after tick");
+    assertEqual(litObj.objDefFromSelfVar.get(), 120, "Object def from self var after tick");
     
     assertEqual(defFromObjDef.get(), 120, "Def from object def after tick");
     assertEqual(defFromObjDefFromSelf.get(), 120, "Def from object def from self after tick");

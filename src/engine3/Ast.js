@@ -19,6 +19,9 @@ ast = {
         "value": true,
         "raw": "true"
     },
+    thisExpression : {
+        "type": "ThisExpression"
+    },
     newExpression : function(callee, arguments)
     {
     	return {

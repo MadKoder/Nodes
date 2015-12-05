@@ -21,7 +21,12 @@
 
 
 start "start" =
-    ___ head:ProgStatement _ tail:(LineSeparator (s:ProgStatement) {return s})* ___ {
+    ___ head:ProgStatement ___ 
+    tail:(
+        (s:ProgStatement) 
+        ___
+        {return s}
+    )* {
         return [head].concat(tail);
     }
 
@@ -46,13 +51,13 @@ ProgStatement =
     / ClassDef
 
 ClassDef = 
-    ClassToken id:Id  typeParams:GenericParams constructorParams:ConstructorParams /*fields:ClassFields*/ {
+    ClassToken id:Id  typeParams:GenericParams params:ConstructorParams fields:ClassFields {
             return {
                 type : "ClassDef",
                 id : id,
                 typeParams : typeParams,
-                constructorParams : constructorParams
-                //,fields : fields
+                params : params,
+                fields : fields
             };
         }
 
@@ -94,6 +99,29 @@ ClassVarDecl =
             explicitType : idType.type
         };
     }
+
+ClassFields =
+    fields:( 
+        "{" ___ IndentToken
+        head:ClassFieldDef 
+        tail:(
+            LineSeparator
+            field:ClassFieldDef {
+                return field;
+            }
+        )* 
+        (
+            ___ DedentToken ___ "}"
+            / "}" ___ DedentToken
+        ) _ {
+            return [head].concat(tail);
+        }
+    )? {
+        return fields != null ? fields : [];
+    }
+
+ClassFieldDef =
+    DefDecl
 
 IdType = 
     id:Id ":" _ type:Type {
@@ -959,7 +987,13 @@ Statement "Statement" =
     / "(" _ statement:Statement _ ")" _ {return statement;}
 
 StatementBlock "StatementBlock" = 
-    LineSeparator IndentToken _ head:Statement _ tail:(LineSeparator statement:Statement _ {return statement})* ___ DedentToken {
+    ___ IndentToken 
+    head:Statement 
+    tail:(
+        LineSeparator 
+        statement:Statement {return statement}
+    )*
+    ___ DedentToken {
         return {
             type : "StatementBlock",
             statements : [head].concat(tail)

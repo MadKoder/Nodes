@@ -444,7 +444,7 @@ function makeNewExpression(exprGraph, library, genericTypeParams)
 
     return new Expr(
         exprAst,
-        typeGraphToEngine(classId) // TODO generic classes
+        makeBaseType(classId) // TODO generic classes
     );
 }
 

@@ -85,7 +85,7 @@ function makeDestructAssignment(assignmentGraph, library, genericTypeParams) {
     };
 }
 
-function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
+function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
     // TODO check existence, type ...
     if(targetGraph.type == "Id")
     {
@@ -96,25 +96,14 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
         if(id in library.attribs)
         {
             return {
-                target : {
-                    "type": "MemberExpression",
-                    "computed": false,
-                    "object": {
-                        "type": "ThisExpression"
-                    },
-                    "property": {
-                        "type": "Identifier",
-                        "name": id
-                    }
-                },
+                target : ast.memberExpression(ast.thisExpression, id),
                 dirty : null
             };
         } else {
             var node = library.nodes[id];
-            var dirtyAst = null;
-            if(node.sinkListVarName.length > 0)
-            {
-                dirtyAst = {
+            var dirtyAstList = [];
+            if(node.sinkListVarName.length > 0) {
+                dirtyAstList = [{
                     "type": "CallExpression",
                     "callee": {
                         "type": "Identifier",
@@ -126,9 +115,7 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
                             "name": node.sinkListVarName
                         }
                     ]
-                }
-            } else {
-
+                }];
             }
 
             return {
@@ -136,24 +123,25 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
                     "type": "Identifier",
                     "name": id
                 },
-                dirty : dirtyAst
-            }
+                dirtyAstList : dirtyAstList
+            };
         }
     } else if(targetGraph.type == "MemberExpression")
     {
-        var targetandDirtyAst = makeTargetAndDiryAst(targetGraph.obj, library, genericTypeParams);
-        var dirtyAst = targetandDirtyAst.dirty;
+        var targetandDirtyAst = makeTargetAndDirtyAst(targetGraph.obj, library, genericTypeParams);
+        var dirtyAstList = targetandDirtyAst.dirtyAstList;
         var fieldName = targetGraph.field.name;
         // If there was no dirty in parent structure, maybe the field has one
-        if(dirtyAst == null) {
+        // if(dirtyAst == null) {
             var parentId = targetGraph.obj.name;
             var parentNode = library.nodes[parentId];
             // Search in parent for this field
+            // If it's an object literal
             if(fieldName in parentNode.fields) {
                 var fieldNode = parentNode.fields[fieldName];
                 if(fieldNode.sinkListVarName.length > 0)
                 {
-                    dirtyAst = {
+                    var fieldDirtyAst = {
                         "type": "CallExpression",
                         "callee": {
                             "type": "Identifier",
@@ -163,9 +151,32 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
                             ast.memberExpression(ast.id(parentId), fieldNode.sinkListVarName)
                         ]
                     }
+                    dirtyAstList.push(fieldDirtyAst);
+                }
+            } else {
+                // If obj is a class instance
+                var objType = parentNode.type;
+                if(objType.base in library.classes) {
+                    var classSpec = library.classes[objType.base](objType.args);
+                    var attribDef = classSpec.attribs[fieldName];
+                    if(attribDef.sinkListVarName.length > 0)
+                    {
+                        var fieldDirtyAst = {
+                            "type": "CallExpression",
+                            "callee": {
+                                "type": "Identifier",
+                                "name": "__dirtySinks"
+                            },
+                            "arguments": [
+                                ast.memberExpression(ast.id(parentId), attribDef.sinkListVarName)
+                            ]
+                        }
+                        dirtyAstList.push(fieldDirtyAst);                        
+                    }
+                    var x = 1;
                 }
             }
-        }
+        // }
         return {
             target : {
                 "type": "MemberExpression",
@@ -176,13 +187,13 @@ function makeTargetAndDiryAst(targetGraph, library, genericTypeParams) {
                     "name": fieldName
                 }
             },
-            dirty : dirtyAst
+            dirtyAstList : dirtyAstList
         };
     }
 }
 
 function getSetterAst(targetGraph, library, genericTypeParams, valueAst) {
-    var targetandDirtyAst = makeTargetAndDiryAst(targetGraph, library, genericTypeParams);
+    var targetandDirtyAst = makeTargetAndDirtyAst(targetGraph, library, genericTypeParams);
     
     // TODO check existence and type of target
     var assignmentAst = {
@@ -195,17 +206,16 @@ function getSetterAst(targetGraph, library, genericTypeParams, valueAst) {
         }
     };
 
-    if(targetandDirtyAst.dirty != null)
+    if(targetandDirtyAst.dirtyAstList.length > 0)
     {
         return {
             "type": "BlockStatement",
-            "body": [
-                assignmentAst,
-                {
+            "body": [assignmentAst].concat(_.map(targetandDirtyAst.dirtyAstList, function(dirty) {
+                return {
                     "type": "ExpressionStatement",
-                    "expression": targetandDirtyAst.dirty
+                    "expression": dirty
                 }
-            ]
+            }))
         };
     }
 

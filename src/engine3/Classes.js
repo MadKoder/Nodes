@@ -71,6 +71,38 @@ function makeClassConstructorVar(varGraph, library) {
     };
 }
 
+function makeClassDef(defGraph, library){
+    var id = defGraph.id.name;
+
+    var expr = makeExpr(defGraph.val, library, {});
+    
+    // id = __def(function() {return expr.getAst(); });
+    var defValAst = getDefInitAst(expr);
+    
+    var defDeclarationAst = makeThisDeclaration(id, defValAst);
+
+    return {
+        ast : defDeclarationAst,
+        type : expr.type,
+        getGetterAst : function(objectAst) {
+            // objectAst.id.get()
+            return {
+                "type": "CallExpression",
+                "callee": {
+                    "type": "MemberExpression",
+                    "computed": false,
+                    "object": ast.memberExpression(objectAst, id),
+                    "property": {
+                        "type": "Identifier",
+                        "name": "get"
+                    }
+                },
+                "arguments": []
+            };
+        }
+    };
+}
+
 function makeClass(classGraph, library, prog)
 {
 	var id = classGraph.id.name;
@@ -92,32 +124,28 @@ function makeClass(classGraph, library, prog)
             "name": "that"
     };
     localLibrary.nodes["self"] = new Node(selfGetterAst, makeBaseType(id));
+    
+    // Make sourceToSinks
+    ///////////////////////
+    var sourceToSinks = {};
+    var objectRefs = {
+        "self" : "that"
+    };
+    updateSourceToSinks(classGraph.params, sourceToSinks, objectRefs);
+    updateSourceToSinks(classGraph.fields, sourceToSinks, objectRefs);
 
     // Iterate on constructor params
-    /////////////////////
+    //////////////////////////////////////////
     var fieldsNodes = {};
     var paramsId = [];
     var classParams = [];
-    _.each(classGraph.constructorParams, function(fieldGraph) {
-        if(fieldGraph.type == "Def") {
-            var defDeclaration = makeDefInNode(fieldGraph, localLibrary);
-            bodyAst.push(defDeclaration.ast);
+    _.each(classGraph.params, function(fieldGraph) {
+        if(fieldGraph.type == "ClassVar") {
             var fieldName = fieldGraph.id.name;
-            attribs[fieldName] = {
-                type : defDeclaration.type,
-                getGetterAst : defDeclaration.getGetterAst
-            };
-        } else if(fieldGraph.type == "ClassVar") {
+
             var varDeclaration = makeClassConstructorVar(fieldGraph, localLibrary);
             // this.id = id
             bodyAst.push(varDeclaration.ast);
-
-            // Adds attribute infos
-            var fieldName = fieldGraph.id.name;
-            attribs[fieldName] = {
-                type : varDeclaration.type,
-                getGetterAst : varDeclaration.getGetterAst
-            };
 
             // Builds sink list var name for this attribute
             var sinkListVarName = fieldName + "$sinkList";
@@ -132,7 +160,7 @@ function makeClass(classGraph, library, prog)
                 "elements": []
             };
             // this.id$sinkListVarName = [];
-            bodyAst.push(makeThisDeclaration(sinkListVarName, declaratorInit));
+            // bodyAst.push(makeThisDeclaration(sinkListVarName, declaratorInit));
 
             // Adds attribute id to function params
             paramsId.push(fieldName);
@@ -140,9 +168,58 @@ function makeClass(classGraph, library, prog)
             classParams.push({
                 id : fieldName,
                 type : varDeclaration.type
-            })
+            });
+
+            // Adds attribute definition
+            attribs[fieldName] = {
+                type : varDeclaration.type,
+                getGetterAst : varDeclaration.getGetterAst,
+                sinkListVarName : sinkListVarName
+            };
         }
     });
+
+    _.each(classGraph.fields, function(fieldGraph) {
+        if(fieldGraph.type == "Def") {
+            var defDeclaration = makeClassDef(fieldGraph, localLibrary);
+            bodyAst.push(defDeclaration.ast);
+            var fieldName = fieldGraph.id.name;
+            attribs[fieldName] = {
+                type : defDeclaration.type,
+                getGetterAst : defDeclaration.getGetterAst,
+                sinkListVarName : ""                
+            };
+        }
+    });
+
+
+    for(var sourceId in sourceToSinks) {
+        var objMember = sourceId.split(".");
+        // TODO member depth > 1
+        var sinks = sourceToSinks[sourceId];
+        // It's an array made of the id of the leaf sinks
+        // var id$sinkList = [_.map(sinks, ast.id)];
+        var sinksAst = {
+            "type": "ArrayExpression",
+            "elements": _.map(sinks, function(sink) {
+                return ast.memberExpression(ast.thisExpression, sink);
+            })
+        };
+        
+        sinkListVarName = objMember[1] + "$sinkList";
+
+        // obj.member$sinkList = sinks;
+        var assignmentAst = {
+            "type": "ExpressionStatement",
+            "expression": {
+                "type": "AssignmentExpression",
+                "operator": "=",
+                "left": ast.memberExpression(ast.thisExpression, sinkListVarName),
+                "right": sinksAst
+            }
+        }
+        bodyAst.push(assignmentAst);
+    }
 
     var classAst = ast.functionDeclaration(
         id,
@@ -151,7 +228,10 @@ function makeClass(classGraph, library, prog)
     );
     prog.addStmnt(classAst);
 
-    library.classes[id] = {
-        params : classParams
-    };
+    library.classes[id] = function(typeArgs) {
+        return {
+            params : classParams,
+            attribs : attribs
+        };
+    }
 }

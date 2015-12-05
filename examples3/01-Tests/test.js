@@ -54,6 +54,9 @@ $.get(fileName, function( text ) {
 	function K(x) {
 		var that = this;
 		this.x = x;
+		this.y = __def(function () {
+            return that.x + 10;
+        });
 	}
 	// o = new Klass(1);
 
@@ -70,6 +73,18 @@ $.get(fileName, function( text ) {
 	} else if(fileName == "classes.nodes") {
 		appendText(x);
 		appendText(o.x);
+		appendText(y.get());
+		appendText(z.get());
+		tick();
+		appendText(x);
+		appendText(o.x);
+		appendText(y.get());
+		appendText(z.get());
+		tick2();
+		appendText(x);
+		appendText(o.x);
+		appendText(y.get());
+		appendText(z.get());
 	} else if(fileName == "nodeDef.nodes") {
 		appendText(x);
 		appendText(n.x.get());

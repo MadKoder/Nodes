@@ -1,6 +1,16 @@
 class Klass (
     var x : int
-) 
+) {
+    def y = self.x + 10
+}
 var o = new Klass(1)
 
-var x = 0
+var x = o.x
+def y = o.x
+def z = o.y
+
+slot tick do
+    o.x = 2
+
+slot tick2 do
+    o = new Klass(3)

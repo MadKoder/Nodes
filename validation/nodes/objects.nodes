@@ -9,6 +9,8 @@ node litObj = new {
 	var objVar = x + 20
 	# 40, after tick : 40
 	var objVarFromSelf = self.objVar + 20
+	# 40, after tick : 120
+	def objDefFromSelfVar = self.objVar + 20
 }
 
 # 20, after tick : 120

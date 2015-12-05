@@ -1,35 +1,3 @@
-function makeDefInNode(defGraph, library){
-    var id = defGraph.id.name;
-
-    var expr = makeExpr(defGraph.val, library, {});
-    
-    // id = __def(function() {return expr.getAst(); });
-    var defValAst = getDefInitAst(expr);
-    
-    var defDeclarationAst = makeThisDeclaration(id, defValAst);
-
-    return {
-        ast : defDeclarationAst,
-        type : expr.type,
-        getGetterAst : function(objectAst) {
-            // objectAst.id.get()
-            return {
-                "type": "CallExpression",
-                "callee": {
-                    "type": "MemberExpression",
-                    "computed": false,
-                    "object": ast.memberExpression(objectAst, id),
-                    "property": {
-                        "type": "Identifier",
-                        "name": "get"
-                    }
-                },
-                "arguments": []
-            };
-        }
-    };
-}
-
 function makeVarInNode(varGraph, library) {
     var id = varGraph.id.name;     
     var expr = makeExpr(varGraph.val, library, {});
@@ -108,7 +76,7 @@ function makeNodeDef(nodeGraph, library, prog, sourceToSinks) {
     var fieldsNodes = {};
     _.each(nodeGraph.fields, function(fieldGraph) {
         if(fieldGraph.type == "Def") {
-            var defDeclaration = makeDefInNode(fieldGraph, localLibrary);
+            var defDeclaration = makeClassDef(fieldGraph, localLibrary);
             bodyAst.push(defDeclaration.ast);
             var fieldName = fieldGraph.id.name;
             attribs[fieldName] = {
