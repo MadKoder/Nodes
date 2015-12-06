@@ -42,21 +42,22 @@ function makeThisDeclaration(id, defValAst) {
     };
 }
 
-function makeClassConstructorVar(varGraph, library) {
+function makeClassConstructorVar(varGraph, library, cloneValue) {
     var id = varGraph.id.name;     
     
     // _.clone(id, true);
-    var declaratorInit = {
-        "type": "CallExpression",
-        "callee": ast.memberExpression(
-            ast.id("_"),
-            "clone"
-        ),
-        "arguments": [
-            ast.id(id),
-            ast.trueLit
-        ]
-    };
+    var declaratorInit = cloneValue ? {
+            "type": "CallExpression",
+            "callee": ast.memberExpression(
+                ast.id("_"),
+                "clone"
+            ),
+            "arguments": [
+                ast.id(id),
+                ast.trueLit
+            ]
+        } 
+        : ast.id(id);
 
     // this.id = _.clone(id);
     var varDeclarationAst = makeThisDeclaration(id, declaratorInit);
@@ -157,8 +158,14 @@ function makeClass(classGraph, library, prog)
     _.each(classGraph.params, function(fieldGraph) {
         if(fieldGraph.type == "ClassVar") {
             var fieldName = fieldGraph.id.name;
-
-            var varDeclaration = makeClassConstructorVar(fieldGraph, localLibrary);
+            var explicitType = typeGraphToEngine(fieldGraph.explicitType);
+            var baseType = getBaseType(explicitType);
+            // Don't clone if its a value type or an object
+            var cloneValue = !( // TODO adds other base types
+                (baseType == "int") || (baseType == "float") ||
+                (baseType in library.classes)
+            )
+            var varDeclaration = makeClassConstructorVar(fieldGraph, localLibrary, cloneValue);
             // this.id = id
             bodyAst.push(varDeclaration.ast);
 

@@ -125,50 +125,70 @@ function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
                     "type": "Identifier",
                     "name": targetId
                 },
-                dirtyAstList : dirtyAstList
+                dirtyAstList : dirtyAstList,
+                type : node.type,
+                node : node,
+                nodeId : id
             };
         }
     } else if(targetGraph.type == "MemberExpression")
     {
         var targetandDirtyAst = makeTargetAndDirtyAst(targetGraph.obj, library, genericTypeParams);
+
         var dirtyAstList = targetandDirtyAst.dirtyAstList;
         var fieldName = targetGraph.field.name;
-        // If there was no dirty in parent structure, maybe the field has one
-        var parentId = targetGraph.obj.name;
-        var parentNode = library.nodes[parentId];
-        // Search in parent for this field
-        // If it's an object literal
-        if(fieldName in parentNode.fields) {
-            var fieldNode = parentNode.fields[fieldName];
+        var structNode = targetandDirtyAst.node;
+        var structId = targetandDirtyAst.nodeId;
+        var fieldType = null;
+
+        // If parent is a node and is an object literal (i.e. fields has at least one attribute)
+        if(
+            (structNode != null) && 
+            (Object.keys(structNode.fields).length > 0)
+        ) 
+        {
+            if(!(fieldName in structNode.fields)) {
+                error("Field " + fieldName + " not in node " + structId);                
+            }
+
+            // Search in parent for this field
+            // If it's an object literal
+            var fieldNode = structNode.fields[fieldName];
+            fieldType = fieldNode.type;
             if(fieldNode.sinkListVarName.length > 0)
             {
                 var fieldDirtyAst = ast.callExpression(
                     "__dirtySinks",
                     [
-                        ast.memberExpression(ast.id(parentId), fieldNode.sinkListVarName)
+                        ast.memberExpression(ast.id(structId), fieldNode.sinkListVarName)
                     ]
                 );
                 dirtyAstList.push(fieldDirtyAst);
             }
         } else {
-            // If obj is a class instance
-            var objType = parentNode.type;
-            if(objType.base in library.classes) {
-                var classSpec = library.classes[objType.base](objType.args);
-                var attribDef = classSpec.attribs[fieldName];
-                
-                // If target is self, replace by that
-                var objectId = parentId === "self" ? "that" : parentId;
-                if(attribDef.sinkListVarName.length > 0)
-                {
-                    var fieldDirtyAst = ast.callExpression(
-                        "__dirtySinks", 
-                        [
-                            ast.memberExpression(ast.id(objectId), attribDef.sinkListVarName)
-                        ]
-                    );
-                    dirtyAstList.push(fieldDirtyAst);                        
-                }
+            // Struct should be a class instance
+            var structType = targetandDirtyAst.type;
+
+            // Class should be in library
+            if(!(structType.base in library.classes)) {
+                error("Class " + structType.base + " not in classes library and Field " + fieldName + " not in node " + structId);
+            }
+
+            var classSpec = library.classes[structType.base](structType.args);
+            var attribDef = classSpec.attribs[fieldName];
+            fieldType = attribDef.type;
+            
+            // If target is self, replace by that
+            var objectId = structId === "self" ? "that" : structId;
+            if(attribDef.sinkListVarName.length > 0)
+            {
+                var fieldDirtyAst = ast.callExpression(
+                    "__dirtySinks", 
+                    [
+                        ast.memberExpression(ast.id(objectId), attribDef.sinkListVarName)
+                    ]
+                );
+                dirtyAstList.push(fieldDirtyAst);                        
             }
         }
 
@@ -182,7 +202,10 @@ function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
                     "name": fieldName
                 }
             },
-            dirtyAstList : dirtyAstList
+            dirtyAstList : dirtyAstList,
+            type : fieldType,
+            node : null,
+            nodeId : fieldName
         };
     }
 }

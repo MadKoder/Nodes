@@ -10,25 +10,13 @@ function makeVar(nodeGraph, library, prog, sourceToSinks) {
         // _.clone(expr.getAst(), true)
         declaratorInit = {
             "type": "CallExpression",
-            "callee": {
-                "type": "MemberExpression",
-                "computed": false,
-                "object": {
-                    "type": "Identifier",
-                    "name": "_"
-                },
-                "property": {
-                    "type": "Identifier",
-                    "name": "clone"
-                }
-            },
+            "callee": ast.memberExpression(
+	            ast.id("_"),
+	            "clone"
+	        ),
             "arguments": [
                 expr.getAst(),
-                {
-                    "type": "Literal",
-                    "value": true,
-                    "raw": "true"
-                }
+                ast.trueLit
             ]
         };
     }
@@ -48,6 +36,7 @@ function makeVar(nodeGraph, library, prog, sourceToSinks) {
     library.nodes[id] = new Node(getterAst, expr.type, sinkListVarName);
 }
 
+// Returns a __def call from an expr
 function getDefInitAst(expr, sinkListVarName) {
     var functionName = "__def";
     var argsAst = [
