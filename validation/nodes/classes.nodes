@@ -26,3 +26,26 @@ slot setVarAttr do
 
 slot setInstance do
     instance = new Klass(3)
+
+class Nested (
+    var varAttr : int
+) {
+    def defAttr = self.varAttr + 10
+}
+
+class Compound (
+    var nested : Nested
+) {
+    # def defFromNestedVar = self.nested.varAttr + 10 # TODO enable ?
+    slot inc x:int do
+        self.nested.varAttr = self.nested.varAttr + x
+}
+
+# nestedInstance.varAttr = 1, nestedInstance.defAttr = 11
+# after compoundInstance.inc(10) : nestedInstance.varAttr = 11, nestedInstance.defAttr = 21
+var nestedInstance = new Nested(1)
+
+# compoundInstance.nested.varAttr = 1, compoundInstance.nested.defAttr = 11
+# after compoundInstance.inc(10) : compoundInstance.nested.varAttr = 11, compoundInstance.nested.defAttr = 21
+var compoundInstance = new Compound(nestedInstance)
+

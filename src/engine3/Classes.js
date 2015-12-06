@@ -125,9 +125,13 @@ function makeClass(classGraph, library, prog)
     var bodyAst = [thatAst];
     // Adds class definition
     var attribs = {};
+    var slots = {};
+    var classParams = [];
     library.classes[id] = function(typeArgs) {
         return {
-            attribs : attribs
+            params : classParams,
+            attribs : attribs,
+            slots : slots
         };
     };
 
@@ -154,7 +158,6 @@ function makeClass(classGraph, library, prog)
     //////////////////////////////////////////
     var fieldsNodes = {};
     var paramsId = [];
-    var classParams = [];
     _.each(classGraph.params, function(fieldGraph) {
         if(fieldGraph.type == "ClassVar") {
             var fieldName = fieldGraph.id.name;
@@ -202,8 +205,8 @@ function makeClass(classGraph, library, prog)
     });
 
     _.each(classGraph.fields, function(fieldGraph) {
+        var fieldName = fieldGraph.id.name;
         if(fieldGraph.type == "Def") {
-            var fieldName = fieldGraph.id.name;
 
             // TODO only for public defs
             // Allways create the sinkList, so that dirty on this field knows it at class creation
@@ -226,6 +229,8 @@ function makeClass(classGraph, library, prog)
         } else if(fieldGraph.type == "SlotDef") {
             var slotAst = makeClassSlot(fieldGraph, localLibrary);
             bodyAst.push(slotAst);
+            slots[fieldName] = {
+            };
         }
     });
 
@@ -256,11 +261,4 @@ function makeClass(classGraph, library, prog)
         bodyAst
     );
     prog.addStmnt(classAst);
-
-    library.classes[id] = function(typeArgs) {
-        return {
-            params : classParams,
-            attribs : attribs
-        };
-    }
 }

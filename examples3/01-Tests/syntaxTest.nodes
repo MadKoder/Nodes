@@ -4,8 +4,8 @@ fun f x:int (y:int=0) :: int =
 
 fun g x = f x
 
-signal<T> : ()=>T
-slot<T> : T=>()
+signal<T> : void=>T
+slot<T> : T=>void
 gen<T,U> : T=>U
 
 signal text :: string =
@@ -130,3 +130,8 @@ gen sequentially<T> interval:float values:list<T> :: signal<T>
 
 signal l :: int =
 	sequentially 10 [0, 1, 2]
+
+slot slt x y do 
+	...
+
+slt curriedSlot = slt 10

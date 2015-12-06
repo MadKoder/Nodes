@@ -2,6 +2,8 @@ class Nested (
     var x : int
 ) {
     def y = self.x + 10
+    slot inc x:int do
+        self.x = self.x + x
 }
 
 class Klass (
@@ -11,7 +13,8 @@ class Klass (
     # def y = self.x + 10
     slot inc x : int do
         # self.x = self.x + x
-        self.n.x = self.n.x + x
+        # self.n.x = self.n.x + x
+        self.n.inc x
 }
 var n = new Nested(1)
 var o = new Klass(1, n)

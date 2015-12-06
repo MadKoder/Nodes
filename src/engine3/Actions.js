@@ -85,7 +85,7 @@ function makeDestructAssignment(assignmentGraph, library, genericTypeParams) {
     };
 }
 
-function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
+function getTargetInfos(targetGraph, library, genericTypeParams) {
     // TODO check existence, type ...
     if(targetGraph.type == "Id")
     {
@@ -133,12 +133,12 @@ function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
         }
     } else if(targetGraph.type == "MemberExpression")
     {
-        var targetandDirtyAst = makeTargetAndDirtyAst(targetGraph.obj, library, genericTypeParams);
+        var targetInfos = getTargetInfos(targetGraph.obj, library, genericTypeParams);
 
-        var dirtyAstList = targetandDirtyAst.dirtyAstList;
+        var dirtyAstList = targetInfos.dirtyAstList;
         var fieldName = targetGraph.field.name;
-        var structNode = targetandDirtyAst.node;
-        var structId = targetandDirtyAst.nodeId;
+        var structNode = targetInfos.node;
+        var structId = targetInfos.nodeId;
         var fieldType = null;
 
         // If parent is a node and is an object literal (i.e. fields has at least one attribute)
@@ -167,7 +167,7 @@ function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
             }
         } else {
             // Struct should be a class instance
-            var structType = targetandDirtyAst.type;
+            var structType = targetInfos.type;
 
             // Class should be in library
             if(!(structType.base in library.classes)) {
@@ -175,20 +175,27 @@ function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
             }
 
             var classSpec = library.classes[structType.base](structType.args);
-            var attribDef = classSpec.attribs[fieldName];
-            fieldType = attribDef.type;
-            
-            // If target is self, replace by that
-            var objectId = structId === "self" ? "that" : structId;
-            if(attribDef.sinkListVarName.length > 0)
-            {
-                var fieldDirtyAst = ast.callExpression(
-                    "__dirtySinks", 
-                    [
-                        ast.memberExpression(ast.id(objectId), attribDef.sinkListVarName)
-                    ]
-                );
-                dirtyAstList.push(fieldDirtyAst);                        
+            // If field is an attribute
+            if(fieldName in classSpec.attribs) {
+                var attribDef = classSpec.attribs[fieldName];
+                fieldType = attribDef.type;
+                
+                // If target is self, replace by that
+                var objectId = (structId === "self" ? "that" : structId);
+                if(attribDef.sinkListVarName.length > 0)
+                {
+                    var fieldDirtyAst = ast.callExpression(
+                        "__dirtySinks", 
+                        [
+                            ast.memberExpression(ast.id(objectId), attribDef.sinkListVarName)
+                        ]
+                    );
+                    dirtyAstList.push(fieldDirtyAst);                        
+                }
+            } else if (fieldName in classSpec.slots) {
+                // OK
+            } else {
+                error("Field " + fieldName + " not in class " + structType.base + " fields.");
             }
         }
 
@@ -196,7 +203,7 @@ function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
             target : {
                 "type": "MemberExpression",
                 "computed": false,
-                "object": targetandDirtyAst.target,
+                "object": targetInfos.target,
                 "property": {
                     "type": "Identifier",
                     "name": fieldName
@@ -211,7 +218,7 @@ function makeTargetAndDirtyAst(targetGraph, library, genericTypeParams) {
 }
 
 function getSetterAst(targetGraph, library, genericTypeParams, valueAst) {
-    var targetandDirtyAst = makeTargetAndDirtyAst(targetGraph, library, genericTypeParams);
+    var targetInfos = getTargetInfos(targetGraph, library, genericTypeParams);
     
     // TODO check existence and type of target
     var assignmentAst = {
@@ -219,16 +226,16 @@ function getSetterAst(targetGraph, library, genericTypeParams, valueAst) {
         "expression": {
             "type": "AssignmentExpression",
             "operator": "=",
-            "left": targetandDirtyAst.target,
+            "left": targetInfos.target,
             "right": valueAst
         }
     };
 
-    if(targetandDirtyAst.dirtyAstList.length > 0)
+    if(targetInfos.dirtyAstList.length > 0)
     {
         return {
             "type": "BlockStatement",
-            "body": [assignmentAst].concat(_.map(targetandDirtyAst.dirtyAstList, function(dirty) {
+            "body": [assignmentAst].concat(_.map(targetInfos.dirtyAstList, function(dirty) {
                 return {
                     "type": "ExpressionStatement",
                     "expression": dirty
@@ -253,12 +260,12 @@ function makeSignal(signalGraph, library, genericTypeParams) {
     var argsAst = _.map(signalGraph.args, function(arg) {
         return makeExpr(arg, library, {}).getAst();
     });
-    var slotAst = makeRefAst(signalGraph.slot, library, genericTypeParams);
+    var targetInfos = getTargetInfos(signalGraph.slot, library, genericTypeParams);
     return {
         "type": "ExpressionStatement",
         "expression": {
             "type": "CallExpression",
-            "callee": slotAst,
+            "callee": targetInfos.target,
             "arguments": argsAst
         }
     };

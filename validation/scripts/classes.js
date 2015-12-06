@@ -32,4 +32,15 @@ function classes(nodeSrc)
     // or the node
     // assertEqual(defFromInstanceVar.get(), 3, "Def from instance var after setInstance");
     // assertEqual(defFromInstanceDef.get(), 13, "Def from instance def after setInstance");
+
+    assertEqual(nestedInstance.varAttr, 1, "Nested instance var");
+    assertEqual(nestedInstance.defAttr.get(), 11, "Nested instance def");
+    assertEqual(compoundInstance.nested.varAttr, 1, "Nested in compound instance var");
+    assertEqual(compoundInstance.nested.defAttr.get(), 11, "Nested in compound instance def");
+
+    compoundInstance.inc(10);
+    assertEqual(nestedInstance.varAttr, 11, "Nested instance var after inc");
+    assertEqual(nestedInstance.defAttr.get(), 21, "Nested instance def after inc");
+    assertEqual(compoundInstance.nested.varAttr, 11, "Nested in compound instance var after inc");
+    assertEqual(compoundInstance.nested.defAttr.get(), 21, "Nested in compound instance def after inc");
 }
