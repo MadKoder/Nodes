@@ -3,6 +3,7 @@ $(document).ready(function ()
 
 var baseFileNames = [
     "basics"
+    ,"slots"
     ,"dependencies"
     ,"objects"
     ,"classes"
@@ -18,18 +19,23 @@ var textArray = [];
 
 var validArray = [
     basics
+    ,slots
     ,dependencies
     ,objects
     ,classes
 ]
 
 var startGroupIndex = 0;
+var endGroupIndex = validArray.length;
 function validate() {
 
     for(var i in textArray) {
         // Jump test groups before start index
         if(i < startGroupIndex) {
             continue;
+        }
+        if(i >= endGroupIndex) {
+            break;
         }
         var nodeSrc = textArray[i];
         // appendText(nodeSrc);

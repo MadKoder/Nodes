@@ -450,14 +450,14 @@ RelationalOperator
   / "<"
   / ">"
 
-UnaryExpression
-  = operator:UnaryOperator __ expression:UnaryExpression {
-      return makeFunctionCallExpression((operator == "-") ? "opposite" : operator, [expression]);
+UnaryExpression = 
+    operator:UnaryOperator _ expression:UnaryExpression {
+        return makeFunctionCallExpression(operator, [expression]);
     }
     / ChainedMemberExpression
 
 UnaryOperator
-    = "-"
+    = "negate"
     /  "not"
 
 FunctionCall =
@@ -692,6 +692,7 @@ NewToken        = "new"              !IdentifierPart _
 VarToken        = "var"              !IdentifierPart _
 IndentToken        = "$>"               _
 DedentToken        = "$<"               _
+UnitToken       = "()"              !IdentifierPart _
 
 // UnicodeEscapeSequence
 //   = "u" digits:$(HexDigit HexDigit HexDigit HexDigit) {
@@ -942,7 +943,7 @@ DictEntry =
     }
 
 Range = 
-    "[" start:Int".." stop:Int"]" {
+    "[" start:DecimalIntegerLiteral".." stop:DecimalIntegerLiteral"]" {
         return {
             "type" : "range",
             "params" : [start, stop]
@@ -1135,7 +1136,12 @@ Foreach =
     }
 
 SignalSending =
-    slot:Callable _ args:SignalArgs {
+    slot:Callable 
+    args:(
+        // Either has 
+        args:NonCallExpression+ {return args;}
+        / UnitToken {return [];}
+    ) {
         return{
             type : "SignalSending",
             slot : slot,
@@ -1144,7 +1150,7 @@ SignalSending =
     }
 
 SignalArgs =
-    args:NonCallExpression*
+    args:NonCallExpression+
     {
         return args;
     }
@@ -1370,8 +1376,8 @@ Nodes =
 
 
 Number "Number" =
-    literal:(HexIntegerLiteral / DecimalLiteral / Int) {
-      return literal;
+    literal:(HexIntegerLiteral / DecimalLiteral / DecimalIntegerLiteral) {
+        return literal;
     }
 
 DecimalLiteral = 
@@ -1394,17 +1400,14 @@ DecimalLiteral =
         }
     }
 
-Int = 
-    int:DecimalIntegerLiteral _
+DecimalIntegerLiteral = 
+    int:SignedInteger _
     {
         return {
             type : "IntLiteral",
             val : parseInt(int)
         }
     }
-
-DecimalIntegerLiteral
-  = "0" {return "0"} / parts:(NonZeroDigit DecimalDigits?) {return parts.join("");}
 
 DecimalDigits
   = d:DecimalDigit+ {return d.join("");}
@@ -1424,8 +1427,8 @@ ExponentPart =
 ExponentIndicator
   = [eE]
 
-SignedInteger
-  = parts:([-+]? DecimalDigits) {return parts.join("");}
+SignedInteger = 
+    parts:([-+]? DecimalDigits) {return parts.join("");}
 
 HexIntegerLiteral
   = "0" [xX] digits:HexDigit+ _ { return parseInt("0x" + digits); }

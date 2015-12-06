@@ -229,8 +229,8 @@ function makeClass(classGraph, library, prog)
         } else if(fieldGraph.type == "SlotDef") {
             var slotAst = makeClassSlot(fieldGraph, localLibrary);
             bodyAst.push(slotAst);
-            slots[fieldName] = {
-            };
+            slots[fieldName] = {};
+            library.slots[fieldName] = {};
         }
     });
 

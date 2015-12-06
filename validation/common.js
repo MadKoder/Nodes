@@ -75,7 +75,8 @@ var library =
     actions : actions,
     classes : {},
     types : {},
-    attribs : {}
+    attribs : {},
+    slots : {}
 };
 
 function makeJsSrc(nodeSrc) {

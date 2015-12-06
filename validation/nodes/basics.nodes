@@ -6,3 +6,5 @@ def litDef = 3
 var exprVar = litVar + litDef
 # 15
 def exprDef = litVar + litDef + 10
+# 10
+var substractVar = exprDef - 5

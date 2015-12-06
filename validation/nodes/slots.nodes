@@ -1,0 +1,22 @@
+# after noParamsSlot : 10
+# after signalNoParamsSlot : 20
+# after twoParamsSlot x 2 : 60
+# after signalTwoParamsSlot x 1 : 180
+# after slotTwoStatements 20 : 240
+var x = 0
+
+slot noParamsSlot do
+    x = x + 10
+
+slot signalNoParamsSlot do
+    noParamsSlot ()
+
+slot twoParamsSlot p0:int p1:int do
+    x = x + (p0 * p1)
+
+slot signalTwoParamsSlot p0:int p1:int do
+    twoParamsSlot p0 (p1 + 1)
+
+slot slotTwoStatements p:int do
+    x = x + p
+    signalTwoParamsSlot 2 (p - 1)

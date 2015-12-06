@@ -100,36 +100,53 @@ function getTargetInfos(targetGraph, library, genericTypeParams) {
                 dirty : null
             };
         } else {
-            var node = library.nodes[id];
-            var dirtyAstList = [];
-            if(node.sinkListVarName.length > 0) {
-                dirtyAstList = [{
-                    "type": "CallExpression",
-                    "callee": {
-                        "type": "Identifier",
-                        "name": "__dirtySinks"
-                    },
-                    "arguments": [
-                        {
+            if(id in library.nodes) {
+                var node = library.nodes[id];
+                var dirtyAstList = [];
+                if(node.sinkListVarName.length > 0) {
+                    dirtyAstList = [{
+                        "type": "CallExpression",
+                        "callee": {
                             "type": "Identifier",
-                            "name": node.sinkListVarName
-                        }
-                    ]
-                }];
-            }
+                            "name": "__dirtySinks"
+                        },
+                        "arguments": [
+                            {
+                                "type": "Identifier",
+                                "name": node.sinkListVarName
+                            }
+                        ]
+                    }];
+                }
 
-            // If target is self, replace by that
-            var targetId = id === "self" ? "that" : id
-            return {
-                target : {
-                    "type": "Identifier",
-                    "name": targetId
-                },
-                dirtyAstList : dirtyAstList,
-                type : node.type,
-                node : node,
-                nodeId : id
-            };
+                // If target is self, replace by that
+                var targetId = id === "self" ? "that" : id
+                return {
+                    target : {
+                        "type": "Identifier",
+                        "name": targetId
+                    },
+                    dirtyAstList : dirtyAstList,
+                    type : node.type,
+                    node : node,
+                    nodeId : id
+                };
+            } else if(id in library.slots) {
+                // If target is self, replace by that
+                var targetId = id === "self" ? "that" : id
+                return {
+                    target : {
+                        "type": "Identifier",
+                        "name": targetId
+                    },
+                    dirtyAstList : [],
+                    type : null,
+                    node : null,
+                    nodeId : id
+                };
+            } else {
+                error("Node " + id + " not in nodes nor slots library.");
+            }
         }
     } else if(targetGraph.type == "MemberExpression")
     {
@@ -364,6 +381,8 @@ function makeGlobalSlot(actionGraph, library, prog) {
     );
 
     prog.addStmnt(slotAst);
+
+    library.slots[actionGraph.id.name] = {};
 }
 
 function makeEvent(eventGraph, eventId, library, prog) {

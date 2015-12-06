@@ -10,7 +10,8 @@ var library =
     actions : actions,
     classes : {},
     types : {},
-    attribs : {}
+    attribs : {},
+    slots : {}
 };
 
 var fileName = "test.nodes";
