@@ -49,13 +49,9 @@ $.get("nodes/" + fileName, function( text ) {
     $.globalEval(src)
 
     function appendText(txt) {
-        $tmp.append("<div>" + txt + "</div>");
+        $tmp.append("<div>" + JSON.stringify(txt) + "</div>");
     }
     
-    // var r = {
-    //     x : 1
-    // };
-
     if(fileName == "test.nodes") {
         tick(10, 5);
         appendText(x.get());
@@ -67,20 +63,20 @@ $.get("nodes/" + fileName, function( text ) {
         appendText([w0.x, w0.y].join(", "));
         appendText([w.x, w.y].join(", "));
     } else if(fileName == "records.nodes") {
-        appendText(r.x);
-        appendText(r.y);
+        appendText(r);
         appendText(y.get());
-        appendText(rDef.get().z);
+        appendText(rDef.get());
+        appendText(r2);
+        appendText(y2.get());
+        appendText(rDef2.get());
         tick();
-        appendText(r.x);
-        appendText(r.y);
+        appendText("tick");
+        appendText(r);
         appendText(y.get());
-        appendText(rDef.get().z);
-        tick2();
-        appendText(r.x);
-        appendText(r.y);
-        appendText(y.get());
-        appendText(rDef.get().z);
+        appendText(rDef.get());
+        appendText(r2);
+        appendText(y2.get());
+        appendText(rDef2.get());
     } else if(fileName == "classes.nodes") {
         // appendText(x);
         appendText(n.x);

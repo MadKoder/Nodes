@@ -1,27 +1,41 @@
 var x = 10
 
-# {x = 10, y = 1}
-# after setRecordField : {x = 100, y = 1}
-# after setRecord : {x = 1, y = 0}
-var recordVar = {x = x, y = 1}
+# {x = 10, y = 1, z = {a = 10, b = 100}}
+# after setRecordField : {x = 100, y = 1, z = {a = 0, b = 100}}
+# after setRecord : {x = 1, y = 0, z = {a = 100, b = 200}}
+var recordVar = {x = x, y = 1, z = {a = 10, b = 100}}
 
-# 11
-# after setRecordField : 101
-# after setRecord : 1
-def defFromRecordVar = recordVar.x + recordVar.y
+# 20
+# after setRecordField : 100
+# after setRecord : 101
+def defFromRecordVar = recordVar.x + recordVar.z.a
 
-# {x = 11, y = 12}
-# after setRecordField : {x = 101, y = 102}
-# after setRecord : {x = 1, y = 2}
-def recordDef = {x = defFromRecordVar, y = recordVar.x + recordVar.y + 1}
+# {x = 20, y = {a = 11, b = 100}}
+# after setRecordField : {x = 100, y = {a = 101, b = 100}}
+# after setRecord : {x = 101, y = {a = 2, b = 200}}
+def recordDef = {x = defFromRecordVar, y = {a = recordVar.x + 1, b = recordVar.z.b}}
 
-# 23
-# after setRecordField : 203
-# after setRecord : 3
-def defFromRecordDef = recordDef.x + recordDef.y
+# {x = 20, y = {a = 11, b = 100}}
+# after setRecordField : {x = 100, y = {a = 101, b = 100}}
+# after setRecord : {x = 101, y = {a = 2, b = 200}}
+def recordDefFromEntireRecord = recordDef
+
+# 31
+# after setRecordField : 201
+# after setRecord : 103
+def defFromRecordDef = recordDef.x + recordDef.y.a
+
+# after setRecordField : {x = 10, y = 1, z = {a = 10, b = 100}}
+# after setRecord : {x = 10, y = 1, z = {a = 10, b = 100}}
+var recordVarCopyFromVar = recordVar
+
+# after setRecordField : {x = 20, y = {a = 11, b = 100}}
+# after setRecord : {x = 20, y = {a = 11, b = 100}}
+var recordVarCopyFromDef = recordDef
 
 slot setRecordField do
     recordVar.x = 100
+    recordVar.z.a = 0
 
 slot setRecord do
-    recordVar = {x = 1, y = 0}
+    recordVar = {x = 1, y = 0, z = {a = 100, b = 200}}

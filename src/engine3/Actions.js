@@ -185,6 +185,9 @@ function getTargetInfos(targetGraph, library, genericTypeParams) {
                     error("Field " + fieldName + " not in record type " + typeToString(structType));
                 }
                 // No dirty list for fields, the entire record is dirtied (if needed)
+
+                // The recordTypeFields is a dict of fields type
+                fieldType = recordTypeFields[fieldName];
             } else
             {
                 // Should be a class

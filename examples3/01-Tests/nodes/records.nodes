@@ -1,13 +1,20 @@
 var x = 0
-var r = {x = 10, y = 1}
+var r = {n = {x = 10, y = 5}, z = 1}
 
-def y = r.x + r.y
+def y = r.n.x + r.z
 
-def rDef = {z = r.x}
+def rDef = {n = {x = r.n.x, y = r.n.y + r.z}, z = r.z + 10}
+
+var r2 = r
+
+def y2 = r2.n.x + r2.z
+
+def rDef2 = r2
 
 slot tick do
-    r.x = 100
-    r.y = 200
+    r.n.x = 100
+    r2.n.x = 200
+#     r.y = 200
 
-slot tick2 do
-    r = {x = 1, y = 0}
+# slot tick2 do
+#     r = {x = 1, y = 0}
