@@ -452,20 +452,35 @@ function makeMemberExpression(exprGraph, library, genericTypeParams)
 {
     var objGraph = exprGraph.obj;
     var objExpr = makeExpr(objGraph, library, genericTypeParams);
-    // TODO check types
-
     var attribName = exprGraph.field.name;
-    // Instanciate class type    
-    var classType = library.classes[objExpr.type.base](objExpr.type.args);
-    // And get the attribute infos
-    if(!(attribName in classType.attribs))
-    {
-        error("Field " + attribName + " is not in object/struct of type " + typeToString(objExpr.type)
-            + ". Object/struct name: " + objGraph.name);
+
+    // TODO check types
+    if(isRecordType(objExpr.type)){
+        // Record
+        var recordTypeFields = getRecordTypeFields(objExpr.type);
+        if(!(attribName in recordTypeFields)) {
+            error("Field " + attribName + " not in record type " + typeToString(objExpr.type));
+        }
+        // objAst.attribName
+        var exprAst = ast.memberExpression(
+            objExpr.getAst(),
+            attribName
+        );
+        var attribType = recordTypeFields[attribName];
+    } else { // Struct or literal object
+        // Instanciate class type    
+        var classType = library.classes[objExpr.type.base](objExpr.type.args);
+        // And get the attribute infos
+        if(!(attribName in classType.attribs))
+        {
+            error("Field " + attribName + " is not in object/struct of type " + typeToString(objExpr.type)
+                + ". Object/struct name: " + objGraph.name);
+        }
+        var attrib = classType.attribs[attribName];
+        var attribType = attrib.type;
+        var exprAst = attrib.getGetterAst(objExpr.getAst());
     }
-    var attrib = classType.attribs[attribName];
-    var attribType = attrib.type;
-    var exprAst = attrib.getGetterAst(objExpr.getAst());
+
     return new Expr(
         exprAst,
         attribType
@@ -486,6 +501,30 @@ function makeIdExpression(expr, library, genericTypeParams)
 
     return new Expr(
         idVal,
+        type
+    );
+}
+
+function makeRecordExpression(recordGraph, library, genericTypeParams)
+{
+    var fieldsType = {};
+    var propertiesAst = _.map(recordGraph.fields, function(field) {
+        var fieldId = field.id.name;
+        var fieldExpr = makeExpr(field.val, library, genericTypeParams);
+        
+        fieldsType[fieldId] = fieldExpr.type;
+
+        return ast.property(
+            fieldId,
+            fieldExpr.ast
+        );
+    });
+    var recordAst = ast.objectExpression(propertiesAst);
+
+    var type = makeRecordType(fieldsType);
+
+    return new Expr(
+        recordAst,
         type
     );
 }
@@ -524,6 +563,8 @@ function makeExpr(exprGraph, library, genericTypeParams) {
         return makeMemberExpression(exprGraph, library, genericTypeParams);
     }  else if(exprGraph.type == "NewExpression") {
         return makeNewExpression(exprGraph, library, genericTypeParams);
+    }  else if(exprGraph.type == "RecordExpression") {
+        return makeRecordExpression(exprGraph, library, genericTypeParams);
     }
     error("Unrecognized expression type " + exprGraph.type);
 }

@@ -7,6 +7,7 @@ var baseFileNames = [
     ,"dependencies"
     ,"objects"
     ,"classes"
+    ,"records"
 ];
 
 fileNames = _.map(_.clone(baseFileNames), function(fileName) {
@@ -23,10 +24,13 @@ var validArray = [
     ,dependencies
     ,objects
     ,classes
+    ,records
 ]
 
 var startGroupIndex = 0;
 var endGroupIndex = validArray.length;
+// startGroupIndex = 3;
+// endGroupIndex = 4;
 function validate() {
 
     for(var i in textArray) {

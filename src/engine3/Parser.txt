@@ -256,6 +256,29 @@ NonCallExpression =
     / ListComprehensionExpression
     / ListExpression
     / TupleExpression
+    / RecordExpression
+
+// TODO multiline
+RecordExpression = 
+    "{" _ 
+    head:RecordField
+    tail:("," _ f:RecordField {return f})* 
+    "}" _
+    {
+        return {
+            type : "RecordExpression",
+            fields : [head].concat(tail)
+        };
+    }
+
+RecordField = 
+    id:Id "=" _ val:Expression {
+        return {
+            id : id,
+            val : val
+        };
+    }
+
 
 ListComprehensionExpression = 
     "[" _ elt:Expression _ generators:Comprehension+ "]" {
@@ -331,7 +354,6 @@ MultiplicativeExpression =
         return makeInfixExpression(head, tail);
     }
     / LogicalORExpression
-
 
 LogicalORExpression =
     head:LogicalANDExpression _ tail:(operator:LogicalOROperator _ operand:LogicalANDExpression _ {
@@ -915,31 +937,6 @@ MaybeTypeAndId =
              id:id,
              type:null
         };
-    }
-
-
-Dict = 
-    "{" _ head:DictEntry? tail:( _ "," _ (i:DictEntry) {return i})* _ "}"
-    {
-        var val = {};
-        if(head)
-        {
-            val[head[0]] = head[1];
-            for(var i = 0; i < tail.length; i++)
-            {
-                val[tail[i][0]] = tail[i][1];
-            }
-        }
-        
-        return {
-            dict : val
-        };
-    }
-
-DictEntry = 
-    id:Id _ ":" _ val:Expression
-    {
-        return [id, val]
     }
 
 Range = 

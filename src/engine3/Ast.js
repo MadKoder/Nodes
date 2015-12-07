@@ -22,6 +22,26 @@ ast = {
     thisExpression : {
         "type": "ThisExpression"
     },
+    property : function(keyStr, valueAst){
+        return {
+            "type": "Property",
+            "key": {
+                "type": "Identifier",
+                "name": keyStr
+            },
+            "computed": false,
+            "value": valueAst,
+            "kind": "init",
+            "method": false,
+            "shorthand": false
+        };
+    },
+    objectExpression : function(propertiesAst){
+        return {
+            "type": "ObjectExpression",
+            "properties": propertiesAst
+        };
+    },
     newExpression : function(callee, arguments)
     {
     	return {

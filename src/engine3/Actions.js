@@ -93,60 +93,52 @@ function getTargetInfos(targetGraph, library, genericTypeParams) {
         // The reference must be a this expression
         // TODO change for object syntax
         var id = targetGraph.name;
-        if(id in library.attribs)
-        {
+        if(id in library.nodes) {
+            var node = library.nodes[id];
+            var dirtyAstList = [];
+            if(node.sinkListVarName.length > 0) {
+                dirtyAstList = [{
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "Identifier",
+                        "name": "__dirtySinks"
+                    },
+                    "arguments": [
+                        {
+                            "type": "Identifier",
+                            "name": node.sinkListVarName
+                        }
+                    ]
+                }];
+            }
+
+            // If target is self, replace by that
+            var targetId = id === "self" ? "that" : id
             return {
-                target : ast.memberExpression(ast.thisExpression, id),
-                dirty : null
+                target : {
+                    "type": "Identifier",
+                    "name": targetId
+                },
+                dirtyAstList : dirtyAstList,
+                type : node.type,
+                node : node,
+                nodeId : id
+            };
+        } else if(id in library.slots) {
+            // If target is self, replace by that
+            var targetId = id === "self" ? "that" : id
+            return {
+                target : {
+                    "type": "Identifier",
+                    "name": targetId
+                },
+                dirtyAstList : [],
+                type : null,
+                node : null,
+                nodeId : id
             };
         } else {
-            if(id in library.nodes) {
-                var node = library.nodes[id];
-                var dirtyAstList = [];
-                if(node.sinkListVarName.length > 0) {
-                    dirtyAstList = [{
-                        "type": "CallExpression",
-                        "callee": {
-                            "type": "Identifier",
-                            "name": "__dirtySinks"
-                        },
-                        "arguments": [
-                            {
-                                "type": "Identifier",
-                                "name": node.sinkListVarName
-                            }
-                        ]
-                    }];
-                }
-
-                // If target is self, replace by that
-                var targetId = id === "self" ? "that" : id
-                return {
-                    target : {
-                        "type": "Identifier",
-                        "name": targetId
-                    },
-                    dirtyAstList : dirtyAstList,
-                    type : node.type,
-                    node : node,
-                    nodeId : id
-                };
-            } else if(id in library.slots) {
-                // If target is self, replace by that
-                var targetId = id === "self" ? "that" : id
-                return {
-                    target : {
-                        "type": "Identifier",
-                        "name": targetId
-                    },
-                    dirtyAstList : [],
-                    type : null,
-                    node : null,
-                    nodeId : id
-                };
-            } else {
-                error("Node " + id + " not in nodes nor slots library.");
-            }
+            error("Node " + id + " not in nodes nor slots library.");
         }
     } else if(targetGraph.type == "MemberExpression")
     {
@@ -186,33 +178,44 @@ function getTargetInfos(targetGraph, library, genericTypeParams) {
             // Struct should be a class instance
             var structType = targetInfos.type;
 
-            // Class should be in library
-            if(!(structType.base in library.classes)) {
-                error("Class " + structType.base + " not in classes library and Field " + fieldName + " not in node " + structId);
-            }
-
-            var classSpec = library.classes[structType.base](structType.args);
-            // If field is an attribute
-            if(fieldName in classSpec.attribs) {
-                var attribDef = classSpec.attribs[fieldName];
-                fieldType = attribDef.type;
-                
-                // If target is self, replace by that
-                var objectId = (structId === "self" ? "that" : structId);
-                if(attribDef.sinkListVarName.length > 0)
-                {
-                    var fieldDirtyAst = ast.callExpression(
-                        "__dirtySinks", 
-                        [
-                            ast.memberExpression(ast.id(objectId), attribDef.sinkListVarName)
-                        ]
-                    );
-                    dirtyAstList.push(fieldDirtyAst);                        
+            var baseType = getBaseType(structType);
+            if(isRecordType(structType)) {
+                var recordTypeFields = getRecordTypeFields(structType);
+                if(!(fieldName in recordTypeFields)) {
+                    error("Field " + fieldName + " not in record type " + typeToString(structType));
                 }
-            } else if (fieldName in classSpec.slots) {
-                // OK
-            } else {
-                error("Field " + fieldName + " not in class " + structType.base + " fields.");
+                // No dirty list for fields, the entire record is dirtied (if needed)
+            } else
+            {
+                // Should be a class
+                // Class should be in library
+                if(!(structType.base in library.classes)) {
+                    error("Class " + structType.base + " not in classes library and Field " + fieldName + " not in node " + structId);
+                }
+
+                var classSpec = library.classes[structType.base](structType.args);
+                // If field is an attribute
+                if(fieldName in classSpec.attribs) {
+                    var attribDef = classSpec.attribs[fieldName];
+                    fieldType = attribDef.type;
+                    
+                    // If target is self, replace by that
+                    var objectId = (structId === "self" ? "that" : structId);
+                    if(attribDef.sinkListVarName.length > 0)
+                    {
+                        var fieldDirtyAst = ast.callExpression(
+                            "__dirtySinks", 
+                            [
+                                ast.memberExpression(ast.id(objectId), attribDef.sinkListVarName)
+                            ]
+                        );
+                        dirtyAstList.push(fieldDirtyAst);                        
+                    }
+                } else if (fieldName in classSpec.slots) {
+                    // OK
+                } else {
+                    error("Field " + fieldName + " not in class " + structType.base + " fields.");
+                }
             }
         }
 

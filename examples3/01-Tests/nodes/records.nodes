@@ -1,0 +1,13 @@
+var x = 0
+var r = {x = 10, y = 1}
+
+def y = r.x + r.y
+
+def rDef = {z = r.x}
+
+slot tick do
+    r.x = 100
+    r.y = 200
+
+slot tick2 do
+    r = {x = 1, y = 0}

@@ -37,6 +37,10 @@ function makeDependencies(exprGraph, sinkId, sinkToSources, objectRefs, parentNo
         } else {
             makeDependencies(exprGraph.obj, sinkId, sinkToSources, objectRefs, parentNodeId);
         }
+    }  else if(exprGraph.type == "RecordExpression") {
+        _.each(exprGraph.fields, function(field) {
+            makeDependencies(field.val, sinkId, sinkToSources, objectRefs, parentNodeId);
+        });
     }
 }
 

@@ -24,6 +24,22 @@ function makeType(typeStr, args)
     }
 }
 
+function makeRecordType(fieldsType) {
+    return {
+        base : "record",
+        args : [],
+        fields : fieldsType
+    };
+}
+
+function isRecordType(type) {
+    return type.base == "record";
+}
+
+function getRecordTypeFields(recordType) {
+    return recordType.fields;
+}
+
 function makeListType(arg){
     return makeType("list", [arg]);
 }
@@ -271,6 +287,13 @@ function makeGuessTypeArgs(typeParamsToParamsPaths, typeParams) {
 
 function typeToString(type)
 {
+    if(isRecordType(type)) {
+        return "{" + 
+        _.map(getRecordTypeFields(type), function(value, key) {
+                return key + " : " + typeToString(value);
+            }).join(", ") +
+        "}"
+    }
     var baseType = getBaseType(type);
     var typeParams = getTypeArgs(type);
     if(typeParams.length == 0)

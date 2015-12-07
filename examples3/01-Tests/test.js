@@ -10,12 +10,12 @@ var library =
     actions : actions,
     classes : {},
     types : {},
-    attribs : {},
     slots : {}
 };
 
 var fileName = "test.nodes";
-var fileName = "classes.nodes";
+var fileName = "records.nodes";
+// var fileName = "classes.nodes";
 // var fileName = "nodeDef.nodes";
 // var fileName = "nodeVar.nodes";
 // var fileName = "litNode.nodes";
@@ -30,7 +30,7 @@ var fileName = "classes.nodes";
 // var fileName = "events.nodes";
 // var fileName = "objects.nodes";
 // var fileName = "generics.nodes";
-$.get(fileName, function( text ) {
+$.get("nodes/" + fileName, function( text ) {
     // setLodash(_);
     setEngineLodash(_);
 
@@ -52,25 +52,9 @@ $.get(fileName, function( text ) {
         $tmp.append("<div>" + txt + "</div>");
     }
     
-    // function Klass(x) {
-    //     var that = this;
-    //     this.x = _.clone(x, true);
-    //     this.y = __def(function () {
-    //         return that.x + 10;
-    //     });
-    //     this.inc = function(x) {
-    //      this.x = this.x + x;
-    //     }
-    //     this.x$sinkList = [this.y];
-    // }
-    function K(x) {
-        var that = this;
-        this.x = x;
-        this.y = __def(function () {
-            return that.x + 10;
-        });
-    }
-    // o = new Klass(1);
+    // var r = {
+    //     x : 1
+    // };
 
     if(fileName == "test.nodes") {
         tick(10, 5);
@@ -82,6 +66,21 @@ $.get(fileName, function( text ) {
         appendText([v.get().x, v.get().y].join(", "));
         appendText([w0.x, w0.y].join(", "));
         appendText([w.x, w.y].join(", "));
+    } else if(fileName == "records.nodes") {
+        appendText(r.x);
+        appendText(r.y);
+        appendText(y.get());
+        appendText(rDef.get().z);
+        tick();
+        appendText(r.x);
+        appendText(r.y);
+        appendText(y.get());
+        appendText(rDef.get().z);
+        tick2();
+        appendText(r.x);
+        appendText(r.y);
+        appendText(y.get());
+        appendText(rDef.get().z);
     } else if(fileName == "classes.nodes") {
         // appendText(x);
         appendText(n.x);
@@ -170,7 +169,7 @@ $.get(fileName, function( text ) {
         appendText(t.join(", "));
         appendText(t2.join(", "));
         appendText(t3.join(", "));
-    } else if(fileName == "list.nodes") {
+    } else if(fileName == "nodes/list.nodes") {
         appendText(l.join(", "));
         appendText(l2.get().join(", "));
         appendText(l3.get().join(", "));

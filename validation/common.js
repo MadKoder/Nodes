@@ -15,7 +15,7 @@ function assertEqual(a, b, testName)
 {
     buildValidationDiv();
 
-    if(a === b)
+    if(_.isEqual(a, b))
     {
         // $validation.append("<div> " + testName + " OK </div>");
     }
@@ -23,7 +23,7 @@ function assertEqual(a, b, testName)
     {
         failedTests.push();
         $validation.append("<div class='failed'>" + testName + " test failed</div>");
-        $validation.append("<div class='failed'>" + a + " != " + b + "</div>");
+        $validation.append("<div class='failed'>" + JSON.stringify(a) + " != " + JSON.stringify(b) + "</div>");
         validated = false;
     }
 }
@@ -75,7 +75,6 @@ var library =
     actions : actions,
     classes : {},
     types : {},
-    attribs : {},
     slots : {}
 };
 
