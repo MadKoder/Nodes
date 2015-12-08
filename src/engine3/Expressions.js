@@ -80,7 +80,7 @@ function makeListComprehensionExpression(expr, library, genericTypeParams)
                     // "name": "i" + generatorIndex
                 }
             };
-            localLibrary.nodes[name] = new Node(getterAst, typeGraphToCompact(iteratorType));
+            localLibrary.nodes[name] = new Node(getterAst, typeGraphToEngine(iteratorType));
         } else
         {
             error("destructuring !!!");
@@ -370,11 +370,13 @@ function makeCallExpression(expr, library, genericTypeParams)
 
     var instancesAst = [];
     // Replace arguments generic types by their instances
-    _.each(argsExpr, function(argExpr) {
+    argsExpr = _.map(argsExpr, function(argExpr) {
         if(argExpr.type.base in genericTypeParams) {
+            argExpr = _.clone(argExpr, true);
             argExpr.type = genericTypeParams[argExpr.type.base];
         }
         instancesAst = instancesAst.concat(argExpr.instancesAst);
+        return argExpr;
     });
 
     var typeArgs = funcSpec.guessTypeArgs(argsExpr);

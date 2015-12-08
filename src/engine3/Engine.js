@@ -93,6 +93,8 @@ function compileGraph(graph, library, previousNodes)
 			makeNodeDef(statementGraph, library, prog, sourceToSinks);
 		} else if(statementGraph.type == "ClassDef") {
 			makeClass(statementGraph, library, prog);
+		} else if(statementGraph.type == "FunctionDef") {
+			makeFunction(statementGraph, library, prog);
 		}
 	}
 

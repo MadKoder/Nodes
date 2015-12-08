@@ -81,13 +81,10 @@ function makeFunction(funcGraph, library, prog)
 	{
 		// Else create a new function instance object
 		var params = _.clone(funcGraph.params, true);
-		// For each untyped param, push a type param in the function graph
-		// and sets the param type to this type param
+		// For each untyped param, make a type param for this param
+		// and push it in the funcion typeParams
 		_.each(params , function(param) {
-			if(param.type == null) {
-				if(funcGraph.typeParams == null) {
-					funcGraph.typeParams = [];
-				}
+			if(param.type.length == 0) {
 				var paramTypeName = param.id.name + "$Type";
 				funcGraph.typeParams.push({
 					type : "Id",
@@ -99,6 +96,7 @@ function makeFunction(funcGraph, library, prog)
 				};
 			}
 		});
+
 		// Generic functions are not implemented where they are defined,
 		// instead they must be defined when concrete instances are used
 		var bodyGraph = funcGraph.body;

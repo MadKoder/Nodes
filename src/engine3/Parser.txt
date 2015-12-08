@@ -49,6 +49,7 @@ ProgStatement =
     / ChainedConnection
     / Node
     / ClassDef
+    / FunctionDef
 
 ClassDef = 
     ClassToken id:Id  typeParams:GenericParams params:ConstructorParams fields:ClassFields {
@@ -671,6 +672,7 @@ Keyword
       / "typeof"
       / "def"
       / "var"
+      / "fun"
       / "node"
       / "slot"
       / "signal"
@@ -681,6 +683,7 @@ Keyword
       / "with"
       / "$>"
       / "$<"
+      / "\\"
     )
     !IdentifierPart
 
@@ -715,7 +718,8 @@ VarToken        = "var"              !IdentifierPart _
 IndentToken        = "$>"               _
 DedentToken        = "$<"               _
 UnitToken       = "()"              !IdentifierPart _
-
+FuncToken       = "fun"              !IdentifierPart _
+LineContinuationToken =  "\\"       !IdentifierPart
 // UnicodeEscapeSequence
 //   = "u" digits:$(HexDigit HexDigit HexDigit HexDigit) {
 //       return String.fromCharCode(parseInt("0x" + digits));
@@ -773,13 +777,21 @@ AccessAssignment =
         };
         return affect;
     }
-    
-FunctionDeclaration =
-    id:Id _ typeParams:GenericParams _
-       params:ParamsDecl _ returnType:("::" _ type:Type _ {return type})? _ body:( "=" _ e:Expression {return e;})?
+
+FunctionDef =
+    FuncToken id:Id typeParams:GenericParams
+    params:ParamsDecl 
+    returnType:("::" _ type:Type {return type})? 
+    body:( 
+        "=" ___
+        e:(
+            e:Expression {return e;}
+            / IndentToken e:Expression ___ DedentToken {return e;}
+        ) {return e;}
+    )?
     {
         return {
-            type : "FunctionDeclaration",
+            type : "FunctionDef",
             id : id,
             callType : params.type,
             params : params.params, 
@@ -1434,7 +1446,7 @@ HexDigit
   = [0-9a-fA-F]
 
 _ = 
-    (WhiteSpace / Comment)*
+    (WhiteSpace / Comment / (LineContinuationToken WhiteSpace* Comment? LineTerminatorSequence))*
     // (WhiteSpace / LineTerminatorSequence / Comment)*
 
 ___ = 

@@ -30,7 +30,7 @@ fun f param:int :: int->int # depends on var x
 # g z = z + x + 1
 def g : int->int = f 1 # depends on var x
 
-def comp = [g i for i in range 10] # OK, but depends on var x
+def comp = [(g i) for i in range 10] # OK, but depends on var x
 
-def comp = [(f 1) i for i in range 10] # OK, but depends on var x
+def comp = [((f 1) i) for i in range 10] # OK, but depends on var x
 

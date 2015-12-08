@@ -1,9 +1,10 @@
-nodes:
-	# def c3 = [[y for x in [0, 1]] for y in [100, 200]]
-	var x = 10
-	var l = [0, 1, x + 10]
-	def l2 = l
-	def l3 = [x + 1, 100]
-	var c = [x + 1 for x in [1, 2]]
-	var c2 = [x + y for x in [1, y * 2] for y in [3, 4, 5]]
-	def c3 = [[x + y for x in l3] for y in l2]
+# def c3 = [[y for x in [0, 1]] for y in [100, 200]]
+fun inc x = x + 1
+var x = 1
+var y = inc x
+var l = [0, 1, x + 10]
+# def l2 = l
+# def l3 = [x + 1, 100]
+var c = [inc x for x in [1, 2]]
+# var c2 = [x + y for x in [1, y * 2] for y in [3, 4, 5]]
+# def c3 = [[x + y for x in l3] for y in l2]

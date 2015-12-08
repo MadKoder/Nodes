@@ -24,7 +24,7 @@ var fileName = "records.nodes";
 // var fileName = "curried.nodes";
 // var fileName = "destruct.nodes";
 // var fileName = "tuple.nodes";
-// var fileName = "list.nodes";
+var fileName = "list.nodes";
 // var fileName = "refs.nodes";
 // var fileName = "clone.nodes";
 // var fileName = "events.nodes";
@@ -165,13 +165,13 @@ $.get("nodes/" + fileName, function( text ) {
         appendText(t.join(", "));
         appendText(t2.join(", "));
         appendText(t3.join(", "));
-    } else if(fileName == "nodes/list.nodes") {
-        appendText(l.join(", "));
-        appendText(l2.get().join(", "));
-        appendText(l3.get().join(", "));
-        appendText(c.join(", "));
-        appendText(c2.join(", "));
-        appendText(c3.get().join(", "));
+    } else if(fileName == "list.nodes") {
+        appendText(l);
+        // appendText(l2.get());
+        // appendText(l3.get());
+        appendText(c);
+        // appendText(c2);
+        // appendText(c3.get());
     } else if(fileName == "refs.nodes") {
         tick();
         appendText([v.x, v.y].join(", "));
