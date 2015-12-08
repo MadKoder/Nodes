@@ -3,6 +3,7 @@ $(document).ready(function ()
 
 var baseFileNames = [
     "basics"
+    ,"functions"
     ,"slots"
     ,"dependencies"
     ,"objects"
@@ -20,6 +21,7 @@ var textArray = [];
 
 var validArray = [
     basics
+    ,functions
     ,slots
     ,dependencies
     ,objects
@@ -34,6 +36,8 @@ var endGroupIndex = validArray.length;
 function validate() {
 
     for(var i in textArray) {
+        reinitLibrary();
+
         // Jump test groups before start index
         if(i < startGroupIndex) {
             continue;

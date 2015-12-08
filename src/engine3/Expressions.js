@@ -383,6 +383,14 @@ function makeCallExpression(expr, library, genericTypeParams)
     var funcInstance = funcSpec.getInstance(typeArgs);
     instancesAst = instancesAst.concat(funcInstance.instancesAst);
 
+    // Control number of args
+    // TODO currying
+    if(argsExpr.length != funcInstance.type.inputs.length) {
+        error("Function " + id + " with " + funcInstance.type.inputs.length + " param(s)" +  
+            " is called with " + argsExpr.length + " args");
+    }
+
+    // Control args type agains params type
     _.each(
         _.zip(argsExpr, funcInstance.type.inputs),
         function(argAndInputType) {

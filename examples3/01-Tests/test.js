@@ -6,7 +6,7 @@ var $tmp = $("#tmp");
 var library =
 {
     nodes : {},
-    functions : functions,
+    functions : libraryFunctions,
     actions : actions,
     classes : {},
     types : {},

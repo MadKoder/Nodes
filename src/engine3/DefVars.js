@@ -1,5 +1,10 @@
 function makeVar(nodeGraph, library, prog, sourceToSinks) {
-    var id = nodeGraph.id.name;     
+    var id = nodeGraph.id.name;
+
+    if(isInLibrary(id, library)) {
+        error(id + " already defined");
+    }
+
     var expr = makeExpr(nodeGraph.val, library, {});
     prog.body = prog.body.concat(expr.instancesAst);
     
@@ -75,6 +80,11 @@ function getDefInitAst(expr, sinkListVarName) {
 
 function makeDef(nodeGraph, library, prog) {
     var id = nodeGraph.id.name;
+
+    if(isInLibrary(id, library)) {
+        error(id + " already defined");
+    }
+
     var expr = makeExpr(nodeGraph.val, library, {});                    
     prog.body = prog.body.concat(expr.instancesAst);
     

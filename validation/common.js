@@ -68,15 +68,20 @@ function assertArrayEquals(a, b, testName)
     }
 }
 
-var library =
-{
-    nodes : {},
-    functions : functions,
-    actions : actions,
-    classes : {},
-    types : {},
-    slots : {}
-};
+var library = null;
+
+function reinitLibrary() {
+    library = {
+        nodes : {},
+        functions : libraryFunctions,
+        actions : actions,
+        classes : {},
+        types : {},
+        slots : {}
+    };
+}
+
+reinitLibrary();
 
 function makeJsSrc(nodeSrc) {
     var canonicalStr = syntax.convert(nodeSrc);

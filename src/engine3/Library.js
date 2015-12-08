@@ -1,20 +1,31 @@
 
-var functions = {};
+function isInLibrary(id, library) {
+    return (
+        (id in library.nodes) ||
+        (id in library.functions) ||
+        (id in library.actions) ||
+        (id in library.classes) ||
+        (id in library.types) ||
+        (id in library.slots)
+    );
+}
+
+var libraryFunctions = {};
 
 var arithmeticFunctions = _.zipObject(_.map(["+", "-", "*", "/"], function(operand) {
 	return [operand, maf2(operand)];
 }));
-_.merge(functions, arithmeticFunctions);
+_.merge(libraryFunctions, arithmeticFunctions);
 
 var predicates = _.zipObject(_.map(["==", "!=", "<", ">", "<=", ">="], function(operand) {
 	return [operand, mrf2(operand)];
 }));
-_.merge(functions, predicates);
+_.merge(libraryFunctions, predicates);
 
 var logicalFunctions = _.zipObject(_.map(["and", "or"], function(operand) {
 	return [operand, mlf2(operand == "and" ? "&&" : "||")];
 }));
-_.merge(functions, logicalFunctions);
+_.merge(libraryFunctions, logicalFunctions);
 
 function makeLocalLibrary(library) {
     var localLibrary = _.clone(library);

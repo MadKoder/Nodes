@@ -1,0 +1,45 @@
+fun typedFunc x:int :: int = x + 1
+
+fun inputTypedFunc x:int = x + 2
+
+fun outputTypedFunc x :: int = x + 3
+
+fun unTypedFunc x = x + 4
+
+# 2
+var typedFuncRes = typedFunc 1
+
+# 3
+var inputTypedFuncRes = inputTypedFunc 1
+
+# 4
+var outputTypedFuncRes = outputTypedFunc 1
+
+# 5
+var unTypedFuncRes = unTypedFunc 1
+
+##########################################
+
+fun lineBreakFunc x =
+    x + 10
+
+fun twoParamsUntypedFunc x y =
+    x + y + 10
+
+fun threeParamTypedFunc x:int y:int z:int :: int =
+    x + y + z
+
+fun funcCallInFunc x =
+    threeParamTypedFunc x (x + 10) (5 - x)
+
+# 11
+var lineBreakFuncRes = lineBreakFunc 1
+
+# 13
+var twoParamsUntypedFuncRes = twoParamsUntypedFunc 1 2
+
+# 6
+var threeParamTypedFuncRes = threeParamTypedFunc 1 2 3
+
+# 16
+var funcCallInFunccRes = funcCallInFunc 1
