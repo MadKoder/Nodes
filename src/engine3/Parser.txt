@@ -797,7 +797,7 @@ FunctionDef =
             params : params.params, 
             body : body,
             typeParams : typeParams,
-            returnType : returnType
+            returnType : returnType != null ? returnType : ""
         };
     }
 
@@ -835,7 +835,7 @@ TypedCurriedParamDecl =
 UntypedCurriedParamDecl =
     id:Id _ {
         return {
-            type : "",
+            type : null,
             id : id
         };
     }

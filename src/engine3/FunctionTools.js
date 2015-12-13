@@ -31,6 +31,13 @@ function inOut3(in0, in1, in3, output)
 	}
 }
 
+function funcType(inputs, output) {
+	return  {
+		inputs : inputs,
+		output : output
+	};
+}
+
 function mf1(func1, inAndOutTypes)
 {
 	return {

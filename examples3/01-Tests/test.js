@@ -14,7 +14,7 @@ var library =
 };
 
 var fileName = "test.nodes";
-var fileName = "records.nodes";
+// var fileName = "records.nodes";
 // var fileName = "classes.nodes";
 // var fileName = "nodeDef.nodes";
 // var fileName = "nodeVar.nodes";
@@ -24,7 +24,7 @@ var fileName = "records.nodes";
 // var fileName = "curried.nodes";
 // var fileName = "destruct.nodes";
 // var fileName = "tuple.nodes";
-var fileName = "list.nodes";
+// var fileName = "list.nodes";
 // var fileName = "refs.nodes";
 // var fileName = "clone.nodes";
 // var fileName = "events.nodes";
@@ -53,15 +53,7 @@ $.get("nodes/" + fileName, function( text ) {
     }
     
     if(fileName == "test.nodes") {
-        tick(10, 5);
-        appendText(x.get());
-        appendText(y);
-        appendText(z);
-        appendText(t.get());
-        appendText(b);
-        appendText([v.get().x, v.get().y].join(", "));
-        appendText([w0.x, w0.y].join(", "));
-        appendText([w.x, w.y].join(", "));
+        appendText(x);
     } else if(fileName == "records.nodes") {
         appendText(r);
         appendText(y.get());

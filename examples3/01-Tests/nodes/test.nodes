@@ -1,29 +1,13 @@
-structs:
-	Vec2<T>:
-		T x
-		T y
-		slot inc(T i):
-			x = x + i
-functions:
-	add<T>(T x, T y) =
-		x + y
-nodes:
-	var z = 1 + 2
-	var y = z
-	def x = y
-	def t = add(x, z)
-	def v = Vec2(x, y)
-	def u = v.x + t
-	var w0 = v
-	var w = w0
-	var b = 1 < 2 and y == z
-actions:
-	tick(int i, int j): 
-		y = y + v.y
-		subTick(0, y)
-		simpleSignal()
-		w.inc(w.y * 2)
-	subTick(int x, int y):
-		z = z + x + y 
-	simpleSignal:
-		y = y + 2
+# fun add x y =
+# 	(inc x) + y
+# add<T, U, V> : T -> U -> V
+# V : int
+# inc.U : int
+
+
+# fun inc x = add (x + 1) x
+# inc<T, U> : T -> U
+
+fun inc x = x + 1
+
+var x = inc 0

@@ -70,6 +70,73 @@ function compileGraph(graph, library, previousNodes)
 	    }
 	};
 	
+	var functions = _.filter(graph, function(statementGraph) {
+		return statementGraph.type == "FunctionDef";
+	});
+
+	var functionsDeclaration = {};
+	for (var i = functions.length - 1; i >= 0; i--) {
+		var functionGraph = functions[i];
+		var id = functionGraph.id.name;
+
+		// Fills argsType and for untyped params, make typeParams and fill their types
+		var argsType = [];
+		_.each(functionGraph.params, function(paramGraph) {
+			if(paramGraph.type == null) {
+				var paramTypeName = paramGraph.id.name + "$Type";
+				functionGraph.typeParams.push({
+					type : "Id",
+					name : paramTypeName
+				});
+				paramGraph.type = {
+					type : "Id",
+					name : paramTypeName
+				};
+				argsType.push(makeBaseType(paramTypeName));
+			} else {
+				argsType.push(typeGraphToEngine(paramGraph.type));
+			}
+		});
+		var returnTypeGraph = functionGraph.returnType;
+		if(returnTypeGraph.length == 0) {
+			var returnTypeName = id + "$ReturnType";
+			// TODO
+			// functionGraph.typeParams.push({
+			// 	type : "Id",
+			// 	name : returnTypeName
+			// });
+			var returnType = makeBaseType(returnTypeName);
+		} else {
+			var returnType = typeGraphToEngine(returnTypeGraph);
+		}
+
+		// list<string>
+		var typeParams = _.map(functionGraph.typeParams, function(typeParamGraph) {
+			return typeParamGraph.name;
+		});
+
+		functionsDeclaration[id] = {
+			graph : functionGraph,
+			typeParams : typeParams,
+			inputs : argsType,
+			output : returnType,
+			typeEvaluated : "no"
+		};
+	}
+
+	// var functionTypeToInferLeft = true;
+	// while(functionTypeToInferLeft) {
+	// 	functionTypeToInferLeft = false;
+	// 	for (var i = functions.length - 1; i >= 0; i--) {
+	// 		var functionGraph = functions[i];
+	// 		var id = functionGraph.id.name;
+	// 		var functionDeclaration = functionsDeclaration[id];
+	// 		// Function not totally evaluated
+	// 		if(functionDeclaration.typeEvaluated != "yes") {
+	// 			var newFunctionDeclaration = inferFunctionType(functionDeclaration, library);
+	// 		}
+	// 	}
+	// }
     var sourceToSinks = {};
     var objectRefs = {};
     updateSourceToSinks(graph, sourceToSinks, objectRefs);

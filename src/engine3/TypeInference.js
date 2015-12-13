@@ -1,0 +1,3 @@
+function inferFunctionType(functionDeclaration, library) {
+    
+}
