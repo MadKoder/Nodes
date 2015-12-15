@@ -371,12 +371,17 @@ function makeCallExpression(expr, library, genericTypeParams)
     var instancesAst = [];
     // Replace arguments generic types by their instances
     argsExpr = _.map(argsExpr, function(argExpr) {
-        if(argExpr.type.base in genericTypeParams) {
-            argExpr = _.clone(argExpr, true);
-            argExpr.type = genericTypeParams[argExpr.type.base];
-        }
-        instancesAst = instancesAst.concat(argExpr.instancesAst);
-        return argExpr;
+        // Copy of argExpr with type replaced by its instance
+        var instanciatedArgExpr = _.assign(
+            {},
+            argExpr,
+            {
+                type : instanciateType(argExpr.type, genericTypeParams)
+            }
+        );
+
+        instancesAst = instancesAst.concat(instanciatedArgExpr.instancesAst);
+        return instanciatedArgExpr;
     });
 
     var typeArgs = funcSpec.guessTypeArgs(argsExpr);

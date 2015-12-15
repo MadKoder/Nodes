@@ -61,7 +61,7 @@ function instanciateType(genericType, genericToInstanceDict){
         return genericToInstanceDict[genericBase];
     }
     
-    var args = _.map(genericType.args, function(resultArgType) {
+    var argsInstance = _.map(genericType.args, function(resultArgType) {
         return instanciateType(
             resultArgType,
             genericToInstanceDict
@@ -70,16 +70,16 @@ function instanciateType(genericType, genericToInstanceDict){
 
     return {
         base : genericBase,
-        args : args
+        args : argsInstance
     };
 }
 
-function instanciateFunctionType(genericType, kwTypeArgs){
+function instanciateFunctionType(genericType, genericToInstanceDict){
     return {
         inputs : _.map(genericType.inputs, function(input) {
-            return instanciateType(input, kwTypeArgs);
+            return instanciateType(input, genericToInstanceDict);
         }),
-        output : instanciateType(genericType.output, kwTypeArgs)
+        output : instanciateType(genericType.output, genericToInstanceDict)
     };
 }
 
@@ -203,7 +203,7 @@ function getTypeParamsToParamsPaths(typeParams, paramsType)
     // Dict associant a chaque typeParam les chemins dans les parametres qui l'utilisent
     // Sert pour deviner les typeParams a partir des types des parametres
     var typeParamsToParamsPaths = _.zipObject(
-        _.map(typeParams, function(typeParam) {return typeParam.name;}),
+        typeParams,
         _.map(Array(typeParams.length), function(){return [];})
     );
 
@@ -372,3 +372,7 @@ function checkSameTypes(firstType, secondType)
 {
     check(sameTypes(firstType, secondType), "Template types are different : " + typeToString(firstType) + " and " + typeToString(secondType));
 }
+
+var intType = makeBaseType("int");
+var floatType = makeBaseType("float");
+var boolType = makeBaseType("bool");
