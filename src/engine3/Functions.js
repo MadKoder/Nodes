@@ -8,23 +8,23 @@ function buildFunctionOrStruct(graph, id, params, returnType, returnStmnt, libra
     );
 
     // Default guesser when there are not type params
-    var guessTypeArgs = function(args) {
+    var inferTypeArgs = function(args) {
         return [];
     }
-    // If there are type params, make guessTypeArgs function from type params and params type
+    // If there are type params, make inferTypeArgs function from type params and params type
     // TODO useful ? when building function there is already a dedicated case for generic functions,
-    // and buildFunctionOrStruct is only used when building instances. In this case, the guessTypeArgs 
+    // and buildFunctionOrStruct is only used when building instances. In this case, the inferTypeArgs 
     // won't be used => useful for structs ?
     if(graph.typeParams.length > 0) {
         var typeParamsToParamsPaths = getTypeParamsToParamsPaths(graph.typeParams, paramsType);
-        guessTypeArgs = makeGuessTypeArgs(
+        inferTypeArgs = makeInferTypeArgs(
             typeParamsToParamsPaths,
             graph.typeParams
         );
     }
 
     library.functions[id] = {
-        guessTypeArgs : guessTypeArgs,
+        inferTypeArgs : inferTypeArgs,
         getInstance : function(typeArgs)
         {
             return {
@@ -72,50 +72,17 @@ function makeFunction(funcGraph, library, prog)
     var typeParams = functionDeclaration.typeParams;
     var typeParamsToInstance = functionDeclaration.typeParamsToInstance;
     // If there are typeParams without instances
-    if(typeParams.length > Object.keys(typeParamsToInstance).length) {
+    if(typeParams.length > getNbProperties(typeParamsToInstance)) {
         var paramsType = getParamsType(params);
         var typeParamsToParamsPaths = getTypeParamsToParamsPaths(typeParams, paramsType);
-        var guessTypeArgs = makeGuessTypeArgs(
+        var inferTypeArgs = makeInferTypeArgs(
             typeParamsToParamsPaths,
             typeParams
         );
 
-        // // Build local nodes from params
-        // var localNodes = {};
-        // _.each(params, function(param) {
-        //  localNodes[param.id.name] = new Node({
-        //          "type": "Identifier",
-        //          "name": param.id.name
-        //      },
-        //      typeGraphToEngine(param.type)
-        //  );
-        // });
-
-        // var expr = makeExpr(
-        //  bodyGraph,
-        //  {
-        //      functions : library.functions,
-        //      nodes : localNodes
-        //  },
-        //  {}
-        // );
-
-        // var genericType = inferFunctionType(
-        //  bodyGraph,
-        //  {
-        //      functions : library.functions,
-        //      nodes : localNodes
-        //  }
-        // );
-
-        // var genericType = {
-        //  typeParams : inferedFunctionType.typeParams,
-        //  type : inferedFunctionType.functionType
-        // };
-
         // Adds function spec to library
         library.functions[id] = {
-            guessTypeArgs : guessTypeArgs,
+            inferTypeArgs : inferTypeArgs,
             getInstance : function(typeArgs)
             {
                 // Builds the instance name from the function name and type args
@@ -206,10 +173,13 @@ function makeFunction(funcGraph, library, prog)
 
         expr = makeExpr(
             bodyGraph, 
-            {
-                functions : library.functions,
-                nodes : localNodes
-            },
+            _.assign(
+                {},
+                library,
+                {
+                    nodes : localNodes
+                }
+            ),
             typeParamsToInstance
         );
         exprType = expr.type;

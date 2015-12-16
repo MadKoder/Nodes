@@ -67,7 +67,7 @@ function mff1(func1)
 function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 {
     return {
-        guessTypeArgs : function(params)
+        inferTypeArgs : function(params)
         {
             return [getTemplateFunc(params[0].getType())];
         },      
@@ -97,7 +97,7 @@ function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 function mt2f1(func1, getInAndOutTypes, guessTypeParamsFunc)
 {
     return {
-        guessTypeArgs : function(params)
+        inferTypeArgs : function(params)
         {
             return guessTypeParamsFunc(params[0].getType());
         },      
@@ -163,7 +163,7 @@ function mllf1(func1)
 function mf2(func2, inAndOutTypes)
 {
     return {
-        guessTypeArgs : function(args)
+        inferTypeArgs : function(args)
         {
             return [];
         },      
@@ -242,24 +242,27 @@ function mtf2(func2, getInAndOutTypes, getTemplateFunc)
         inferType : function(argsType, typeParams) {
             var typeParamsToInstance = {};
             if(_.contains(typeParams, getBaseType(argsType[0]))) {
-                typeParamsToInstance[getBaseType(argsType[0])] = floatType;
+                // TODO other
+                typeParamsToInstance[getBaseType(argsType[0])] = intType;
             }
             if(_.contains(typeParams, getBaseType(argsType[1]))) {
-                typeParamsToInstance[getBaseType(argsType[1])] = floatType;
+                // TODO other
+                typeParamsToInstance[getBaseType(argsType[1])] = intType;
             }
             // If no generic type, output is common type, else float
+            // TODO other
             var outputType = getNbProperties(typeParamsToInstance) == 0 ?
                 getCommonSuperClass(argsType[0], argsType[1]) :
-                floatType;
+                intType;
 
             return {
                 typeParamsToInstance : typeParamsToInstance,
                 output : outputType
             };            
         },
-        guessTypeArgs : function(args)
+        inferTypeArgs : function(argsType)
         {
-            return [getTemplateFunc(args[0].type, args[1].type)];
+            return [getTemplateFunc(argsType[0], argsType[1])];
         },      
         getInstance : function(typeArgs)
         {
@@ -308,7 +311,7 @@ function maf2(operator)
 function mt2f2(func2, getInAndOutTypes, guessTypeParamsFunc)
 {
     return {
-        guessTypeArgs : function(params)
+        inferTypeArgs : function(params)
         {
             return guessTypeParamsFunc(params[0].getType(), params[1].getType());
         },      
@@ -352,7 +355,7 @@ function mff3(func3)
 function mtf3(func3, getInAndOutTypes, getTemplateFunc)
 {
     return {
-        guessTypeArgs : function(params)
+        inferTypeArgs : function(params)
         {
             return [getTemplateFunc(params[0].getType(), params[1].getType(), params[2].getType())];
         },      
@@ -374,7 +377,7 @@ function mtf3(func3, getInAndOutTypes, getTemplateFunc)
 function mt3f3(func3, getInAndOutTypes, guessTypeParamsFunc)
 {
     return {
-        guessTypeArgs : function(params)
+        inferTypeArgs : function(params)
         {
             return guessTypeParamsFunc(params[0].getType(), params[1].getType(), params[2].getType());
         },      

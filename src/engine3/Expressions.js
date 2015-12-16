@@ -331,14 +331,22 @@ function makeTupleExpression(expr, library, genericTypeParams)
 function makeCallExpression(expr, library, genericTypeParams)
 {
     var func = expr.func;
+    var funcSpec = null;
     if(func.type == "Id")
     {
         var id = func.name;     
         if(!(id in library.functions))
         {
-            error("Function " + id + " not found in functions library");
+            if(!(id in library.functionsDeclaration))
+            {
+                error("Function " + id + " not found in functions library nor functions declarations");
+            } else {
+                funcSpec = library.functionsDeclaration[id];
+            }
+        } else 
+        {
+            funcSpec = library.functions[id];
         }
-        var funcSpec = library.functions[id];
     }
     else
     {
@@ -384,7 +392,7 @@ function makeCallExpression(expr, library, genericTypeParams)
         return instanciatedArgExpr;
     });
 
-    var typeArgs = funcSpec.guessTypeArgs(argsExpr);
+    var typeArgs = funcSpec.inferTypeArgs(_.map(argsExpr, "type"));
     var funcInstance = funcSpec.getInstance(typeArgs);
     instancesAst = instancesAst.concat(funcInstance.instancesAst);
 
@@ -399,7 +407,7 @@ function makeCallExpression(expr, library, genericTypeParams)
     _.each(
         _.zip(argsExpr, funcInstance.type.inputs),
         function(argAndInputType) {
-            if(!isSameType(argAndInputType[0].type, argAndInputType[1])) {
+            if(!isSubType(argAndInputType[0].type, argAndInputType[1])) {
                 error(
                     "Arg type " + typeToString(argAndInputType[0].type) + " different from formal parameter type " + typeToString(argAndInputType[1])
                 );
@@ -444,7 +452,7 @@ function makeNewExpression(exprGraph, library, genericTypeParams)
     //     }
     //     instancesAst = instancesAst.concat(argExpr.instancesAst);
     // });
-    // var typeArgs = funcSpec.guessTypeArgs(argsExpr);
+    // var typeArgs = funcSpec.inferTypeArgs(argsExpr);
     // var funcInstance = funcSpec.getInstance(typeArgs);
     // instancesAst = instancesAst.concat(funcInstance.instancesAst);
 

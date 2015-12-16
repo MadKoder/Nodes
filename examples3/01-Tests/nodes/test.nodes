@@ -8,6 +8,10 @@
 # fun inc x = add (x + 1) x
 # inc<T, U> : T -> U
 
+
+fun add y =
+    inc y
+
 fun inc x = x + 1
 
 var x = inc 0

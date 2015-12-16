@@ -110,72 +110,115 @@ function compileGraph(graph, library, previousNodes)
             return typeParamGraph.name;
         });
 
+        // Default guesser when there are not type params
+        var inferTypeArgs = function(args) {
+            return [];
+        }
+        if(functionGraph.typeParams.length > 0) {
+            var paramsType = getParamsType(functionGraph.params);
+            var typeParamsToParamsPaths = getTypeParamsToParamsPaths(typeParams, paramsType);
+            inferTypeArgs = makeInferTypeArgs(
+                typeParamsToParamsPaths,
+                typeParams
+            );
+        }
+
         functionsDeclaration[id] = {
             graph : functionGraph,
             typeParams : typeParams,
             inputs : argsType,
             output : null,
             typeParamsToInstance : {},
-            typeEvaluated : "no"
+            inferType : function(argsType, typeParams) {
+                var typeParamsToInstance = {};
+                return {
+                    typeParamsToInstance : {"y$Type" : intType},
+                    output : intType
+                };
+            },
+            inferTypeArgs : inferTypeArgs,
+            getInstance : function(typeArgs) {
+                return _.assign(
+                    this,
+                    {
+                        type : {
+                            inputs : this.inputs,
+                            output : this.output
+                        }
+                    }
+                );
+            },
+            instanceAst : {
+                "type": "BlockStatement",
+                "body": []
+            },
+            getAst : function(args) 
+            {   
+                return {
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "Identifier",
+                        "name": id
+                    },
+                    "arguments": args
+                }
+            },
         };
     }
 
     library.functionsDeclaration = functionsDeclaration;
 
-    // var functionTypeToInferLeft = true;
-    // while(functionTypeToInferLeft) {
-    //     functionTypeToInferLeft = false;
-    //     for (var i = functions.length - 1; i >= 0; i--) {
-    //         var functionGraph = functions[i];
-    //         var id = functionGraph.id.name;
-    //         var functionDeclaration = functionsDeclaration[id];
-    //         var typeParams = functionDeclaration.typeParams;
-    //         var typeParamsToInstance = functionDeclaration.typeParamsToInstance;
-    //         // Function not totally inferred
-    //         if(typeParams.length > Object.keys(typeParamsToInstance).length) {
-    //             var localLibrary = _.clone(library);
-    //             // Build local nodes from params
-    //             localLibrary.nodes = {};
-    //             _.each(functionGraph.params, function(param) {
-    //                 localLibrary.nodes[param.id.name] = new Node({
-    //                         "type": "Identifier",
-    //                         "name": param.id.name
-    //                     },
-    //                     typeGraphToEngine(param.type)
-    //                 );
-    //             });
+    var functionTypeToInferLeft = true;
+    while(functionTypeToInferLeft) {
+        functionTypeToInferLeft = false;
+        for (var i = functions.length - 1; i >= 0; i--) {
+            var functionGraph = functions[i];
+            var id = functionGraph.id.name;
+            var functionDeclaration = functionsDeclaration[id];
+            var typeParams = functionDeclaration.typeParams;
+            var typeParamsToInstance = functionDeclaration.typeParamsToInstance;
+            // Function not totally inferred
+            if(typeParams.length > getNbProperties(typeParamsToInstance)) {
+                var localLibrary = _.clone(library);
+                // Build local nodes from params
+                localLibrary.nodes = {};
+                _.each(functionGraph.params, function(param) {
+                    localLibrary.nodes[param.id.name] = new Node({
+                            "type": "Identifier",
+                            "name": param.id.name
+                        },
+                        typeGraphToEngine(param.type)
+                    );
+                });
 
-    //             var newFunctionType = inferFunctionType(
-    //                 functionDeclaration,
-    //                 localLibrary, 
-    //                 functionsDeclaration,
-    //                 typeParams
-    //             );
+                var newFunctionType = inferFunctionType(
+                    functionDeclaration,
+                    localLibrary, 
+                    functionsDeclaration,
+                    typeParams
+                );
 
-    //             var functionType = _.pick(
-    //                 functionDeclaration,
-    //                 [
-    //                     "inputs",
-    //                     "output",
-    //                     "typeParamsToInstance"
-    //                 ]
-    //             );
+                var functionType = _.pick(
+                    functionDeclaration,
+                    [
+                        "inputs",
+                        "output",
+                        "typeParamsToInstance"
+                    ]
+                );
 
-    //             // We want to reevaluate after if at least one function has been infered
-    //             functionTypeToInferLeft = 
-    //                 functionTypeToInferLeft ||
-    //                 !_.isEqual(newFunctionType, functionType);
+                // We want to reevaluate after if at least one function has been infered
+                functionTypeToInferLeft = 
+                    functionTypeToInferLeft ||
+                    !_.isEqual(newFunctionType, functionType);
 
-    //             functionDeclaration = _.assign(
-    //                 functionDeclaration,
-    //                 newFunctionType,
-    //                 {
-    //                     typeParamsToInstance : {"x$Type" : makeBaseType("int")},
-    //                 }
-    //             )
-    //         }
-    //     }
-    // }
+                functionsDeclaration[id] = _.assign(
+                    functionDeclaration,
+                    newFunctionType
+                )
+            }
+        }
+    }
     var sourceToSinks = {};
     var objectRefs = {};
     updateSourceToSinks(graph, sourceToSinks, objectRefs);

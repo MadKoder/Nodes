@@ -231,11 +231,10 @@ function getParamsType(params) {
     Makes a type args guesser function
     
 */
-function makeGuessTypeArgs(typeParamsToParamsPaths, typeParams) {
-    return function(params)
+function makeInferTypeArgs(typeParamsToParamsPaths, typeParams) {
+    return function(paramsType)
     {
         // Guess templates types from params types
-        var paramsType = getParamsType(params);
         return _.zipObject(
             typeParams,
             _.map(typeParamsToParamsPaths, function(paths, typeParam)
