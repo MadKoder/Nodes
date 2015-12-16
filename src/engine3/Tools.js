@@ -18,6 +18,10 @@ function isNumber(expr)
 	return isInArray(expr.type, ["Int", "Float"]);
 }
 
+function getNbProperties(object) {
+	return Object.keys(object).length;
+}
+
 var storeId = 0;
 function Store(v, type) 
 {

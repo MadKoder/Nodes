@@ -194,28 +194,25 @@ function makeFunction(funcGraph, library, prog)
         // If function is not generic
         var expr = null;
         var exprType = null;
-        if(bodyGraph != null)
-        {                           
-            var localNodes = {};
-            _.each(params, function(param) {
-                localNodes[param.id.name] = new Node({
-                        "type": "Identifier",
-                        "name": param.id.name
-                    },
-                    typeGraphToEngine(param.type)
-                );
-            });
-
-            expr = makeExpr(
-                bodyGraph, 
-                {
-                    functions : library.functions,
-                    nodes : localNodes
+        var localNodes = {};
+        _.each(params, function(param) {
+            localNodes[param.id.name] = new Node({
+                    "type": "Identifier",
+                    "name": param.id.name
                 },
-                typeParamsToInstance
+                typeGraphToEngine(param.type)
             );
-            exprType = expr.type;
-        }
+        });
+
+        expr = makeExpr(
+            bodyGraph, 
+            {
+                functions : library.functions,
+                nodes : localNodes
+            },
+            typeParamsToInstance
+        );
+        exprType = expr.type;
 
         prog.addStmnt(
             buildFunctionOrStruct(

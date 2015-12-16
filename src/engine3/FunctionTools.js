@@ -239,15 +239,23 @@ function mlf2(operator)
 function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 {
     return {
-        inferType : function(argsType) {
-            var genericTypes = {};
-            if(argsType[0].isTypeParam) {
-                genericTypes[argsType[0].type] = floatType;
+        inferType : function(argsType, typeParams) {
+            var typeParamsToInstance = {};
+            if(_.contains(typeParams, getBaseType(argsType[0]))) {
+                typeParamsToInstance[getBaseType(argsType[0])] = floatType;
             }
-            if(argsType[1].isTypeParam) {
-                genericTypes[argsType[1].type] = floatType;
+            if(_.contains(typeParams, getBaseType(argsType[1]))) {
+                typeParamsToInstance[getBaseType(argsType[1])] = floatType;
             }
-            return genericTypes;
+            // If no generic type, output is common type, else float
+            var outputType = getNbProperties(typeParamsToInstance) == 0 ?
+                getCommonSuperClass(argsType[0], argsType[1]) :
+                floatType;
+
+            return {
+                typeParamsToInstance : typeParamsToInstance,
+                output : outputType
+            };            
         },
         guessTypeArgs : function(args)
         {

@@ -1,6 +1,6 @@
-function makeInferredExpressionType(typeParamsInstances, type) {
+function makeInferredExpressionType(typeParamsToInstance, type) {
     return {
-        typeParamsInstances : typeParamsInstances,
+        typeParamsToInstance : typeParamsToInstance,
         type : type
     };
 }
@@ -55,12 +55,47 @@ function inferCallExpressionType(expr, library, functionsDeclaration, typeParams
     }
     else {    
         // Evaluate args
-        argsExprType = _.map(argsGraph, function(arg) {
+        argsType = _.map(argsGraph, function(arg) {
             return inferExprType(arg, library, functionsDeclaration, typeParams);
         });
     }
 
-    var typeArgs = funcSpec.inferType(argsExprType);
+    var funcType = funcSpec.inferType(
+        _.map(argsType, "type"),
+        typeParams
+    );
+
+    var typeParamsToInstanceArray = _
+        .map(argsType, "typeParamsToInstance")
+        .concat([funcType.typeParamsToInstance]);
+
+    // Merge instanciated types
+    var typeParamsToInstance = {};
+    _.each(typeParamsToInstanceArray, function(argTypeParamsToInstance) {
+        for(typeParam in argTypeParamsToInstance) {
+            var argInstanciatedType = argTypeParamsToInstance[typeParam];
+            // TODO super type ?
+            if(typeParam in typeParamsToInstance) {
+                var instanciatedType = typeParamsToInstance[typeParam];
+                var commonSuperType = getCommonSuperClass(instanciatedType, argInstanciatedType);
+                if(commonSuperType == null) {
+                    error("Incompatible infered types for type param " + typeParam + " : " 
+                        + typeToString(argInstanciatedType) + " and " + typeToString(instanciatedType));
+                }
+                // TODO check common super type
+                typeParamsToInstance[typeParam] = commonSuperType;
+            } else {
+                typeParamsToInstance[typeParam] = argInstanciatedType;
+            }
+        }
+    });
+
+
+    return makeInferredExpressionType(
+        typeParamsToInstance,
+        funcType.output
+    );
+
     var typeArgs = funcSpec.guessTypeArgs(argsExpr);
     var funcInstance = funcSpec.getInstance(typeArgs);
     instancesAst = instancesAst.concat(funcInstance.instancesAst);
@@ -110,9 +145,9 @@ function inferExprType(exprGraph, library, functionsDeclaration, typeParams) {
             "yes"
         );        
     } else if(exprGraph.type == "Id") {
-        return inferIdExpressionType(exprGraph, library, functionsDeclaration);
+        return inferIdExpressionType(exprGraph, library, functionsDeclaration, typeParams);
     } else if(exprGraph.type == "FunctionCall") {
-        return inferCallExpressionType(exprGraph, library, functionsDeclaration);
+        return inferCallExpressionType(exprGraph, library, functionsDeclaration, typeParams);
     }
     error("Unrecognized expression type " + exprGraph.type);
 }
@@ -121,6 +156,19 @@ function inferFunctionType(functionDeclaration, library, functionsDeclaration, t
     var functionGraph = functionDeclaration.graph;
 
     var exprGraph = functionGraph.body;
-    return inferExprType(exprGraph, library, functionsDeclaration, typeParams);
-    var a = 1;
+    var inferedExpressionType = inferExprType(exprGraph, library, functionsDeclaration, typeParams);
+
+    return {
+        inputs : _.map(functionGraph.inputs, function(inputType) {
+            instanciateType(inputType, inferedExpressionType.typeParamsToInstance);
+        }),
+        output : inferedExpressionType.type,
+        typeParamsToInstance : inferedExpressionType.typeParamsToInstance
+    };
+
+    return {
+        inputs : [makeBaseType("int")],
+        output : makeBaseType("int"),
+        typeParamsToInstance : {"x$Type" : makeBaseType("int")}
+    };
 }

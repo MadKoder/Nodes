@@ -114,8 +114,8 @@ function compileGraph(graph, library, previousNodes)
             graph : functionGraph,
             typeParams : typeParams,
             inputs : argsType,
-            output : returnType,
-            typeParamsToInstance : {"x$Type" : makeBaseType("int")},
+            output : null,
+            typeParamsToInstance : {},
             typeEvaluated : "no"
         };
     }
@@ -129,8 +129,10 @@ function compileGraph(graph, library, previousNodes)
     //         var functionGraph = functions[i];
     //         var id = functionGraph.id.name;
     //         var functionDeclaration = functionsDeclaration[id];
-    //         // Function not totally evaluated
-    //         if(functionDeclaration.typeEvaluated != "yes") {
+    //         var typeParams = functionDeclaration.typeParams;
+    //         var typeParamsToInstance = functionDeclaration.typeParamsToInstance;
+    //         // Function not totally inferred
+    //         if(typeParams.length > Object.keys(typeParamsToInstance).length) {
     //             var localLibrary = _.clone(library);
     //             // Build local nodes from params
     //             localLibrary.nodes = {};
@@ -150,14 +152,27 @@ function compileGraph(graph, library, previousNodes)
     //                 typeParams
     //             );
 
-    //             var functionType = {
-    //                 inputs : functionDeclaration.inputs,
-    //                 output : functionDeclaration.output
-    //             };
+    //             var functionType = _.pick(
+    //                 functionDeclaration,
+    //                 [
+    //                     "inputs",
+    //                     "output",
+    //                     "typeParamsToInstance"
+    //                 ]
+    //             );
+
     //             // We want to reevaluate after if at least one function has been infered
     //             functionTypeToInferLeft = 
     //                 functionTypeToInferLeft ||
     //                 !_.isEqual(newFunctionType, functionType);
+
+    //             functionDeclaration = _.assign(
+    //                 functionDeclaration,
+    //                 newFunctionType,
+    //                 {
+    //                     typeParamsToInstance : {"x$Type" : makeBaseType("int")},
+    //                 }
+    //             )
     //         }
     //     }
     // }

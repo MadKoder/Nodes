@@ -166,7 +166,7 @@ function getCommonSuperClass(fstType, scdType)
     var commonAncestor = findCommonSuperClass(fstType, scdType)
     if(commonAncestor != undefined)
         return commonAncestor;
-    error("Type parameters are not compatible : " + typeToString(fstType) + " and " + typeToString(scdType))
+    return null;
     // return undefined;
 }
 
