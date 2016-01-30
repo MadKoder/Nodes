@@ -1,6 +1,6 @@
-function makeInferredExpressionType(typeParamsToInstance, type) {
+function makeInferredExpressionType(typeParamsValues, type) {
     return {
-        typeParamsToInstance : typeParamsToInstance,
+        typeParamsValues : typeParamsValues,
         type : type
     };
 }
@@ -45,42 +45,47 @@ function inferCallExpressionType(expr, library, functionsDeclaration, typeParams
     var argsGraph = expr.args;
     // TODO call type == tuple (?)
     // Evaluate args
-    argsType = _.map(argsGraph, function(arg) {
+    argsInferredType = _.map(argsGraph, function(arg) {
         return inferExprType(arg, library, functionsDeclaration, typeParams);
     });
 
+    var argsType = _.map(argsInferredType, "type");
     var funcType = funcSpec.inferType(
-        _.map(argsType, "type"),
+        argsType,
         typeParams
     );
 
-    var typeParamsToInstanceArray = _
-        .map(argsType, "typeParamsToInstance")
-        .concat([funcType.typeParamsToInstance]);
+    // [{string -> Type}]
+    // An array of dict from type params to their values
+    var typeParamsValuesArray = _
+        .map(argsInferredType, "typeParamsValues")
+        .concat([funcType.typeParamsValues]);
 
-    // Merge instanciated types
-    var typeParamsToInstance = {};
-    _.each(typeParamsToInstanceArray, function(argTypeParamsToInstance) {
-        for(typeParam in argTypeParamsToInstance) {
-            var argInstanciatedType = argTypeParamsToInstance[typeParam];
+    // Merge valued type params from the previous array
+    var typeParamsValues = {};
+    _.each(typeParamsValuesArray, function(typeParamsValues) {
+        for(typeParam in typeParamsValues) {
+            // The value of the type param
+            var typeValue = typeParamsValues[typeParam];
             // TODO super type ?
-            if(typeParam in typeParamsToInstance) {
-                var instanciatedType = typeParamsToInstance[typeParam];
-                var commonSuperType = getCommonSuperClass(instanciatedType, argInstanciatedType);
+            // If type param has already a value, check that it is compatible with the current value
+            // If yes, the new value is the common super type
+            if(typeParam in typeParamsValues) {
+                var previousTypeValue = typeParamsValues[typeParam];
+                var commonSuperType = getCommonSuperClass(previousTypeValue, typeValue);
                 if(commonSuperType == null) {
                     error("Incompatible infered types for type param " + typeParam + " : " 
-                        + typeToString(argInstanciatedType) + " and " + typeToString(instanciatedType));
+                        + typeToString(typeValue) + " and " + typeToString(previousTypeValue));
                 }
-                typeParamsToInstance[typeParam] = commonSuperType;
+                typeParamsValues[typeParam] = commonSuperType;
             } else {
-                typeParamsToInstance[typeParam] = argInstanciatedType;
+                typeParamsValues[typeParam] = typeValue;
             }
         }
     });
 
-
     return makeInferredExpressionType(
-        typeParamsToInstance,
+        typeParamsValues,
         funcType.output
     );
 }
@@ -111,15 +116,15 @@ function inferFunctionType(functionDeclaration, library, functionsDeclaration, t
 
     return {
         inputs : _.map(functionDeclaration.inputs, function(inputType) {
-            return instanciateType(inputType, inferedExpressionType.typeParamsToInstance);
+            return instanciateType(inputType, inferedExpressionType.typeParamsValues);
         }),
         output : inferedExpressionType.type,
-        typeParamsToInstance : inferedExpressionType.typeParamsToInstance
+        typeParamsValues : inferedExpressionType.typeParamsValues
     };
 
     return {
         inputs : [makeBaseType("int")],
         output : makeBaseType("int"),
-        typeParamsToInstance : {"x$Type" : makeBaseType("int")}
+        typeParamsValues : {"x$Type" : makeBaseType("int")}
     };
 }

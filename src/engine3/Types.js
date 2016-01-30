@@ -55,22 +55,28 @@ function typeGraphToEngine(typeGraph) {
     }
 }
 
-function instanciateType(genericType, genericToInstanceDict){
-    var genericBase = genericType.base;
-    if(genericBase in genericToInstanceDict) {
-        return genericToInstanceDict[genericBase];
+// If type is generic, tries to value it
+// Recursively tries to assign value to 
+// type : Type
+// typeParamsValues : {string -> Type}
+function instanciateType(type, typeParamsValues){
+    var base = type.base;
+    // If type is a param, value it
+    if(base in typeParamsValues) {
+        return typeParamsValues[base];
     }
     
-    var argsInstance = _.map(genericType.args, function(resultArgType) {
+    // Recursively value type args
+    var valuedArgs = _.map(type.args, function(resultArgType) {
         return instanciateType(
             resultArgType,
-            genericToInstanceDict
+            typeParamsValues
         );
     });
 
     return {
-        base : genericBase,
-        args : argsInstance
+        base : base,
+        args : valuedArgs
     };
 }
 
@@ -227,55 +233,62 @@ function getParamsType(params) {
     );
 }
 
+function getTypeArgFromPath(type, path)
+{
+    if(path.length == 1)
+        return type.args[path[0]];
+    var subPath = path.slice(0);
+    var index = subPath.shift();    
+    return getTypeArgFromPath(type.args[index], subPath);
+}
+
 /*
-    Makes a type args guesser function
-    
+    Makes a type args valuer function
+    typeParamsToParamsPaths : {string -> [[int]]}
+    typeParams : [string]
 */
-function makeInferTypeArgs(typeParamsToParamsPaths, typeParams) {
+function makeTypeParamsValuer(typeParamsToParamsPaths, typeParams) {
+    // [Type] -> {string -> Type}
+    // From the list of types of params, value the type params
     return function(paramsType)
     {
-        // Guess templates types from params types
-        return _.zipObject(
-            typeParams,
-            _.map(typeParamsToParamsPaths, function(paths, typeParam)
+        // {string -> Type}
+        var typeParamsValues = {};
+        // Value type params using params types
+        _.each(typeParams, function(typeParam) {
+            var paths = typeParamsToParamsPaths[typeParam];
+            //  The list of type params values
+            // [Type]
+            var typeParamValues = _.map(paths, function(path)
             {
-                function getTypeArgFromPath(type, path)
+                if(path.length == 1)
+                    return paramsType[path[0]];
+                var subPath = path.slice(0);
+                var index = subPath.shift();
+                try
                 {
-                    if(path.length == 1)
-                        return type.args[path[0]];
-                    var subPath = path.slice(0);
-                    var index = subPath.shift();    
-                    return getTypeArgFromPath(type.args[index], subPath);
+                    return getTypeArgFromPath(paramsType[index], subPath);
                 }
+                catch(err)
+                {
+                    console.log(err)
+                    error("Type mismatch of param " + paramsType[index].id.name + " for function " + funcGraph.id.name);
+                }
+            });
 
-                var typeArgsInPaths = _.map(paths, function(path)
-                {
-                    if(path.length == 1)
-                        return paramsType[path[0]];
-                    var subPath = path.slice(0);
-                    var index = subPath.shift();
-                    try
-                    {
-                        return getTypeArgFromPath(paramsType[index], subPath);
-                    }
-                    catch(err)
-                    {
-                        console.log(err)
-                        error("Type mismatch of param " + paramsType[index].id.name + " for function " + funcGraph.id.name);
-                    }
-                });
-                var firstTypeArg = typeArgsInPaths[0];
-                _.each(typeArgsInPaths, function(typeArg)
-                {
-                    // If typeArg type is used at different places of parameters types, the instances must be of the same type
-                    // e.g. if paramsType = [list<T>, pair<T, U>], we can have [list<int>, pair<int, float>] but not [list<int>, pair<float, int>]
-                    var st = isSameType(typeArg, firstTypeArg);
-                    if(!st)
-                        throw "Type params not the same for different params : " + firstTypeArg + " vs " + typeArg;
-                });
-                return firstTypeArg;
-            })
-        );
+            // Check that type values are all the same
+            var firstTypeValue = typeParamValues[0];
+            _.each(typeParamValues, function(typeValue)
+            {
+                // If typeValue type is used at different places of parameters types, the instances must be of the same type
+                // e.g. if paramsType = [list<T>, pair<T, U>], we can have [list<int>, pair<int, float>] but not [list<int>, pair<float, int>]
+                var st = isSameType(typeValue, firstTypeValue);
+                if(!st)
+                    throw "Type params not the same for different params : " + firstTypeValue + " vs " + typeValue;
+            });
+            typeParamsValues[typeParam] = firstTypeValue;
+        });
+        return typeParamsValues;
     };
 }
 

@@ -67,7 +67,7 @@ function mff1(func1)
 function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 {
     return {
-        inferTypeArgs : function(params)
+        valueTypeParams : function(params)
         {
             return [getTemplateFunc(params[0].getType())];
         },      
@@ -97,7 +97,7 @@ function mtf1(func1, getInAndOutTypes, getTemplateFunc)
 function mt2f1(func1, getInAndOutTypes, guessTypeParamsFunc)
 {
     return {
-        inferTypeArgs : function(params)
+        valueTypeParams : function(params)
         {
             return guessTypeParamsFunc(params[0].getType());
         },      
@@ -163,7 +163,7 @@ function mllf1(func1)
 function mf2(func2, inAndOutTypes)
 {
     return {
-        inferTypeArgs : function(args)
+        valueTypeParams : function(args)
         {
             return [];
         },      
@@ -236,31 +236,39 @@ function mlf2(operator)
     )
 }
 
+// If base type of arg type is in type params, sets this type points to int in the dict
+// e.g. typeParams = ["x$Type" ...], argType = {base : "x$Type"}
+// => typeParamsValues["x$Type"] = intType
+function valueGenericTypeAsInt(argType, typeParams, typeParamsValues) {
+    var baseType = getBaseType(argType);
+    if(_.contains(typeParams, baseType)) {
+        // TODO other
+        typeParamsValues[baseType] = intType;
+    }
+}
+
 function mtf2(func2, getInAndOutTypes, getTemplateFunc)
 {
     return {
         inferType : function(argsType, typeParams) {
-            var typeParamsToInstance = {};
-            if(_.contains(typeParams, getBaseType(argsType[0]))) {
-                // TODO other
-                typeParamsToInstance[getBaseType(argsType[0])] = intType;
-            }
-            if(_.contains(typeParams, getBaseType(argsType[1]))) {
-                // TODO other
-                typeParamsToInstance[getBaseType(argsType[1])] = intType;
-            }
-            // If no generic type, output is common type, else float
+            // If any of args type is generic, value it to intType
+            // TODO value generic types to int or float if one of the args is int or float
+            var typeParamsValues = {};
+            valueGenericTypeAsInt(argsType[0], typeParams, typeParamsValues);
+            valueGenericTypeAsInt(argsType[1], typeParams, typeParamsValues);
+            
+            // If no generic type, output is common type, else int
             // TODO other
-            var outputType = getNbProperties(typeParamsToInstance) == 0 ?
+            var outputType = getNbProperties(typeParamsValues) == 0 ?
                 getCommonSuperClass(argsType[0], argsType[1]) :
                 intType;
 
             return {
-                typeParamsToInstance : typeParamsToInstance,
+                typeParamsValues : typeParamsValues,
                 output : outputType
             };            
         },
-        inferTypeArgs : function(argsType)
+        valueTypeParams : function(argsType)
         {
             return [getTemplateFunc(argsType[0], argsType[1])];
         },      
@@ -311,7 +319,7 @@ function maf2(operator)
 function mt2f2(func2, getInAndOutTypes, guessTypeParamsFunc)
 {
     return {
-        inferTypeArgs : function(params)
+        valueTypeParams : function(params)
         {
             return guessTypeParamsFunc(params[0].getType(), params[1].getType());
         },      
@@ -355,7 +363,7 @@ function mff3(func3)
 function mtf3(func3, getInAndOutTypes, getTemplateFunc)
 {
     return {
-        inferTypeArgs : function(params)
+        valueTypeParams : function(params)
         {
             return [getTemplateFunc(params[0].getType(), params[1].getType(), params[2].getType())];
         },      
@@ -377,7 +385,7 @@ function mtf3(func3, getInAndOutTypes, getTemplateFunc)
 function mt3f3(func3, getInAndOutTypes, guessTypeParamsFunc)
 {
     return {
-        inferTypeArgs : function(params)
+        valueTypeParams : function(params)
         {
             return guessTypeParamsFunc(params[0].getType(), params[1].getType(), params[2].getType());
         },      

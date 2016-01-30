@@ -392,7 +392,7 @@ function makeCallExpression(expr, library, genericTypeParams)
         return instanciatedArgExpr;
     });
 
-    var typeArgs = funcSpec.inferTypeArgs(_.map(argsExpr, "type"));
+    var typeArgs = funcSpec.valueTypeParams(_.map(argsExpr, "type"));
     var funcInstance = funcSpec.getInstance(typeArgs);
     instancesAst = instancesAst.concat(funcInstance.instancesAst);
 
@@ -452,7 +452,7 @@ function makeNewExpression(exprGraph, library, genericTypeParams)
     //     }
     //     instancesAst = instancesAst.concat(argExpr.instancesAst);
     // });
-    // var typeArgs = funcSpec.inferTypeArgs(argsExpr);
+    // var typeArgs = funcSpec.valueTypeParams(argsExpr);
     // var funcInstance = funcSpec.getInstance(typeArgs);
     // instancesAst = instancesAst.concat(funcInstance.instancesAst);
 

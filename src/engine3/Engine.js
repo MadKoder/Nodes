@@ -111,13 +111,15 @@ function compileGraph(graph, library, previousNodes)
         });
 
         // Default guesser when there are not type params
-        var inferTypeArgs = function(args) {
-            return [];
+        var valueTypeParams = function(args) {
+            return {};
         }
+
+        // If there are type params, make a valuer function
         if(functionGraph.typeParams.length > 0) {
             var paramsType = getParamsType(functionGraph.params);
             var typeParamsToParamsPaths = getTypeParamsToParamsPaths(typeParams, paramsType);
-            inferTypeArgs = makeInferTypeArgs(
+            valueTypeParams = makeTypeParamsValuer(
                 typeParamsToParamsPaths,
                 typeParams
             );
@@ -125,18 +127,18 @@ function compileGraph(graph, library, previousNodes)
 
         functionsDeclaration[id] = {
             graph : functionGraph,
-            typeParams : typeParams,
-            inputs : argsType,
+            typeParams : typeParams, // [string]
+            inputs : argsType, // [Type]
             output : null,
-            typeParamsToInstance : {},
-            inferType : function(argsType, typeParams) {
-                var typeParamsToInstance = {};
+            typeParamsValues : {}, // {string -> Type}
+            inferType : function(argsType, typeParams) { // ([Type], [string]) -> 
+                                                        // {map<string, Type>, Type}
                 return {
-                    typeParamsToInstance : {"y$Type" : intType},
+                    typeParamsValues : {"y$Type" : intType},
                     output : intType
                 };
             },
-            inferTypeArgs : inferTypeArgs,
+            valueTypeParams : valueTypeParams,
             getInstance : function(typeArgs) {
                 return _.assign(
                     this,
@@ -176,20 +178,29 @@ function compileGraph(graph, library, previousNodes)
             var id = functionGraph.id.name;
             var functionDeclaration = functionsDeclaration[id];
             var typeParams = functionDeclaration.typeParams;
-            var typeParamsToInstance = functionDeclaration.typeParamsToInstance;
-            // Function not totally inferred
-            if(typeParams.length > getNbProperties(typeParamsToInstance)) {
+            var typeParamsValues = functionDeclaration.typeParamsValues;
+            // Some type params have no value
+            // -> function not totally inferred
+            if(typeParams.length > getNbProperties(typeParamsValues)) {
                 var localLibrary = _.clone(library);
                 // Build local nodes from params
                 localLibrary.nodes = {};
-                _.each(functionGraph.params, function(param) {
-                    localLibrary.nodes[param.id.name] = new Node({
-                            "type": "Identifier",
-                            "name": param.id.name
-                        },
-                        typeGraphToEngine(param.type)
-                    );
-                });
+                // Associate each param name to a Node
+                localLibrary.nodes = _.zipObject(
+                    _.map(
+                        functionGraph.params,
+                        function(param) {return param.id.name;}
+                    ),
+                    _.map(functionGraph.params, function(param) {
+                        return new Node(
+                            {
+                                "type": "Identifier",
+                                "name": param.id.name
+                            },
+                            typeGraphToEngine(param.type)
+                        );
+                    })
+                )
 
                 var newFunctionType = inferFunctionType(
                     functionDeclaration,
@@ -203,15 +214,17 @@ function compileGraph(graph, library, previousNodes)
                     [
                         "inputs",
                         "output",
-                        "typeParamsToInstance"
+                        "typeParamsValues"
                     ]
                 );
 
                 // We want to reevaluate after if at least one function has been infered
+                // i.e. if functionType has changed
                 functionTypeToInferLeft = 
                     functionTypeToInferLeft ||
                     !_.isEqual(newFunctionType, functionType);
 
+                // Replace attributes that are in newFunctionType
                 functionsDeclaration[id] = _.assign(
                     functionDeclaration,
                     newFunctionType
@@ -219,6 +232,7 @@ function compileGraph(graph, library, previousNodes)
             }
         }
     }
+
     var sourceToSinks = {};
     var objectRefs = {};
     updateSourceToSinks(graph, sourceToSinks, objectRefs);

@@ -1,30 +1,30 @@
 
-function buildFunctionOrStruct(graph, id, params, returnType, returnStmnt, library, typeParamsToInstance)
+function buildFunctionOrStruct(graph, id, params, returnType, returnStmnt, library, typeParamsValues)
 {
     var paramsType = getParamsType(params);
     var functionType = instanciateFunctionType(
         makeFunctionType(paramsType, returnType),
-        typeParamsToInstance
+        typeParamsValues
     );
 
     // Default guesser when there are not type params
-    var inferTypeArgs = function(args) {
+    var valueTypeParams = function(args) {
         return [];
     }
-    // If there are type params, make inferTypeArgs function from type params and params type
+    // If there are type params, make valueTypeParams function from type params and params type
     // TODO useful ? when building function there is already a dedicated case for generic functions,
-    // and buildFunctionOrStruct is only used when building instances. In this case, the inferTypeArgs 
+    // and buildFunctionOrStruct is only used when building instances. In this case, the valueTypeParams 
     // won't be used => useful for structs ?
     if(graph.typeParams.length > 0) {
         var typeParamsToParamsPaths = getTypeParamsToParamsPaths(graph.typeParams, paramsType);
-        inferTypeArgs = makeInferTypeArgs(
+        valueTypeParams = makeTypeParamsValuer(
             typeParamsToParamsPaths,
             graph.typeParams
         );
     }
 
     library.functions[id] = {
-        inferTypeArgs : inferTypeArgs,
+        valueTypeParams : valueTypeParams,
         getInstance : function(typeArgs)
         {
             return {
@@ -70,19 +70,19 @@ function makeFunction(funcGraph, library, prog)
     // instead they must be defined when concrete instances are used
     var bodyGraph = funcGraph.body;
     var typeParams = functionDeclaration.typeParams;
-    var typeParamsToInstance = functionDeclaration.typeParamsToInstance;
+    var typeParamsValues = functionDeclaration.typeParamsValues;
     // If there are typeParams without instances
-    if(typeParams.length > getNbProperties(typeParamsToInstance)) {
+    if(typeParams.length > getNbProperties(typeParamsValues)) {
         var paramsType = getParamsType(params);
         var typeParamsToParamsPaths = getTypeParamsToParamsPaths(typeParams, paramsType);
-        var inferTypeArgs = makeInferTypeArgs(
+        var valueTypeParams = makeTypeParamsValuer(
             typeParamsToParamsPaths,
             typeParams
         );
 
         // Adds function spec to library
         library.functions[id] = {
-            inferTypeArgs : inferTypeArgs,
+            valueTypeParams : valueTypeParams,
             getInstance : function(typeArgs)
             {
                 // Builds the instance name from the function name and type args
@@ -127,7 +127,7 @@ function makeFunction(funcGraph, library, prog)
                     bodyExprType,
                     bodyExpr.getAst(),
                     library,
-                    typeParamsToInstance
+                    typeParamsValues
                 ))
 
                 return {
@@ -180,7 +180,7 @@ function makeFunction(funcGraph, library, prog)
                     nodes : localNodes
                 }
             ),
-            typeParamsToInstance
+            typeParamsValues
         );
         exprType = expr.type;
 
@@ -192,7 +192,7 @@ function makeFunction(funcGraph, library, prog)
                 exprType,
                 expr.getAst(),
                 library,
-                typeParamsToInstance
+                typeParamsValues
             )
         );
     }
