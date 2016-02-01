@@ -62,7 +62,7 @@ function inferCallExpressionType(expr, library, functionsDeclaration, typeParams
         .concat([funcType.typeParamsValues]);
 
     // Merge valued type params from the previous array
-    var typeParamsValues = {};
+    var mergedTypeParamsValues = {};
     _.each(typeParamsValuesArray, function(typeParamsValues) {
         for(typeParam in typeParamsValues) {
             // The value of the type param
@@ -70,22 +70,22 @@ function inferCallExpressionType(expr, library, functionsDeclaration, typeParams
             // TODO super type ?
             // If type param has already a value, check that it is compatible with the current value
             // If yes, the new value is the common super type
-            if(typeParam in typeParamsValues) {
-                var previousTypeValue = typeParamsValues[typeParam];
+            if(typeParam in mergedTypeParamsValues) {
+                var previousTypeValue = mergedTypeParamsValues[typeParam];
                 var commonSuperType = getCommonSuperClass(previousTypeValue, typeValue);
                 if(commonSuperType == null) {
                     error("Incompatible infered types for type param " + typeParam + " : " 
                         + typeToString(typeValue) + " and " + typeToString(previousTypeValue));
                 }
-                typeParamsValues[typeParam] = commonSuperType;
+                mergedTypeParamsValues[typeParam] = commonSuperType;
             } else {
-                typeParamsValues[typeParam] = typeValue;
+                mergedTypeParamsValues[typeParam] = typeValue;
             }
         }
     });
 
     return makeInferredExpressionType(
-        typeParamsValues,
+        mergedTypeParamsValues,
         funcType.output
     );
 }

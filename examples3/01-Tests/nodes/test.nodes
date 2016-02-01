@@ -14,4 +14,6 @@ fun add y =
 
 fun inc x = x + 1
 
+#fun inc2 x = x + 2
+
 var x = inc 0

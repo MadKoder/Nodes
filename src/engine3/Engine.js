@@ -132,7 +132,24 @@ function compileGraph(graph, library, previousNodes)
             output : null,
             typeParamsValues : {}, // {string -> Type}
             inferType : function(argsType, typeParams) { // ([Type], [string]) -> 
-                                                        // {map<string, Type>, Type}
+                                                        // {map<string, Type>, Type}                          
+                var that = this;
+                // Values of type parameters from args types
+                // e.g. if args types are type parameters, inferred values will also 
+                // use type parameters
+                var inferredTypeParamsValues = that.valueTypeParams(argsType);
+                // Make junction between previously infered values and current function values
+                var typeParamsValues = {};
+                _.each(inferredTypeParamsValues, function(inferredValue, typeParam) {
+                    if(typeParam in this.typeParamsValues) {
+                        // TODO recursive algo
+                        typeParamsValues[inferredValue.base] = this.typeParamsValues[typeParam];
+                    }
+                }, this);
+                return {
+                    typeParamsValues : typeParamsValues,
+                    output : that.output
+                };
                 return {
                     typeParamsValues : {"y$Type" : intType},
                     output : intType
@@ -209,6 +226,7 @@ function compileGraph(graph, library, previousNodes)
                     typeParams
                 );
 
+                // Create an object from specific attributes of functionDeclaration
                 var functionType = _.pick(
                     functionDeclaration,
                     [
